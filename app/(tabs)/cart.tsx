@@ -24,7 +24,7 @@ export default function TabTwoScreen() {
           style={{
             fontFamily: Fonts.rounded,
           }}>
-          Category
+          Cart
         </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
