@@ -1,14 +1,14 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemeContext } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -49,10 +49,15 @@ const MenuItem: React.FC<{
 );
 
 export default function TabTwoScreen() {
-  const colorScheme = useColorScheme();
-  const themeColors = Colors[colorScheme ?? 'light'];
-  const separatorColor = colorScheme === 'light' ? '#f0f0f0' : '#333';
+  const themeContext = useContext(ThemeContext);
 
+  if (!themeContext) {
+    return null; // Or a loading indicator
+  }
+  const { colorScheme } = themeContext;
+  const themeColors = Colors[colorScheme];
+
+  const separatorColor = themeColors.icon; // Use theme's icon color for separator
   const navigation = useNavigation();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
@@ -175,7 +180,7 @@ export default function TabTwoScreen() {
                 key={index}
                 iconName={item.icon}
                 label={item.label}
-                color={item.color || themeColors.text}
+                color={item.color || themeColors.text} // Main icon and text color
                 onPress={item.action}
                 borderColor={separatorColor}
               />
@@ -185,7 +190,7 @@ export default function TabTwoScreen() {
                 key={menuItems.length}
                 iconName="log-out-outline"
                 label="Logout"
-                color="#E95757"
+                color="#E95757" // Keep specific red for logout
                 onPress={() => console.log('Logout pressed')}
                 borderColor={separatorColor}
               />
@@ -300,12 +305,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginHorizontal: 10,
     marginTop: -100,
+    marginBlock: 10,
     paddingHorizontal: 20,
-    paddingTop: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
     elevation: 10,
   },
   avatar: {

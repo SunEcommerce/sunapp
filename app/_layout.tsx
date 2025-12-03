@@ -1,10 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { SplashScreen, Stack, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -17,8 +15,10 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+import { ThemeProvider as CustomThemeProvider, ThemeContext } from '@/contexts/theme-context';
+
+function RootLayoutNav() {
+  const { colorScheme } = useContext(ThemeContext)!;
   const router = useRouter();
 
   useEffect(() => {
@@ -54,5 +54,13 @@ export default function RootLayout() {
         <Stack.Screen name="screens/settings"  options={{ headerTitle: "App Settings", headerShown: true,}} />
       </Stack>
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <CustomThemeProvider>
+      <RootLayoutNav />
+    </CustomThemeProvider>
   );
 }

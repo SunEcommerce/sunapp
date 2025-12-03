@@ -1,33 +1,58 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ThemeContext } from '@/contexts/theme-context';
+import React, { useContext } from 'react';
+import { StyleSheet, Switch, View } from 'react-native';
 
 export default function SettingsScreen() {
-  const colorScheme = useColorScheme();
+  const themeContext = useContext(ThemeContext);
+
+  if (!themeContext) {
+    // This should not happen as it's wrapped in the provider
+    return null;
+  }
+
+  const { colorScheme, isDarkMode, isSystemMode, setSystemMode, toggleTheme } = themeContext;
   const themeColors = Colors[colorScheme ?? 'light'];
-  const router = useRouter();
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: themeColors.background }]}>
-
       <View style={styles.section}>
-        <ThemedText style={[styles.item, { color: themeColors.text }]}>Display</ThemedText>
-        <ThemedText style={[styles.help, { color: themeColors.icon }]}>Use the OS settings or toggle dark/light mode in the app (not implemented).</ThemedText>
+        <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Display</ThemedText>
+        <View style={styles.item}>
+          <ThemedText style={{ color: themeColors.text }}>Use System Setting</ThemedText>
+          <Switch value={isSystemMode} onValueChange={setSystemMode} />
+        </View>
+        <View style={styles.item}>
+          <ThemedText style={{ color: themeColors.text }}>Dark Mode</ThemedText>
+          <Switch
+            value={isDarkMode}
+            onValueChange={toggleTheme}
+            disabled={isSystemMode}
+          />
+        </View>
       </View>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  title: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '600' },
-  section: { padding: 16 },
-  item: { fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  help: { fontSize: 13 },
+  container: {
+    flex: 1,
+  },
+  section: {
+    padding: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
 });
