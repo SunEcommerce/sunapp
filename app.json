@@ -43,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "developer": {
+      "tool": "expo-cli"
+    },
+    "packagerOpts": {
+      "sourceExts": ["js", "json", "ts", "tsx"],
+      "assetExts": ["png", "jpg", "jpeg", "gif", "svg"]
     }
   }
 }
