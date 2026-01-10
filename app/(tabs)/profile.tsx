@@ -88,6 +88,26 @@ export default function TabTwoScreen() {
       action: () => router.push('/screens/settings'),
     },
     {
+      label: 'Warranty',
+      icon: 'shield-checkmark-outline',
+      action: () => console.log('Warranty pressed'),
+    },
+    {
+      label: 'Apply Hire Purchase',
+      icon: 'card-outline',
+      action: () => console.log('Apply Hire Purchase pressed'),
+    },
+    {
+      label: 'Loyalty Program',
+      icon: 'gift-outline',
+      action: () => console.log('Loyalty Program pressed'),
+    },
+    {
+      label: 'Call Center',
+      icon: 'call-outline',
+      action: () => console.log('Call Center pressed'),
+    },
+    {
       label: 'Privacy Policy',
       icon: 'cube',
       action: () => console.log('Clear cache pressed'),
@@ -140,7 +160,12 @@ export default function TabTwoScreen() {
               <View style={styles.actionsContainer}>
                 <ActionButton iconName="heart-circle" label="Favorite" />
                 <ActionButton iconName="list-circle-sharp" label="Orders" />
-                <ActionButton iconName="navigate-circle-sharp" label="Address" />
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => router.push('/Address')}>
+                  <Ionicons name="navigate-circle-sharp" size={28} color="#4A4A4A" />
+                  <Text style={styles.actionLabel}>Address</Text>
+                </TouchableOpacity>
                 <ActionButton iconName="person-circle" label="Edit Profile" />
               </View>
             </>

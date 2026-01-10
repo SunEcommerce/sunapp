@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -99,6 +100,7 @@ const FEATURED_BRANDS = [
 
 export default function HomeScreen() {
   const { colorScheme } = useContext(ThemeContext)!;
+  const { itemCount } = useCart();
   const router = useRouter();
   const [cartItemCount] = useState(5);
   const flatListRef = useRef<FlatList>(null);
@@ -127,8 +129,27 @@ export default function HomeScreen() {
   };
 
   const handleSearch = () => {
-    console.log('Searching:', selectedCategory, searchQuery);
-    // Implement search logic here
+    setShowCategoryDropdown(false);
+    router.push({
+      pathname: '/ProductList',
+      params: {
+        category: selectedCategory,
+        q: searchQuery.trim(),
+        source: 'search',
+      },
+    });
+  };
+
+  const handleViewAll = (source: string) => {
+    setShowCategoryDropdown(false);
+    router.push({
+      pathname: '/ProductList',
+      params: {
+        category: 'all',
+        q: '',
+        source,
+      },
+    });
   };
 
   const handleCategorySelect = (value: string) => {
@@ -152,7 +173,7 @@ export default function HomeScreen() {
   );
 
   const renderProductItem = ({ item }: { item: typeof HOT_SALES[0] }) => (
-    <View style={styles.productCard}>
+    <TouchableOpacity style={styles.productCard} onPress={() => router.push('/ProductDetail')} activeOpacity={0.9}>
       <View style={styles.productImageContainer}>
         <Image source={{ uri: item.image }} style={styles.productImage} />
         <View style={styles.discountBadge}>
@@ -167,7 +188,7 @@ export default function HomeScreen() {
           <Text style={styles.originalPrice}>${item.originalPrice.toFixed(2)}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderBrandItem = ({ item }: { item: typeof FEATURED_BRANDS[0] }) => (
@@ -187,9 +208,9 @@ export default function HomeScreen() {
         
         <TouchableOpacity style={styles.cartButton} onPress={handleCartPress}>
           <Ionicons name="cart-outline" size={28} color={Colors[colorScheme].text} />
-          {cartItemCount > 0 && (
+          {itemCount > 0 && (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{cartItemCount}</Text>
+              <Text style={styles.badgeText}>{itemCount}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -285,7 +306,7 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>Hot Sales</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => handleViewAll('hot_sales')}>
               <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -303,7 +324,7 @@ export default function HomeScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>New Arrival</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => handleViewAll('new_arrival')}>
               <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -404,7 +425,8 @@ const styles = StyleSheet.create({
     minWidth: 90,
   },
   categoryText: {
-    fontSize: 13,
+    fontSize: 12,
+    textAlign: 'center',
     fontWeight: '500',
   },
   dropdownMenu: {
@@ -477,11 +499,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   categoryList: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
   },
   categoryItem: {
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 8,
     width: 80,
   },
   categoryIconContainer: {
@@ -491,10 +513,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
-  },
-  categoryText: {
-    fontSize: 12,
-    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -572,7 +590,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   brandCard: {
-    marginRight: 16,
+    marginRight: 6,
     width: 110,
     height: 110,
     borderRadius: 12,

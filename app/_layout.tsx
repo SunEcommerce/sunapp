@@ -15,6 +15,7 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
+import { CartProvider } from '@/contexts/cart-context';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '@/contexts/theme-context';
 
 function RootLayoutNav() {
@@ -47,11 +48,11 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="interstitial" options={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="interstitial" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        <Stack.Screen name="screens/settings"  options={{ headerTitle: "App Settings", headerShown: true,}} />
+        <Stack.Screen name="screens/settings" options={{ headerTitle: "App Settings" }} />
       </Stack>
     </ThemeProvider>
   );
@@ -60,7 +61,9 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <CustomThemeProvider>
-      <RootLayoutNav />
+      <CartProvider>
+        <RootLayoutNav />
+      </CartProvider>
     </CustomThemeProvider>
   );
 }
