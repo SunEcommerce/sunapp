@@ -8,6 +8,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -222,33 +223,13 @@ export default function HomeScreen() {
           {/* Category Dropdown */}
           <TouchableOpacity 
             style={styles.categoryDropdown}
-            onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+            onPress={() => setShowCategoryDropdown(true)}
           >
             <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={1}>
               {SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
             </Text>
             <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
           </TouchableOpacity>
-
-          {/* Dropdown Menu */}
-          {showCategoryDropdown && (
-            <View style={[styles.dropdownMenu, { backgroundColor: Colors[colorScheme].background }]}>
-              {SEARCH_CATEGORIES.map((category) => (
-                <TouchableOpacity
-                  key={category.value}
-                  style={styles.dropdownItem}
-                  onPress={() => handleCategorySelect(category.value)}
-                >
-                  <Text style={[styles.dropdownItemText, { color: Colors[colorScheme].text }]}>
-                    {category.label}
-                  </Text>
-                  {selectedCategory === category.value && (
-                    <Ionicons name="checkmark" size={20} color={Colors[colorScheme].tint} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
 
           {/* Vertical Divider */}
           <View style={styles.divider} />
@@ -270,6 +251,45 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Category Selection Modal */}
+      <Modal
+        visible={showCategoryDropdown}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCategoryDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowCategoryDropdown(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: Colors[colorScheme].background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors[colorScheme].text }]}>Select Category</Text>
+              <TouchableOpacity onPress={() => setShowCategoryDropdown(false)}>
+                <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalList}>
+              {SEARCH_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.value}
+                  style={styles.modalItem}
+                  onPress={() => handleCategorySelect(category.value)}
+                >
+                  <Text style={[styles.modalItemText, { color: Colors[colorScheme].text }]}>
+                    {category.label}
+                  </Text>
+                  {selectedCategory === category.value && (
+                    <Ionicons name="checkmark" size={24} color={Colors[colorScheme].tint} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
 
       {/* Main Content */}
@@ -429,31 +449,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    right: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 12,
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 1000,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  dropdownItem: {
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+    maxHeight: '60%',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
-  dropdownItemText: {
-    fontSize: 14,
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalList: {
+    paddingTop: 8,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  modalItemText: {
+    fontSize: 16,
   },
   divider: {
     width: 1,

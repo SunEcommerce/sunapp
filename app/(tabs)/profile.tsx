@@ -179,14 +179,14 @@ export default function TabTwoScreen() {
               <View style={styles.authButtonsRow}>
                 <TouchableOpacity
                   style={[styles.authButton, styles.registerButton]}
-                  onPress={() => navigation.navigate('Register' as never)}
+                  onPress={() => navigation.navigate('Auth' as never)}
                 >
                   <Text style={styles.authButtonText}>Register</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.authButton, styles.loginButton]}
-                  onPress={() => navigation.navigate('Login' as never)}
+                  onPress={() => navigation.navigate('Auth' as never)}
                 >
                   <Text style={styles.loginButtonText}>Login</Text>
                 </TouchableOpacity>
@@ -210,13 +210,13 @@ export default function TabTwoScreen() {
                 borderColor={separatorColor}
               />
             ))}
-            {isLoggedIn ? (
+            {!isLoggedIn ? (
             <MenuItem
                 key={menuItems.length}
                 iconName="log-out-outline"
                 label="Logout"
                 color="#E95757" // Keep specific red for logout
-                onPress={() => console.log('Logout pressed')}
+                onPress={() => router.push('/Auth')}
                 borderColor={separatorColor}
               />
             ):<></>}

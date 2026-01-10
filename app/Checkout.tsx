@@ -80,7 +80,7 @@ export default function CheckoutScreen() {
           text: 'OK',
           onPress: () => {
             clearCart();
-            router.push('/(tabs)/index');
+            router.push('/');
           },
         },
       ]

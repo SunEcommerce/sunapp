@@ -104,7 +104,7 @@ export default function CartScreen() {
 
           <Pressable
             style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-            onPress={() => router.push('/(tabs)/index')}
+            onPress={() => router.push('/')}
             accessibilityRole="button"
             accessibilityLabel="Shop now">
             <ThemedText style={styles.ctaText}>SHOP NOW</ThemedText>
