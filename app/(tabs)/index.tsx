@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -34,6 +35,16 @@ const CATEGORIES = [
   { id: '6', name: 'Toys', icon: 'game-controller-outline' },
   { id: '7', name: 'Beauty', icon: 'heart-outline' },
   { id: '8', name: 'Food', icon: 'fast-food-outline' },
+];
+
+// Search categories for dropdown
+const SEARCH_CATEGORIES = [
+  { label: 'All Categories', value: 'all' },
+  { label: 'Electronics', value: 'electronics' },
+  { label: 'Fashion', value: 'fashion' },
+  { label: 'Home', value: 'home' },
+  { label: 'Sports', value: 'sports' },
+  { label: 'Books', value: 'books' },
 ];
 
 // Sample data for hot sales products
@@ -92,6 +103,9 @@ export default function HomeScreen() {
   const [cartItemCount] = useState(5);
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -110,6 +124,16 @@ export default function HomeScreen() {
 
   const handleCartPress = () => {
     router.push('/(tabs)/cart');
+  };
+
+  const handleSearch = () => {
+    console.log('Searching:', selectedCategory, searchQuery);
+    // Implement search logic here
+  };
+
+  const handleCategorySelect = (value: string) => {
+    setSelectedCategory(value);
+    setShowCategoryDropdown(false);
   };
 
   const renderBannerItem = ({ item }: { item: typeof BANNERS[0] }) => (
@@ -170,6 +194,62 @@ export default function HomeScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={[styles.searchBar, { backgroundColor: Colors[colorScheme].background }]}>
+          {/* Category Dropdown */}
+          <TouchableOpacity 
+            style={styles.categoryDropdown}
+            onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+          >
+            <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={1}>
+              {SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+          </TouchableOpacity>
+
+          {/* Dropdown Menu */}
+          {showCategoryDropdown && (
+            <View style={[styles.dropdownMenu, { backgroundColor: Colors[colorScheme].background }]}>
+              {SEARCH_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.value}
+                  style={styles.dropdownItem}
+                  onPress={() => handleCategorySelect(category.value)}
+                >
+                  <Text style={[styles.dropdownItemText, { color: Colors[colorScheme].text }]}>
+                    {category.label}
+                  </Text>
+                  {selectedCategory === category.value && (
+                    <Ionicons name="checkmark" size={20} color={Colors[colorScheme].tint} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Vertical Divider */}
+          <View style={styles.divider} />
+
+          {/* Search Input */}
+          <TextInput
+            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
+            placeholder="Search products..."
+            placeholderTextColor={Colors[colorScheme].text + '80'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+
+          {/* Search Icon */}
+          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+            <Ionicons name="search" size={20} color={Colors[colorScheme].tint} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
 
       {/* Main Content */}
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
@@ -296,6 +376,77 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    position: 'relative',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingRight: 8,
+    minWidth: 90,
+  },
+  categoryText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    right: 16,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 12,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  dropdownItemText: {
+    fontSize: 14,
+  },
+  divider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E5E5E5',
+    marginHorizontal: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  searchButton: {
+    padding: 4,
   },
   mainContent: {
     flex: 1,
