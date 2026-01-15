@@ -256,8 +256,8 @@ export async function fetchProducts(params?: {
 /**
  * Fetch product details by ID
  */
-export async function fetchProductDetails(productId: string): Promise<any> {
-  return await apiRequest(`/api/frontend/products/${productId}`, 'GET', undefined, false);
+export async function fetchProductDetails(productSlug: string): Promise<any> {
+  return await apiRequest(`/api/frontend/product/show/${productSlug}`, 'GET', undefined, false);
 }
 
 /**
@@ -265,4 +265,36 @@ export async function fetchProductDetails(productId: string): Promise<any> {
  */
 export async function fetchBrands(): Promise<any> {
   return await apiRequest('/api/frontend/brands', 'GET', undefined, false);
+}
+
+export async function fetchHotSales(): Promise<any> {
+  return await apiRequest('/api/frontend/product/flash-sale-products', 'GET', undefined, false);
+}
+
+/**
+ * Fetch product variations
+ */
+export async function fetchProductVariations(productId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/product/variation/${productId}`, 'GET', undefined, false);
+}
+
+/**
+ * Fetch initial product variations (root level)
+ */
+export async function fetchInitialVariations(productId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/product/initial-variation/${productId}`, 'GET', undefined, false);
+}
+
+/**
+ * Fetch children variations for a parent
+ */
+export async function fetchChildrenVariations(productId: string | number, parentId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/product/children-variation/${parentId}`, 'GET', undefined, false);
+}
+
+/**
+ * Fetch variation ancestors as string (for display purposes)
+ */
+export async function fetchVariationAncestorsString(productId: string | number, variationId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/product/variation/ancestors-and-self/${variationId}`, 'GET', undefined, false);
 }

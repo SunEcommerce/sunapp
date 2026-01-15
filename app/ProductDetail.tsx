@@ -1,87 +1,303 @@
 import { useCart } from '@/contexts/cart-context';
+import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, fetchVariationAncestorsString } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-    Dimensions,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const PRODUCT = {
-  name: 'Smartphone Pro Max',
-  brand: 'NextGen Electronics',
-  sku: 'NGE-SPM-256-BLK',
-  stock: 12,
-  price: 1099.0,
-  images: [
-    'https://placehold.co/800x800/png?text=Product+Image+1',
-    'https://placehold.co/800x800/png?text=Product+Image+2',
-    'https://placehold.co/800x800/png?text=Product+Image+3',
-  ],
-  colors: [
-    { id: 'black', name: 'Black', hex: '#000000' },
-    { id: 'blue', name: 'Blue', hex: '#1E88E5' },
-    { id: 'white', name: 'White', hex: '#F5F5F5' },
-    { id: 'red', name: 'Red', hex: '#E53935' },
-  ],
-  storage: ['128GB', '256GB', '512GB'],
-  features: [
-    '6.7" Super Retina XDR Display',
-    '5G Connectivity',
-    'Triple Camera System',
-    'All-Day Battery Life',
-    'Face ID',
-  ],
-  description:
-    'Experience the next level of smartphone technology with the Smartphone Pro Max. Featuring cutting-edge performance, stunning display, and professional-grade camera capabilities, this device is designed to exceed your expectations.',
-  specifications: {
-    Display: '6.7" OLED, 2778 x 1284 pixels',
-    Processor: 'A16 Bionic chip',
-    RAM: '8GB',
-    Camera: '48MP main + 12MP ultra-wide + 12MP telephoto',
-    Battery: '4323 mAh',
-    OS: 'iOS 17',
-  },
-};
 
 export default function ProductDetailScreen() {
   const router = useRouter();
+  const { slug } = useLocalSearchParams<{ slug: string }>();
   const { addToCart } = useCart();
+  
+  const [product, setProduct] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [selectedColor, setSelectedColor] = useState(PRODUCT.colors[0].id);
-  const [selectedStorage, setSelectedStorage] = useState(PRODUCT.storage[1]);
   const [quantity, setQuantity] = useState(1);
   const [expandedSection, setExpandedSection] = useState<string>('description');
+  const [variations, setVariations] = useState<any[]>([]);
+  const [selectedVariations, setSelectedVariations] = useState<Record<number, any>>({});
+  const [currentVariation, setCurrentVariation] = useState<any>(null);
+  const [availableOptions, setAvailableOptions] = useState<Record<number, any[]>>({});
+  const [enableAddToCart, setEnableAddToCart] = useState(false);
+  const [variationNames, setVariationNames] = useState<string>('');
+  const [initProduct, setInitProduct] = useState<any>(null);
+
+  // Fetch product details from API
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!slug) {
+        setError('Product not found');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetchProductDetails(slug);
+        const productData = response?.data || response;
+        
+        if (productData) {
+          setProduct(productData);
+          setFavorite(productData.wishlist || false);
+          
+          // Set initial product values
+          setInitProduct({
+            sku: productData.sku,
+            stock: productData.stock,
+            price: productData.price,
+            oldPrice: productData.old_price,
+            maximum_purchase_quantity: productData.maximum_purchase_quantity
+          });
+          
+          // Fetch initial variations if product has variations
+          try {
+            const variationsResponse = await fetchInitialVariations(productData.id);
+            const variationsList = variationsResponse?.data || [];
+            
+            if (variationsList.length > 0) {
+              setVariations(variationsList);
+              // Initialize available options for the first attribute
+              setAvailableOptions({ 0: variationsList });
+              // Disable add to cart until variation is selected
+              setEnableAddToCart(false);
+            } else {
+              // No variations, enable add to cart if stock available
+              setEnableAddToCart(productData.stock > 0);
+            }
+          } catch (varError) {
+            console.error('Failed to fetch variations:', varError);
+            // Continue without variations - enable if stock available
+            setEnableAddToCart(productData.stock > 0);
+          }
+        } else {
+          setError('Product not found');
+        }
+      } catch (err) {
+        console.error('Failed to fetch product:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load product');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadProduct();
+  }, [slug]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#111" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Loading...</Text>
+          <View style={styles.headerButton} />
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+          <Text style={{ marginTop: 16, color: '#666' }}>Loading product...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error state
+  if (error || !product) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#111" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Error</Text>
+          <View style={styles.headerButton} />
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }]}>
+          <Ionicons name="alert-circle-outline" size={64} color="#E53935" />
+          <Text style={{ marginTop: 16, fontSize: 16, color: '#333', textAlign: 'center' }}>
+            {error || 'Product not found'}
+          </Text>
+          <TouchableOpacity 
+            style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1E88E5', borderRadius: 8 }}
+            onPress={() => router.back()}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '600' }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Parse price helper
+  const parsePrice = (priceStr: string | number) => {
+    if (typeof priceStr === 'number') return priceStr;
+    return parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+  };
+
+  const productPrice = parsePrice(product.currency_price || product.price || 0);
+  const oldPrice = parsePrice(product.old_currency_price || product.old_price || 0);
+  const productImages = product.images || [];
+  const mainImage = product.image || (productImages.length > 0 ? productImages[0] : '');
+  const allImages = mainImage ? [mainImage, ...productImages] : productImages;
 
   const toggleSection = (section: string) => {
     setExpandedSection((prev) => (prev === section ? '' : section));
   };
 
-  const incrementQuantity = () => setQuantity((prev) => Math.min(prev + 1, PRODUCT.stock));
+  const incrementQuantity = () => {
+    const maxQty = currentVariation?.maximum_purchase_quantity || initProduct?.maximum_purchase_quantity || 100;
+    const currentStock = getCurrentStock();
+    setQuantity((prev) => Math.min(prev + 1, Math.min(maxQty, currentStock || maxQty)));
+  };
+  
   const decrementQuantity = () => setQuantity((prev) => Math.max(prev - 1, 1));
 
+  const handleVariationSelect = async (attributeIndex: number, variation: any) => {
+    const newSelected = { ...selectedVariations, [attributeIndex]: variation };
+    setSelectedVariations(newSelected);
+    
+    // Clear current variation and disable add to cart temporarily
+    setCurrentVariation(null);
+    setEnableAddToCart(false);
+    setVariationNames('');
+    
+    // Always try to fetch children for this variation
+    try {
+      const childrenResponse = await fetchChildrenVariations(product.id, variation.id);
+      const children = childrenResponse?.data || [];
+      
+      if (children.length > 0) {
+        // This variation has children - show them at next level
+        const newOptions = { ...availableOptions };
+        newOptions[attributeIndex + 1] = children;
+        
+        // Clear all options after this level
+        Object.keys(newOptions).forEach(key => {
+          const keyNum = parseInt(key);
+          if (keyNum > attributeIndex + 1) {
+            delete newOptions[keyNum];
+          }
+        });
+        setAvailableOptions(newOptions);
+        
+        // Clear selections after this level (but keep current selection)
+        const clearedSelections = { ...newSelected };
+        Object.keys(clearedSelections).forEach(key => {
+          const keyNum = parseInt(key);
+          if (keyNum > attributeIndex) {
+            delete clearedSelections[keyNum];
+          }
+        });
+        setSelectedVariations(clearedSelections);
+      } else {
+        // No children - this is the final variation (leaf node)
+        setCurrentVariation(variation);
+        
+        // Enable add to cart only if variation has stock
+        setEnableAddToCart(variation.stock > 0);
+        
+        // Fetch and set variation names for display
+        try {
+          const namesResponse = await fetchVariationAncestorsString(product.id, variation.id);
+          const names = namesResponse?.data || '';
+          setVariationNames(names);
+        } catch (err) {
+          console.error('Failed to fetch variation names:', err);
+        }
+        
+        // Clear options after this level since no more children
+        const newOptions = { ...availableOptions };
+        Object.keys(newOptions).forEach(key => {
+          const keyNum = parseInt(key);
+          if (keyNum > attributeIndex) {
+            delete newOptions[keyNum];
+          }
+        });
+        setAvailableOptions(newOptions);
+      }
+    } catch (err) {
+      console.error('Failed to fetch children variations:', err);
+      // If fetch fails, treat as leaf node
+      setCurrentVariation(variation);
+      setEnableAddToCart(variation.stock > 0);
+    }
+  };
+
   const handleAddToCart = () => {
-    const selectedColorObj = PRODUCT.colors.find(c => c.id === selectedColor);
+    if (!enableAddToCart) {
+      return;
+    }
+    
+    const finalVariation = currentVariation || product;
+    
     addToCart({
-      productId: PRODUCT.sku,
-      name: PRODUCT.name,
-      price: PRODUCT.price,
+      productId: (currentVariation?.id || product.id)?.toString() || product.sku || '',
+      name: product.name || 'Product',
+      price: getCurrentPrice(),
       quantity: quantity,
-      image: PRODUCT.images[0],
-      variant: {
-        color: selectedColorObj?.name,
-        storage: selectedStorage,
-      },
+      image: mainImage,
+      variant: currentVariation ? { 
+        variationId: currentVariation.id,
+        variationNames: variationNames,
+        sku: currentVariation.sku 
+      } : {},
     });
+    
+    // Reset after adding to cart
+    if (currentVariation) {
+      setSelectedVariations({});
+      setCurrentVariation(null);
+      setVariationNames('');
+      setQuantity(1);
+      
+      // Reset to first level variations
+      if (variations.length > 0) {
+        setAvailableOptions({ 0: variations });
+        setEnableAddToCart(false);
+      }
+    }
+  };
+
+  const getCurrentPrice = () => {
+    if (currentVariation?.price) {
+      return parsePrice(currentVariation.price);
+    }
+    return initProduct?.price ? parsePrice(initProduct.price) : productPrice;
+  };
+
+  const getCurrentStock = () => {
+    if (currentVariation?.stock !== undefined) {
+      return currentVariation.stock;
+    }
+    return initProduct?.stock || product.stock || 0;
+  };
+
+  const getCurrentOldPrice = () => {
+    if (currentVariation?.old_price) {
+      return parsePrice(currentVariation.old_price);
+    }
+    return initProduct?.oldPrice ? parsePrice(initProduct.oldPrice) : oldPrice;
+  };
+
+  const hasOffer = () => {
+    return product.is_offer || product.flash_sale || false;
   };
 
   return (
@@ -92,7 +308,7 @@ export default function ProductDetailScreen() {
           <Ionicons name="arrow-back" size={24} color="#111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {PRODUCT.name}
+          {product.name}
         </Text>
         <TouchableOpacity style={styles.headerButton} onPress={() => setFavorite(!favorite)}>
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color={favorite ? '#E53935' : '#111'} />
@@ -102,78 +318,96 @@ export default function ProductDetailScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Image Carousel */}
         <View style={styles.carouselContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-              setCurrentImageIndex(index);
-            }}
-            scrollEventThrottle={16}
-          >
-            {PRODUCT.images.map((img, idx) => (
-              <Image key={idx} source={{ uri: img }} style={styles.carouselImage} />
-            ))}
-          </ScrollView>
-          {/* Pagination Dots */}
-          <View style={styles.paginationDots}>
-            {PRODUCT.images.map((_, idx) => (
-              <View key={idx} style={[styles.dot, currentImageIndex === idx && styles.dotActive]} />
-            ))}
-          </View>
+          {allImages.length > 0 ? (
+            <>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={(e) => {
+                  const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                  setCurrentImageIndex(index);
+                }}
+                scrollEventThrottle={16}
+              >
+                {allImages.map((img:any, idx:number) => (
+                  <Image key={idx} source={{ uri: img }} style={styles.carouselImage} />
+                ))}
+              </ScrollView>
+              {/* Pagination Dots */}
+              {allImages.length > 1 && (
+                <View style={styles.paginationDots}>
+                  {allImages.map((_:any, idx:number) => (
+                    <View key={idx} style={[styles.dot, currentImageIndex === idx && styles.dotActive]} />
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={[styles.carouselImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5' }]}>
+              <Ionicons name="image-outline" size={64} color="#CCC" />
+              <Text style={{ color: '#999', marginTop: 8 }}>No image available</Text>
+            </View>
+          )}
         </View>
 
         {/* Product Info */}
         <View style={styles.infoSection}>
-          <Text style={styles.brand}>{PRODUCT.brand}</Text>
-          <Text style={styles.productName}>{PRODUCT.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Text style={styles.productName}>{product.name}</Text>
+            {hasOffer() && (
+              <View style={{ backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>SALE</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.metaRow}>
-            <Text style={styles.sku}>SKU: {PRODUCT.sku}</Text>
-            <Text style={styles.stock}>In Stock: {PRODUCT.stock} pcs</Text>
+            <Text style={styles.sku}>SKU: {currentVariation?.sku || product.sku || 'N/A'}</Text>
+            <Text style={[styles.stock, getCurrentStock() > 0 ? {} : { color: '#E53935' }]}>
+              {getCurrentStock() > 0 ? `In Stock: ${getCurrentStock()} ${product.unit || 'pcs'}` : variationNames ? 'Out of Stock' : 'Please select options'}
+            </Text>
           </View>
+          {variationNames && (
+            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E5E5' }}>
+              <Text style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Selected: {variationNames}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Color Picker */}
+        {/* Product Variations */}
+        {Object.entries(availableOptions).map(([index, options]) => {
+          const attributeIndex = parseInt(index);
+          const firstOption = options[0];
+          const attributeName = firstOption?.product_attribute?.name || firstOption.product_attribute_name;
+          
+          return (
+            <View key={index} style={styles.variantSection}>
+              <Text style={styles.variantLabel}>{attributeName}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.variationRow}>
+                  {options.map((variation: any) => {
+                    const isSelected = selectedVariations[attributeIndex]?.id === variation.id;
+                    const optionName = variation.product_attribute_option_name;
+                    return (
+                      <TouchableOpacity
+                        key={variation.id}
+                        style={[styles.variationChip, isSelected && styles.variationChipSelected]}
+                        onPress={() => handleVariationSelect(attributeIndex, variation)}
+                      >
+                        <Text style={[styles.variationText, isSelected && styles.variationTextSelected]}>
+                          {optionName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          );
+        })}
+
+        {/* Quantity Selector */}
         <View style={styles.variantSection}>
-          <Text style={styles.variantLabel}>Color</Text>
-          <View style={styles.colorRow}>
-            {PRODUCT.colors.map((color) => {
-              const isSelected = selectedColor === color.id;
-              return (
-                <TouchableOpacity
-                  key={color.id}
-                  style={[styles.colorSwatch, isSelected && styles.colorSwatchSelected]}
-                  onPress={() => setSelectedColor(color.id)}
-                >
-                  <View style={[styles.colorInner, { backgroundColor: color.hex }]} />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Storage Options */}
-        <View style={styles.variantSection}>
-          <Text style={styles.variantLabel}>Storage</Text>
-          <View style={styles.storageRow}>
-            {PRODUCT.storage.map((storage) => {
-              const isSelected = selectedStorage === storage;
-              return (
-                <TouchableOpacity
-                  key={storage}
-                  style={[styles.storageChip, isSelected && styles.storageChipSelected]}
-                  onPress={() => setSelectedStorage(storage)}
-                >
-                  <Text style={[styles.storageText, isSelected && styles.storageTextSelected]}>{storage}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Features */}
-        <View style={styles.expandableSection}>
           <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('features')}>
             <Text style={styles.expandableTitle}>Features</Text>
             <Ionicons
@@ -184,54 +418,72 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
           {expandedSection === 'features' && (
             <View style={styles.expandableBody}>
-              {PRODUCT.features.map((feature, idx) => (
-                <View key={idx} style={styles.featureRow}>
-                  <Ionicons name="checkmark-circle" size={16} color="#1E88E5" />
-                  <Text style={styles.featureText}>{feature}</Text>
-                </View>
-              ))}
+              <Text style={styles.descriptionText}>{product.feature_description.replace(/<[^>]*>/g, '')}</Text>
             </View>
           )}
         </View>
 
         {/* Description */}
-        <View style={styles.expandableSection}>
-          <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('description')}>
-            <Text style={styles.expandableTitle}>Description</Text>
-            <Ionicons
-              name={expandedSection === 'description' ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color="#666"
-            />
-          </TouchableOpacity>
-          {expandedSection === 'description' && (
-            <View style={styles.expandableBody}>
-              <Text style={styles.descriptionText}>{PRODUCT.description}</Text>
-            </View>
-          )}
-        </View>
+        {product.details && (
+          <View style={styles.expandableSection}>
+            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('description')}>
+              <Text style={styles.expandableTitle}>Description</Text>
+              <Ionicons
+                name={expandedSection === 'description' ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
+            {expandedSection === 'description' && (
+              <View style={styles.expandableBody}>
+                <Text style={styles.descriptionText}>{product.details.replace(/<[^>]*>/g, '')}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Specifications */}
-        <View style={styles.expandableSection}>
-          <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
-            <Text style={styles.expandableTitle}>Specifications</Text>
-            <Ionicons
-              name={expandedSection === 'specifications' ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color="#666"
-            />
-          </TouchableOpacity>
-          {expandedSection === 'specifications' && (
-            <View style={styles.expandableBody}>
-              {Object.entries(PRODUCT.specifications).map(([key, value]) => (
-                <View key={key} style={styles.specRow}>
-                  <Text style={styles.specKey}>{key}:</Text>
-                  <Text style={styles.specValue}>{value}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
+        {product.specifications && product.specifications.length > 0 && (
+          <View style={styles.expandableSection}>
+            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
+              <Text style={styles.expandableTitle}>Specifications</Text>
+              <Ionicons
+                name={expandedSection === 'specifications' ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
+            {expandedSection === 'specifications' && (
+              <View style={styles.expandableBody}>
+                {product.specifications.map((spec: any, idx: number) => (
+                  <View key={idx} style={styles.specRow}>
+                    <Text style={styles.specKey}>{spec.key || spec.name}:</Text>
+                    <Text style={styles.specValue}>{spec.value}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Shipping and Return */}
+        {product.shipping_and_return && (
+          <View style={styles.expandableSection}>
+            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('shipping')}>
+              <Text style={styles.expandableTitle}>Shipping & Return</Text>
+              <Ionicons
+                name={expandedSection === 'shipping' ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
+            {expandedSection === 'shipping' && (
+              <View style={styles.expandableBody}>
+                <Text style={styles.descriptionText}>{product.shipping_and_return.replace(/<[^>]*>/g, '')}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Bottom Spacer */}
         <View style={styles.bottomSpacer} />
@@ -241,7 +493,12 @@ export default function ProductDetailScreen() {
       <View style={styles.bottomBar}>
         <View style={styles.priceSection}>
           <Text style={styles.priceLabel}>Price</Text>
-          <Text style={styles.priceValue}>${PRODUCT.price.toFixed(2)}</Text>
+          <View>
+            <Text style={styles.priceValue}>${getCurrentPrice().toFixed(2)}</Text>
+            {getCurrentOldPrice() > getCurrentPrice() && (
+              <Text style={styles.oldPriceValue}>${getCurrentOldPrice().toFixed(2)}</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.quantitySelector}>
@@ -254,9 +511,15 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
+        <TouchableOpacity 
+          style={[styles.addToCartButton, !enableAddToCart && { backgroundColor: '#CCC' }]} 
+          onPress={handleAddToCart}
+          disabled={!enableAddToCart}
+        >
           <Ionicons name="cart" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.addToCartText}>Add to Cart</Text>
+          <Text style={styles.addToCartText}>
+            {getCurrentStock() === 0 ? 'Out of Stock' : Object.keys(availableOptions).length > 0 && !currentVariation ? 'Select Options' : 'Add to Cart'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -413,6 +676,40 @@ const styles = StyleSheet.create({
   storageTextSelected: {
     color: '#1E88E5',
   },
+  variationRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  variationChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#F7F9FC',
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  variationChipSelected: {
+    borderColor: '#1E88E5',
+    backgroundColor: '#E3F2FD',
+  },
+  variationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  variationTextSelected: {
+    color: '#1E88E5',
+  },
+  variationPrice: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  variationPriceSelected: {
+    color: '#1E88E5',
+  },
   expandableSection: {
     backgroundColor: '#fff',
     marginTop: 8,
@@ -506,6 +803,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#111',
+  },
+  oldPriceValue: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'line-through',
+    marginTop: 2,
   },
   quantitySelector: {
     flexDirection: 'row',

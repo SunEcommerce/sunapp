@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
-import { fetchSlider } from '@/utils/api';
+import { fetchHotSales, fetchSlider } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -106,6 +106,9 @@ export default function HomeScreen() {
   const [sliderData, setSliderData] = useState<any[]>([]);
   const [isLoadingSlider, setIsLoadingSlider] = useState(true);
   const [sliderError, setSliderError] = useState<string | null>(null);
+  const [hotSalesData, setHotSalesData] = useState<any[]>([]);
+  const [isLoadingHotSales, setIsLoadingHotSales] = useState(true);
+  const [hotSalesError, setHotSalesError] = useState<string | null>(null);
 
   // Fetch slider data from API
   useEffect(() => {
@@ -114,21 +117,35 @@ export default function HomeScreen() {
         setIsLoadingSlider(true);
         setSliderError(null);
         const response = await fetchSlider();
-        
-        // Handle different possible response structures
         const slides = response?.data || response?.sliders || response || [];
         setSliderData(slides);
       } catch (error) {
         console.error('Failed to fetch slider:', error);
         setSliderError(error instanceof Error ? error.message : 'Failed to load banners');
-        // Keep empty array to show nothing instead of breaking the UI
         setSliderData([]);
       } finally {
         setIsLoadingSlider(false);
       }
     };
 
+    const loadHotSales = async () => {
+      try {
+        setIsLoadingHotSales(true);
+        setHotSalesError(null);
+        const hotSalesResponse = await fetchHotSales();
+        const hotSales = hotSalesResponse?.data || hotSalesResponse?.products || hotSalesResponse || [];
+        setHotSalesData(hotSales);
+      } catch (error) {
+        console.error('Failed to fetch hot sales:', error);
+        setHotSalesError(error instanceof Error ? error.message : 'Failed to load hot sales');
+        setHotSalesData([]);
+      } finally {
+        setIsLoadingHotSales(false);
+      }
+    };
+
     loadSlider();
+    loadHotSales();
   }, []);
 
   useEffect(() => {
@@ -199,24 +216,60 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const renderProductItem = ({ item }: { item: typeof HOT_SALES[0] }) => (
-    <TouchableOpacity style={styles.productCard} onPress={() => router.push('/ProductDetail')} activeOpacity={0.9}>
-      <View style={styles.productImageContainer}>
-        <Image source={{ uri: item.image }} style={styles.productImage} />
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>{item.discount}</Text>
+  const renderProductItem = ({ item }: { item: any }) => {
+    // Handle API response structure
+    const imageUrl = item.cover || item.image || item.image_url || item.thumbnail || item.url;
+    const title = item.name || item.title || 'Product';
+    const brand = item.brand || item.brand_name || '';
+    const slug = item.slug || '';
+    
+    // Parse price strings (e.g., "$899.00" -> 899.00)
+    const parsePrice = (priceStr: string | number) => {
+      if (typeof priceStr === 'number') return priceStr;
+      return parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+    };
+    
+    const discountedPrice = parsePrice(item.discounted_price || item.sale_price || item.price || 0);
+    const regularPrice = parsePrice(item.currency_price || item.regular_price || item.original_price || discountedPrice);
+    
+    // Show discount badge if it's a flash sale or offer
+    const hasDiscount = item.flash_sale || item.is_offer || (regularPrice > discountedPrice);
+    const discountPercent = hasDiscount && regularPrice > 0 
+      ? Math.round(((regularPrice - discountedPrice) / regularPrice) * 100)
+      : 0;
+    
+    return (
+      <TouchableOpacity 
+        style={styles.productCard} 
+        onPress={() => router.push({
+          pathname: '/ProductDetail',
+          params: { slug }
+        })} 
+        activeOpacity={0.9}
+      >
+        <View style={styles.productImageContainer}>
+          <Image source={{ uri: imageUrl }} style={styles.productImage} />
+          {hasDiscount && discountPercent > 0 && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>{discountPercent}% OFF</Text>
+            </View>
+          )}
         </View>
-      </View>
-      <View style={styles.productInfo}>
-        <Text style={[styles.productTitle, { color: Colors[colorScheme].text }]}>{item.title}</Text>
-        <Text style={styles.productBrand}>{item.brand}</Text>
-        <View style={styles.priceRow}>
-          <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-          <Text style={styles.originalPrice}>${item.originalPrice.toFixed(2)}</Text>
+        <View style={styles.productInfo}>
+          <Text style={[styles.productTitle, { color: Colors[colorScheme].text }]} numberOfLines={2}>
+            {title}
+          </Text>
+          {brand && <Text style={styles.productBrand}>{brand}</Text>}
+          <View style={styles.priceRow}>
+            <Text style={styles.productPrice}>${discountedPrice.toFixed(2)}</Text>
+            {regularPrice > discountedPrice && (
+              <Text style={[styles.originalPrice, { marginLeft: 6 }]}>${regularPrice.toFixed(2)}</Text>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderBrandItem = ({ item }: { item: typeof FEATURED_BRANDS[0] }) => (
     <TouchableOpacity style={styles.brandCard}>
@@ -251,7 +304,7 @@ export default function HomeScreen() {
             style={styles.categoryDropdown}
             onPress={() => setShowCategoryDropdown(true)}
           >
-            <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={1}>
+            <Text style={[styles.categoryText, { color: Colors[colorScheme].text, marginRight: 4 }]} numberOfLines={1}>
               {SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
             </Text>
             <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
@@ -367,14 +420,29 @@ export default function HomeScreen() {
               <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={HOT_SALES}
-            renderItem={renderProductItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.productList}
-          />
+          {isLoadingHotSales ? (
+            <View style={styles.loadingProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text }}>Loading products...</Text>
+            </View>
+          ) : hotSalesError ? (
+            <View style={styles.errorProductsContainer}>
+              <Ionicons name="alert-circle-outline" size={24} color={Colors[colorScheme].text} />
+              <Text style={{ color: Colors[colorScheme].text, marginTop: 8, fontSize: 12 }}>{hotSalesError}</Text>
+            </View>
+          ) : hotSalesData.length > 0 ? (
+            <FlatList
+              data={hotSalesData}
+              renderItem={renderProductItem}
+              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.productList}
+            />
+          ) : (
+            <View style={styles.emptyProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text, fontSize: 14 }}>No hot sales available</Text>
+            </View>
+          )}
         </View>
 
         {/* New Arrival Section */}
@@ -477,7 +545,6 @@ const styles = StyleSheet.create({
   categoryDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     paddingRight: 8,
     minWidth: 90,
   },
@@ -567,6 +634,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 200,
   },
+  loadingProductsContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 120,
+    paddingHorizontal: 16,
+  },
+  errorProductsContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 120,
+    paddingHorizontal: 16,
+  },
+  emptyProductsContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 120,
+    paddingHorizontal: 16,
+  },
   sectionContainer: {
     marginTop: 24,
   },
@@ -652,7 +737,6 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   productPrice: {
     fontSize: 14,
