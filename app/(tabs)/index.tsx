@@ -219,8 +219,8 @@ export default function HomeScreen() {
   const renderProductItem = ({ item }: { item: any }) => {
     // Handle API response structure
     const imageUrl = item.cover || item.image || item.image_url || item.thumbnail || item.url;
-    const title = item.name || item.title || 'Product';
-    const brand = item.brand || item.brand_name || '';
+    const title = (item.name || item.title || 'Product').toString().trim();
+    const brand = (item.brand || item.brand_name || '').toString().trim();
     const slug = item.slug || '';
     
     // Parse price strings (e.g., "$899.00" -> 899.00)
@@ -259,7 +259,7 @@ export default function HomeScreen() {
           <Text style={[styles.productTitle, { color: Colors[colorScheme].text }]} numberOfLines={2}>
             {title}
           </Text>
-          {brand && <Text style={styles.productBrand}>{brand}</Text>}
+
           <View style={styles.priceRow}>
             <Text style={styles.productPrice}>${discountedPrice.toFixed(2)}</Text>
             {regularPrice > discountedPrice && (

@@ -2,10 +2,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useContext } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const themeContext = useContext(ThemeContext);
 
   if (!themeContext) {
@@ -18,6 +21,13 @@ export default function SettingsScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} />
+        </TouchableOpacity>
+        <ThemedText style={styles.headerTitle}>App Setting</ThemedText>
+        <View style={styles.headerRight} />
+      </View>
       <View style={styles.section}>
         <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Display</ThemedText>
         <View style={styles.item}>
@@ -40,6 +50,26 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 32,
   },
   section: {
     padding: 16,

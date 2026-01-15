@@ -367,11 +367,11 @@ export default function ProductDetailScreen() {
               {getCurrentStock() > 0 ? `In Stock: ${getCurrentStock()} ${product.unit || 'pcs'}` : variationNames ? 'Out of Stock' : 'Please select options'}
             </Text>
           </View>
-          {variationNames && (
+          {variationNames != undefined? (
             <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E5E5' }}>
               <Text style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Selected: {variationNames}</Text>
             </View>
-          )}
+          ) : <></>}
         </View>
 
         {/* Product Variations */}
