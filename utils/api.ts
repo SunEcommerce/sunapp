@@ -236,19 +236,19 @@ export async function fetchCategories(): Promise<any> {
  */
 export async function fetchProducts(params?: {
   category?: string;
-  search?: string;
+  name?: string;
   page?: number;
   limit?: number;
 }): Promise<any> {
   const queryParams = new URLSearchParams();
   
   if (params?.category) queryParams.append('category', params.category);
-  if (params?.search) queryParams.append('search', params.search);
+  if (params?.name) queryParams.append('name', params.name);
   if (params?.page) queryParams.append('page', params.page.toString());
   if (params?.limit) queryParams.append('limit', params.limit.toString());
   
   const query = queryParams.toString();
-  const path = `/api/frontend/products${query ? `?${query}` : ''}`;
+  const path = `/api/frontend/product${query ? `?${query}` : ''}`;
   
   return await apiRequest(path, 'GET', undefined, false);
 }
@@ -264,11 +264,15 @@ export async function fetchProductDetails(productSlug: string): Promise<any> {
  * Fetch featured brands
  */
 export async function fetchBrands(): Promise<any> {
-  return await apiRequest('/api/frontend/brands', 'GET', undefined, false);
+  return await apiRequest('/api/frontend/product-brand', 'GET', undefined, false);
 }
 
 export async function fetchHotSales(): Promise<any> {
   return await apiRequest('/api/frontend/product/flash-sale-products', 'GET', undefined, false);
+}
+
+export async function fetchNewArrivals(): Promise<any> {
+  return await apiRequest('/api/frontend/product/popular-products', 'GET', undefined, false);
 }
 
 /**
@@ -298,3 +302,7 @@ export async function fetchChildrenVariations(productId: string | number, parent
 export async function fetchVariationAncestorsString(productId: string | number, variationId: string | number): Promise<any> {
   return await apiRequest(`/api/frontend/product/variation/ancestors-and-self/${variationId}`, 'GET', undefined, false);
 }
+
+// export async function fetchProducts(query: string): Promise<any> {
+//   return await apiRequest(`/api/frontend/products?${query}`, 'GET', undefined, false);
+// }

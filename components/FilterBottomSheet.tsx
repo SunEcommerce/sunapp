@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import React, { useMemo, useState } from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Modal from 'react-native-modal';
 
@@ -16,6 +16,8 @@ export type Filters = {
   priceRange: [number, number];
   brands: string[];
   sortBy: 'newest' | 'price_low_high';
+  minPrice?: number;
+  maxPrice?: number;
 };
 
 type Props = {

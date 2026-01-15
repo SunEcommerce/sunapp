@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
-import { fetchHotSales, fetchSlider } from '@/utils/api';
+import { fetchBrands, fetchHotSales, fetchNewArrivals, fetchSlider } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -109,6 +109,10 @@ export default function HomeScreen() {
   const [hotSalesData, setHotSalesData] = useState<any[]>([]);
   const [isLoadingHotSales, setIsLoadingHotSales] = useState(true);
   const [hotSalesError, setHotSalesError] = useState<string | null>(null);
+  const [newArrivalsData, setNewArrivalsData] = useState<any[]>([]);
+  const [isLoadingNewArrivals, setIsLoadingNewArrivals] = useState(true);
+  const [brandsData, setBrandsData] = useState<any[]>([]);
+  const [isLoadingBrands, setIsLoadingBrands] = useState(true);
 
   // Fetch slider data from API
   useEffect(() => {
@@ -144,8 +148,38 @@ export default function HomeScreen() {
       }
     };
 
+    const loadNewArrivals = async () => {
+      try {
+        setIsLoadingNewArrivals(true);
+        const newArrivalResponse = await fetchNewArrivals();
+        const newArrivalsData = newArrivalResponse?.data || newArrivalResponse?.products || newArrivalResponse || [];
+        setNewArrivalsData(newArrivalsData);
+      } catch (error) {
+        console.error('Failed to fetch new arrivals:', error);
+        setNewArrivalsData([]);
+      } finally {
+        setIsLoadingNewArrivals(false);
+      }
+    };
+
+    const loadBrands = async () => {
+      try {
+        setIsLoadingBrands(true);
+        const brandsResponse = await fetchBrands();
+        const brands = brandsResponse?.data || brandsResponse?.brands || brandsResponse || [];
+        setBrandsData(brands);
+      } catch (error) {
+        console.error('Failed to fetch brands:', error);
+        setBrandsData([]);
+      } finally {
+        setIsLoadingBrands(false);
+      }
+    };
+
     loadSlider();
     loadHotSales();
+    loadNewArrivals();
+    loadBrands();
   }, []);
 
   useEffect(() => {
@@ -175,7 +209,7 @@ export default function HomeScreen() {
       pathname: '/ProductList',
       params: {
         category: selectedCategory,
-        q: searchQuery.trim(),
+        name: searchQuery.trim(),
         source: 'search',
       },
     });
@@ -187,7 +221,7 @@ export default function HomeScreen() {
       pathname: '/ProductList',
       params: {
         category: 'all',
-        q: '',
+        name: '',
         source,
       },
     });
@@ -271,11 +305,28 @@ export default function HomeScreen() {
     );
   };
 
-  const renderBrandItem = ({ item }: { item: typeof FEATURED_BRANDS[0] }) => (
-    <TouchableOpacity style={styles.brandCard}>
-      <Image source={{ uri: item.logo }} style={styles.brandLogo} />
-    </TouchableOpacity>
-  );
+  const renderBrandItem = ({ item }: { item: any }) => {
+    const logoUrl = item.cover || item.thumb || 'https://placehold.co/100x100/png?text=Brand';
+    const brandName = item.name || 'Brand';
+    const brandSlug = item.slug || '';
+
+    return (
+      <TouchableOpacity 
+        style={styles.brandCard}
+        onPress={() => router.push({
+          pathname: '/ProductList',
+          params: {
+            brand: brandSlug,
+            category: 'all',
+            q: '',
+            source: 'brand',
+          },
+        })}
+      >
+        <Image source={{ uri: logoUrl }} style={styles.brandLogo} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
@@ -283,7 +334,7 @@ export default function HomeScreen() {
       <View style={[styles.header, { backgroundColor: Colors[colorScheme].background }]}>
         <View style={styles.logoPlaceholder}>
           {/* <Ionicons name="storefront" size={32} color={Colors[colorScheme].tint} /> */}
-          <Text style={[styles.logoText, { color: Colors[colorScheme].text }]}>SunApp</Text>
+          <Text style={[styles.logoText, { color: Colors[colorScheme].text }]}>Sun Mobile App</Text>
         </View>
         
         <TouchableOpacity style={styles.cartButton} onPress={handleCartPress}>
@@ -304,10 +355,12 @@ export default function HomeScreen() {
             style={styles.categoryDropdown}
             onPress={() => setShowCategoryDropdown(true)}
           >
-            <Text style={[styles.categoryText, { color: Colors[colorScheme].text, marginRight: 4 }]} numberOfLines={1}>
-              {SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={1}>
+                {SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} style={{ marginLeft: 6 }} />
           </TouchableOpacity>
 
           {/* Vertical Divider */}
@@ -448,32 +501,57 @@ export default function HomeScreen() {
         {/* New Arrival Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>New Arrival</Text>
-            <TouchableOpacity onPress={() => handleViewAll('new_arrival')}>
+            <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>New Arrivals</Text>
+            <TouchableOpacity onPress={() => handleViewAll('new_arrivals')}>
               <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={HOT_SALES}
-            renderItem={renderProductItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.productList}
-          />
+          {isLoadingHotSales ? (
+            <View style={styles.loadingProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text }}>Loading products...</Text>
+            </View>
+          ) : hotSalesError ? (
+            <View style={styles.errorProductsContainer}>
+              <Ionicons name="alert-circle-outline" size={24} color={Colors[colorScheme].text} />
+              <Text style={{ color: Colors[colorScheme].text, marginTop: 8, fontSize: 12 }}>{hotSalesError}</Text>
+            </View>
+          ) : newArrivalsData.length > 0 ? (
+            <FlatList
+              data={newArrivalsData}
+              renderItem={renderProductItem}
+              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.productList}
+            />
+          ) : (
+            <View style={styles.emptyProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text, fontSize: 14 }}>No hot sales available</Text>
+            </View>
+          )}
         </View>
 
         {/* Featured Brands Section */}
         <View style={styles.sectionContainer}>
           <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>Featured Brands</Text>
-          <FlatList
-            data={FEATURED_BRANDS}
-            renderItem={renderBrandItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.brandList}
-          />
+          {isLoadingBrands ? (
+            <View style={styles.loadingProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text }}>Loading brands...</Text>
+            </View>
+          ) : brandsData.length > 0 ? (
+            <FlatList
+              data={brandsData}
+              renderItem={renderBrandItem}
+              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.brandList}
+            />
+          ) : (
+            <View style={styles.emptyProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text, fontSize: 14 }}>No brands available</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -547,6 +625,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingRight: 8,
     minWidth: 90,
+    flex: 1,
+    justifyContent: 'space-between',
   },
   categoryText: {
     fontSize: 12,

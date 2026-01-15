@@ -1,17 +1,19 @@
 import FilterBottomSheet, { Filters } from '@/components/FilterBottomSheet';
+import { fetchProducts } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -83,46 +85,111 @@ export default function ProductListScreen() {
   const [filters, setFilters] = useState<Partial<Filters>>({});
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [selectedSort, setSelectedSort] = useState<'best' | 'sales' | 'price'>('best');
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const selectedCategory = Array.isArray(params.category)
     ? params.category[0] || 'all'
     : params.category || 'all';
-  const searchQuery = Array.isArray(params.q) ? params.q[0] || '' : params.q || '';
+  const searchQuery = Array.isArray(params.name) ? params.name[0] || '' : params.name || '';
+  const brandSlug = Array.isArray(params.brand) ? params.brand[0] || '' : params.brand || '';
   const source = Array.isArray(params.source) ? params.source[0] || '' : params.source || '';
 
-  const productData = useMemo(() => {
-    let data = [...MOCK_PRODUCTS];
-    if (selectedCategory !== 'all') {
-      data = data.filter((item) => item.name.toLowerCase().includes(selectedCategory.toLowerCase()));
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      data = data.filter((item) => item.name.toLowerCase().includes(q));
-    }
-    return data;
-  }, [selectedCategory, searchQuery]);
+  // Fetch products from API
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+    const loadProducts = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  const totalResults = productData.length;
+        const apiParams: any = {};
+        
+        if (selectedCategory && selectedCategory !== 'all') {
+          apiParams.category = selectedCategory;
+        }
+        
+        if (searchQuery.trim()) {
+          apiParams.name = searchQuery.trim();
+        }
 
-  const renderCard = ({ item }: { item: (typeof MOCK_PRODUCTS)[0] }) => (
-    <TouchableOpacity style={styles.card} onPress={() => router.push('/ProductDetail')} activeOpacity={0.9}>
-      <View style={styles.imageWrapper}>
-        <Image source={{ uri: item.image }} style={styles.image} />
-        <TouchableOpacity style={styles.favButton} onPress={(e) => { e.stopPropagation(); }}>
-          <Ionicons name="heart-outline" size={18} color="#111" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.title} numberOfLines={2}>
-          {item.name}
-        </Text>
-        <Text style={styles.price}>{item.price}</Text>
-        <TouchableOpacity style={styles.cartButton} onPress={(e) => { e.stopPropagation(); }}>
-          <Ionicons name="cart" size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        if (brandSlug) {
+          apiParams.brand = brandSlug;
+        }
+
+        // Add sort parameter
+        if (selectedSort === 'sales') {
+          apiParams.sort = 'sales';
+        } else if (selectedSort === 'price') {
+          apiParams.sort = 'price';
+        }
+
+        // Add filters if any
+        if (filters.minPrice) {
+          apiParams.min_price = filters.minPrice;
+        }
+        if (filters.maxPrice) {
+          apiParams.max_price = filters.maxPrice;
+        }
+
+        const response = await fetchProducts(apiParams);
+        const productsData = response?.data || response?.products || response || [];
+        setProducts(productsData);
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load products');
+        setProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [selectedCategory, searchQuery, brandSlug, selectedSort, filters]);
+
+  const totalResults = products.length;
+
+  const renderCard = ({ item }: { item: any }) => {
+    const imageUrl = item.cover || item.image || item.image_url || item.thumbnail || 'https://placehold.co/400x400/png?text=Product';
+    const title = (item.name || item.title || 'Product').toString().trim();
+    const slug = item.slug || '';
+    
+    // Parse price strings (e.g., "$899.00" -> 899.00)
+    const parsePrice = (priceStr: string | number) => {
+      if (typeof priceStr === 'number') return priceStr;
+      return parseFloat(priceStr.toString().replace(/[^0-9.]/g, '')) || 0;
+    };
+    
+    const discountedPrice = parsePrice(item.discounted_price || item.sale_price || item.price || 0);
+    const regularPrice = parsePrice(item.currency_price || item.regular_price || item.original_price || discountedPrice);
+
+    return (
+      <TouchableOpacity 
+        style={styles.card} 
+        onPress={() => router.push({
+          pathname: '/ProductDetail',
+          params: { slug }
+        })} 
+        activeOpacity={0.9}
+      >
+        <View style={styles.imageWrapper}>
+          <Image source={{ uri: imageUrl }} style={styles.image} />
+        </View>
+        <View style={styles.cardBody}>
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+          <View style={styles.priceContainer}>
+            <Text style={styles.price}>${discountedPrice.toFixed(2)}</Text>
+            {regularPrice > discountedPrice && (
+              <Text style={styles.originalPrice}>${regularPrice.toFixed(2)}</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const ListHeader = (
     <View style={styles.stickyHeaderContent}>
@@ -169,21 +236,59 @@ export default function ProductListScreen() {
             value={localSearchQuery}
             onChangeText={setLocalSearchQuery}
             returnKeyType="search"
+            onSubmitEditing={() => {
+              if (localSearchQuery.trim()) {
+                router.setParams({ name: localSearchQuery.trim() });
+              }
+            }}
           />
+          {localSearchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setLocalSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      <FlatList
-        data={productData}
-        renderItem={renderCard}
-        keyExtractor={(item) => item.id}
-        numColumns={NUM_COLUMNS}
-        columnWrapperStyle={styles.columnWrapper}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={ListHeader}
-        stickyHeaderIndices={[0]}
-        showsVerticalScrollIndicator={false}
-      />
+      {isLoading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+          <Text style={styles.loadingText}>Loading products...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centerContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton} 
+            onPress={() => {
+              setIsLoading(true);
+              setError(null);
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          renderItem={renderCard}
+          keyExtractor={(item, index) => item.id?.toString() || item.slug || index.toString()}
+          numColumns={NUM_COLUMNS}
+          columnWrapperStyle={products.length > 0 ? styles.columnWrapper : undefined}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={64} color="#CCC" />
+              <Text style={styles.emptyText}>No products found</Text>
+              <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
+            </View>
+          }
+          stickyHeaderIndices={[0]}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
       <FilterBottomSheet
         visible={filterVisible}
         onClose={() => setFilterVisible(false)}
@@ -338,11 +443,66 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginBottom: 6,
   },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
   price: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0B8457',
-    marginBottom: 10,
+  },
+  originalPrice: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'line-through',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#FF3B30',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    backgroundColor: '#1E88E5',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  emptySubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#999',
   },
   cartButton: {
     position: 'absolute',
