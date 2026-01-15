@@ -1,23 +1,61 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
+// Basic API configuration derived from api.json
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost';
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
+const LOCALE = 'en';
+
 type AuthMode = 'login' | 'register' | 'forgot';
+
+type Json = Record<string, any>;
+
+async function jsonFetch(path: string, method: 'GET' | 'POST', body?: Json) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (API_KEY) headers['x-api-key'] = API_KEY;
+  if (LOCALE) headers['Accept-Language'] = LOCALE;
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    const msg = data?.message || data?.error || `Request failed (${res.status})`;
+    throw new Error(typeof msg === 'string' ? msg : 'Request failed');
+  }
+  return data;
+}
 
 export default function AuthScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>('login');
+  const [loading, setLoading] = useState(false);
   
   // Login states
   const [loginEmail, setLoginEmail] = useState('');
@@ -30,24 +68,51 @@ export default function AuthScreen() {
   const [registerPhone, setRegisterPhone] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+  const [registerOtp, setRegisterOtp] = useState('');
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Forgot password states
   const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotPassword, setForgotPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!loginEmail || !loginPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    // Implement login logic here
-    Alert.alert('Success', 'Login successful!');
-    router.push('/');
+    try {
+      setLoading(true);
+      const data = await jsonFetch('/api/auth/login', 'POST', {
+        email: loginEmail,
+        password: loginPassword,
+      });
+      
+      // Store tokens
+      if (data?.token) {
+        await AsyncStorage.setItem('access_token', data.token);
+      }
+      if (data?.refresh_token) {
+        await AsyncStorage.setItem('refresh_token', data.refresh_token);
+      }
+
+      if (data?.user) {
+        await AsyncStorage.setItem('user_profile', JSON.stringify(data.user));
+      }
+      
+      Alert.alert('Success', 'Login successful!');
+      router.push('/');
+    } catch (err: any) {
+      Alert.alert('Login failed', err?.message || 'Unable to login');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRegister = () => {
-    if (!registerName || !registerEmail || !registerPhone || !registerPassword || !registerConfirmPassword) {
+  const handleRegister = async () => {
+    if (!registerName || !registerEmail || !registerPhone || !registerPassword || !registerConfirmPassword || !registerOtp) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -55,19 +120,58 @@ export default function AuthScreen() {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-    // Implement register logic here
-    Alert.alert('Success', 'Registration successful!');
-    setMode('login');
+    try {
+      setLoading(true);
+      const data = await jsonFetch('/api/auth/signup/register', 'POST', {
+        name: registerName,
+        email: registerEmail,
+        phone: registerPhone,
+        password: registerPassword,
+        password_confirmation: registerConfirmPassword,
+        otp: registerOtp,
+      });
+      
+      // Store tokens if provided
+      if (data?.token) {
+        await AsyncStorage.setItem('access_token', data.token);
+      }
+      if (data?.refresh_token) {
+        await AsyncStorage.setItem('refresh_token', data.refresh_token);
+      }
+      
+      Alert.alert('Success', 'Registration successful! Please login.');
+      setMode('login');
+    } catch (err: any) {
+      Alert.alert('Registration failed', err?.message || 'Unable to register');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleForgotPassword = () => {
-    if (!forgotEmail) {
-      Alert.alert('Error', 'Please enter your email');
+  const handleForgotPassword = async () => {
+    if (!forgotEmail || !forgotOtp || !forgotPassword || !forgotConfirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    // Implement forgot password logic here
-    Alert.alert('Success', 'Password reset link sent to your email!');
-    setMode('login');
+    if (forgotPassword !== forgotConfirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    try {
+      setLoading(true);
+      await jsonFetch('/api/auth/forgot-password/reset-password', 'POST', {
+        email: forgotEmail,
+        otp: forgotOtp,
+        password: forgotPassword,
+        password_confirmation: forgotConfirmPassword,
+      });
+      Alert.alert('Success', 'Password reset successful! Please login.');
+      setMode('login');
+    } catch (err: any) {
+      Alert.alert('Reset failed', err?.message || 'Unable to reset password');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -156,8 +260,12 @@ export default function AuthScreen() {
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-              <Text style={styles.primaryButtonText}>Login</Text>
+            <TouchableOpacity style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} onPress={handleLogin} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Login</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -256,8 +364,28 @@ export default function AuthScreen() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
-              <Text style={styles.primaryButtonText}>Register</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>OTP</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="key-outline" size={20} color="#999" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter the OTP"
+                  placeholderTextColor="#999"
+                  value={registerOtp}
+                  onChangeText={setRegisterOtp}
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} onPress={handleRegister} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Register</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -267,7 +395,7 @@ export default function AuthScreen() {
           <View style={styles.formContainer}>
             <Text style={styles.forgotTitle}>Reset Password</Text>
             <Text style={styles.forgotSubtitle}>
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email, OTP and new password to reset your password.
             </Text>
 
             <View style={styles.inputGroup}>
@@ -286,8 +414,60 @@ export default function AuthScreen() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleForgotPassword}>
-              <Text style={styles.primaryButtonText}>Send Reset Link</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>OTP</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="key-outline" size={20} color="#999" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter the OTP"
+                  placeholderTextColor="#999"
+                  value={forgotOtp}
+                  onChangeText={setForgotOtp}
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>New Password</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter new password"
+                  placeholderTextColor="#999"
+                  value={forgotPassword}
+                  onChangeText={setForgotPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirm New Password</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm new password"
+                  placeholderTextColor="#999"
+                  value={forgotConfirmPassword}
+                  onChangeText={setForgotConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} onPress={handleForgotPassword} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Send Reset</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setMode('login')} style={styles.backButton}>
@@ -424,6 +604,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.7,
   },
   primaryButtonText: {
     fontSize: 16,

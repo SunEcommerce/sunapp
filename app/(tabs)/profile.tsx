@@ -60,12 +60,13 @@ export default function TabTwoScreen() {
   const separatorColor = themeColors.icon; // Use theme's icon color for separator
   const navigation = useNavigation();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   const router = useRouter();
   useEffect(() => {
     const checkLogin = async () => {
       try {
-        const token = await AsyncStorage.getItem('user_token'); // adjust key to your auth token key
+        const token = await AsyncStorage.getItem('access_token'); // adjust key to your auth token key
         setIsLoggedIn(!!token);
       } catch (e) {
         setIsLoggedIn(false);
@@ -74,7 +75,22 @@ export default function TabTwoScreen() {
     checkLogin();
   }, []);
 
-  if (isLoggedIn === null) return <></>;
+  if (isLoggedIn !== null || !isLoggedIn) {
+    useEffect(() => {
+      const fetchUserProfile = async () => {
+        try {
+          const profileString = await AsyncStorage.getItem('user_profile');
+          if (profileString) {
+            const profile = JSON.parse(profileString);
+            setUserProfile(profile);
+          }
+        } catch (e) {
+          console.error('Failed to load user profile:', e);
+        }
+      };
+      fetchUserProfile();
+    }, []);
+  }
 
   const menuItems = [
     {
@@ -130,6 +146,18 @@ export default function TabTwoScreen() {
     </TouchableOpacity>
   );
 
+  async function handleLogout() {
+    try {
+      await AsyncStorage.removeItem('access_token');
+      await AsyncStorage.removeItem('refresh_token');
+      await AsyncStorage.removeItem('user_profile');
+      setIsLoggedIn(false);
+      router.push('/Auth');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  }
+
   return (
     <ThemedView style={styles.safeArea}>
       <ThemedView>
@@ -141,19 +169,19 @@ export default function TabTwoScreen() {
         ></LinearGradient>
 
         <View style={styles.profileCard}>
-          {!isLoggedIn ? (
+          {isLoggedIn ? (
             <>
               <Image
-                source={{ uri: 'https://i.pravatar.cc/150?img=47' }}
+                source={{ uri: userProfile != null ? userProfile.image : 'https://i.pravatar.cc/150?img=47' }}
                 style={styles.avatar}
               />
 
               <View style={styles.detailsContainer}>
                 <Text style={styles.nameText}>
-                  Janet Walker <Text style={styles.verifyTag}>(Verify)</Text>
+                  {userProfile != null ? userProfile.name : ''} <Text style={styles.verifyTag}>(Verify)</Text>
                 </Text>
                 <View style={styles.phoneContainer}>
-                  <Text style={styles.phoneText}>+959 760 452 856</Text>
+                  <Text style={styles.phoneText}>{userProfile != null ? userProfile.country_code+' '+userProfile.phone : ''}</Text>
                 </View>
               </View>
 
@@ -178,17 +206,17 @@ export default function TabTwoScreen() {
 
               <View style={styles.authButtonsRow}>
                 <TouchableOpacity
-                  style={[styles.authButton, styles.registerButton]}
-                  onPress={() => navigation.navigate('Auth' as never)}
-                >
-                  <Text style={styles.authButtonText}>Register</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
                   style={[styles.authButton, styles.loginButton]}
                   onPress={() => navigation.navigate('Auth' as never)}
                 >
                   <Text style={styles.loginButtonText}>Login</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.authButton, styles.registerButton]}
+                  onPress={() => navigation.navigate('Auth' as never)}
+                >
+                  <Text style={styles.authButtonText}>Register</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -210,13 +238,13 @@ export default function TabTwoScreen() {
                 borderColor={separatorColor}
               />
             ))}
-            {!isLoggedIn ? (
+            {isLoggedIn ? (
             <MenuItem
                 key={menuItems.length}
                 iconName="log-out-outline"
                 label="Logout"
                 color="#E95757" // Keep specific red for logout
-                onPress={() => router.push('/Auth')}
+                onPress={() => handleLogout()}
                 borderColor={separatorColor}
               />
             ):<></>}
