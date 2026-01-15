@@ -1,6 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
+import { fetchSlider } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -19,13 +20,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Sample data for banners
-const BANNERS = [
-  { id: '1', image: 'https://placehold.co/800x300/png?text=Banner+11' },
-  { id: '2', image: 'https://placehold.co/800x300/png?text=Banner+22' },
-  { id: '3', image: 'https://placehold.co/800x300/png?text=Banner+33' },
-];
 
 // Sample data for categories
 const CATEGORIES = [
@@ -109,11 +103,40 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [sliderData, setSliderData] = useState<any[]>([]);
+  const [isLoadingSlider, setIsLoadingSlider] = useState(true);
+  const [sliderError, setSliderError] = useState<string | null>(null);
+
+  // Fetch slider data from API
+  useEffect(() => {
+    const loadSlider = async () => {
+      try {
+        setIsLoadingSlider(true);
+        setSliderError(null);
+        const response = await fetchSlider();
+        
+        // Handle different possible response structures
+        const slides = response?.data || response?.sliders || response || [];
+        setSliderData(slides);
+      } catch (error) {
+        console.error('Failed to fetch slider:', error);
+        setSliderError(error instanceof Error ? error.message : 'Failed to load banners');
+        // Keep empty array to show nothing instead of breaking the UI
+        setSliderData([]);
+      } finally {
+        setIsLoadingSlider(false);
+      }
+    };
+
+    loadSlider();
+  }, []);
 
   useEffect(() => {
+    if (sliderData.length === 0) return;
+    
     const interval = setInterval(() => {
       setCurrentIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % BANNERS.length;
+        const nextIndex = (prevIndex + 1) % sliderData.length;
         flatListRef.current?.scrollToOffset({
           offset: nextIndex * SCREEN_WIDTH,
           animated: true,
@@ -123,7 +146,7 @@ export default function HomeScreen() {
     }, 3000); // Change banner every 3 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [sliderData]);
 
   const handleCartPress = () => {
     router.push('/(tabs)/cart');
@@ -158,9 +181,12 @@ export default function HomeScreen() {
     setShowCategoryDropdown(false);
   };
 
-  const renderBannerItem = ({ item }: { item: typeof BANNERS[0] }) => (
+  const renderBannerItem = ({ item }: { item: any }) => (
     <View style={styles.bannerItem}>
-      <Image source={{ uri: item.image }} style={styles.bannerImage} />
+      <Image 
+        source={{ uri: item.image || item.image_url || item.url }} 
+        style={styles.bannerImage} 
+      />
     </View>
   );
 
@@ -203,7 +229,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: Colors[colorScheme].background }]}>
         <View style={styles.logoPlaceholder}>
-          <Ionicons name="storefront" size={32} color={Colors[colorScheme].tint} />
+          {/* <Ionicons name="storefront" size={32} color={Colors[colorScheme].tint} /> */}
           <Text style={[styles.logoText, { color: Colors[colorScheme].text }]}>SunApp</Text>
         </View>
         
@@ -296,18 +322,29 @@ export default function HomeScreen() {
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
         {/* Banner Slider */}
         <View style={styles.bannerContainer}>
-          <FlatList
-            ref={flatListRef}
-            data={BANNERS}
-            renderItem={renderBannerItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            scrollEventThrottle={16}
-            decelerationRate="fast"
-            contentContainerStyle={styles.bannerList}
-          />
+          {isLoadingSlider ? (
+            <View style={[styles.bannerItem, styles.loadingContainer]}>
+              <Text style={{ color: Colors[colorScheme].text }}>Loading banners...</Text>
+            </View>
+          ) : sliderError ? (
+            <View style={[styles.bannerItem, styles.errorContainer]}>
+              <Ionicons name="alert-circle-outline" size={32} color={Colors[colorScheme].text} />
+              <Text style={{ color: Colors[colorScheme].text, marginTop: 8 }}>{sliderError}</Text>
+            </View>
+          ) : sliderData.length > 0 ? (
+            <FlatList
+              ref={flatListRef}
+              data={sliderData}
+              renderItem={renderBannerItem}
+              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              scrollEventThrottle={16}
+              decelerationRate="fast"
+              contentContainerStyle={styles.bannerList}
+            />
+          ) : null}
         </View>
 
         {/* Category Section */}
@@ -519,6 +556,16 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 0,
     resizeMode: 'cover',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 200,
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 200,
   },
   sectionContainer: {
     marginTop: 24,
