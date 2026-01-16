@@ -40,6 +40,7 @@ export default function CartScreen() {
   const uniqueItemCount = items.length;
 
   const handleRemoveItem = (id: string, name: string) => {
+    removeFromCart(id)
     Alert.alert(
       'Remove Item',
       `Remove ${name} from cart?`,
@@ -161,11 +162,13 @@ export default function CartScreen() {
                   <View style={styles.itemInfo}>
                     <ThemedText style={styles.productName}>{item.name}</ThemedText>
                     <ThemedText style={styles.productSku}>
-                      SKU: {item.productId}
-                      {item.variant?.color && `, ${item.variant.color}`}
-                      {item.variant?.storage && `, ${item.variant.storage}`}
+                      SKU: {item.sku}
                     </ThemedText>
-                    <ThemedText style={styles.stockStatus}>In Stock</ThemedText>
+                    {item.variation_names && (
+                      <ThemedText style={styles.productVariant}>
+                        {item.variation_names}
+                      </ThemedText>
+                    )}
                   </View>
                   
                   <TouchableOpacity 
@@ -350,6 +353,11 @@ const styles = StyleSheet.create({
   productSku: {
     fontSize: 12,
     color: '#666',
+  },
+  productVariant: {
+    fontSize: 12,
+    color: '#2196F3',
+    fontWeight: '500',
   },
   stockStatus: {
     fontSize: 12,

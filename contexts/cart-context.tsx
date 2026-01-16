@@ -1,5 +1,8 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+
+const CART_STORAGE_KEY = '@cart_items';
 
 export type CartItem = {
   id: string;
@@ -8,7 +11,18 @@ export type CartItem = {
   price: number;
   quantity: number;
   image: string;
+  item_type: string;
+  item_id: number | string;
+  sku: string;
+  discount: number;
+  tax: number;
+  subtotal: number;
+  total: number;
+  variation_names: string;
   variant?: {
+    variationId?: number;
+    variationNames?: string;
+    sku?: string;
     color?: string;
     storage?: string;
     size?: string;
@@ -30,17 +44,53 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load cart from storage on mount
+  useEffect(() => {
+    loadCartFromStorage();
+  }, []);
+
+  // Save cart to storage whenever items change (after initial load)
+  useEffect(() => {
+    if (isLoaded) {
+      saveCartToStorage();
+    }
+  }, [items, isLoaded]);
+
+  const loadCartFromStorage = async () => {
+    try {
+      const storedCart = await AsyncStorage.getItem(CART_STORAGE_KEY);
+      if (storedCart) {
+        const parsedCart = JSON.parse(storedCart);
+        setItems(parsedCart);
+      }
+    } catch (error) {
+      console.error('Failed to load cart from storage:', error);
+    } finally {
+      setIsLoaded(true);
+    }
+  };
+
+  const saveCartToStorage = async () => {
+    try {
+      await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.error('Failed to save cart to storage:', error);
+    }
+  };
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const addToCart = (newItem: Omit<CartItem, 'id'>) => {
+    console.log('Adding to cart:', newItem);
     setItems((prevItems) => {
       // Check if item with same product and variant exists
       const existingIndex = prevItems.findIndex(
         (item) =>
           item.productId === newItem.productId &&
-          JSON.stringify(item.variant) === JSON.stringify(newItem.variant)
+          JSON.stringify(item.item_id) === JSON.stringify(newItem.item_id)
       );
 
       if (existingIndex >= 0) {

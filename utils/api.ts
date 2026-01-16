@@ -257,7 +257,7 @@ export async function fetchProducts(params?: {
  * Fetch product details by ID
  */
 export async function fetchProductDetails(productSlug: string): Promise<any> {
-  return await apiRequest(`/api/frontend/product/show/${productSlug}`, 'GET', undefined, false);
+  return await apiRequest(`/api/frontend/product/show/${productSlug}`, 'GET', undefined, true);
 }
 
 /**
@@ -303,6 +303,235 @@ export async function fetchVariationAncestorsString(productId: string | number, 
   return await apiRequest(`/api/frontend/product/variation/ancestors-and-self/${variationId}`, 'GET', undefined, false);
 }
 
-// export async function fetchProducts(query: string): Promise<any> {
-//   return await apiRequest(`/api/frontend/products?${query}`, 'GET', undefined, false);
-// }
+export async function postWishlistToggle(productId: string | number, toggle: boolean): Promise<any> {
+  return await apiRequest(`/api/frontend/wishlist/toggle`, 'POST', { product_id: productId, toggle }, true);
+}
+
+export async function fetchWishlist(): Promise<any> {
+  return await apiRequest('/api/frontend/wishlist', 'GET', undefined, true);
+}
+
+// ==================== Order & Checkout API Endpoints ====================
+
+/**
+ * Fetch available coupons
+ */
+export async function fetchCoupons(page: number = 1, perPage: number = 15): Promise<any> {
+  return await apiRequest(`/api/frontend/coupon?page=${page}&per_page=${perPage}`, 'GET', undefined, false);
+}
+
+/**
+ * Validate coupon code
+ */
+export async function validateCoupon(couponCode: string, subtotal: number, userId?: number): Promise<any> {
+  return await apiRequest(
+    '/api/frontend/coupon/coupon-checking',
+    'POST',
+    {
+      coupon_code: couponCode,
+      subtotal,
+      user_id: userId,
+    },
+    false
+  );
+}
+
+/**
+ * Fetch payment gateways
+ */
+export async function fetchPaymentGateways(): Promise<any> {
+  return await apiRequest('/api/frontend/payment-gateway', 'GET', undefined, false);
+}
+
+/**
+ * Fetch order areas (delivery zones)
+ */
+export async function fetchOrderAreas(): Promise<any> {
+  return await apiRequest('/api/frontend/order-area', 'GET', undefined, false);
+}
+
+/**
+ * Create order (checkout)
+ */
+export async function createOrder(orderData: {
+  address_id: number;
+  delivery_type: number;
+  order_type: number;
+  payment_method: number;
+  coupon_code?: string;
+  subtotal: number;
+  discount: number;
+  shipping_charge: number;
+  tax: number;
+  total: number;
+  note?: string;
+  products: Array<{
+    product_id: number;
+    variation_id?: number | null;
+    quantity: number;
+    price: number;
+    subtotal: number;
+  }>;
+}): Promise<any> {
+  // Convert products array to JSON string for backend
+  const requestData = {
+    ...orderData,
+    products: JSON.stringify(orderData.products),
+  };
+  return await apiRequest('/api/frontend/order', 'POST', requestData, true);
+}
+
+/**
+ * Fetch user orders
+ */
+export async function fetchOrders(params?: {
+  page?: number;
+  per_page?: number;
+  order_column?: string;
+  order_type?: string;
+  status?: string;
+}): Promise<any> {
+  const queryParams = new URLSearchParams();
+  
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
+  if (params?.order_column) queryParams.append('order_column', params.order_column);
+  if (params?.order_type) queryParams.append('order_type', params.order_type);
+  if (params?.status) queryParams.append('status', params.status);
+  
+  const query = queryParams.toString();
+  const path = `/api/frontend/order${query ? `?${query}` : ''}`;
+  
+  return await apiRequest(path, 'GET', undefined, true);
+}
+
+/**
+ * Fetch order details
+ */
+export async function fetchOrderDetails(orderId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/order/show/${orderId}`, 'GET', undefined, true);
+}
+
+/**
+ * Change order status
+ */
+export async function changeOrderStatus(orderId: string | number, status: number, reason?: string): Promise<any> {
+  return await apiRequest(
+    `/api/frontend/order/change-status/${orderId}`,
+    'POST',
+    { status, reason },
+    true
+  );
+}
+
+// ==================== Address Management API Endpoints ====================
+
+/**
+ * Fetch user addresses
+ */
+export async function fetchAddresses(): Promise<any> {
+  return await apiRequest('/api/frontend/address', 'GET', undefined, true);
+}
+
+/**
+ * Fetch specific address details
+ */
+export async function fetchAddressDetails(addressId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/address/show/${addressId}`, 'GET', undefined, true);
+}
+
+/**
+ * Create new address
+ */
+export async function createAddress(addressData: {
+  label: string;
+  address: string;
+  apartment?: string;
+  city: string;
+  state: string;
+  country: string;
+  zip_code: string;
+  latitude?: string;
+  longitude?: string;
+  full_name?: string;
+  country_code?: string;
+  phone?: string;
+}): Promise<any> {
+  addressData.full_name = 'John Doe';
+  addressData.country_code = '+95';
+  addressData.phone = '1234567890';
+  return await apiRequest('/api/frontend/address', 'POST', addressData, true);
+}
+
+/**
+ * Update address (full update)
+ */
+export async function updateAddress(addressId: string | number, addressData: {
+  label: string;
+  address: string;
+  apartment?: string;
+  city: string;
+  state: string;
+  country: string;
+  zip_code: string;
+  latitude?: string;
+  longitude?: string;
+}): Promise<any> {
+  return await apiRequest(`/api/frontend/address/${addressId}`, 'PUT', addressData, true);
+}
+
+/**
+ * Update address (partial update)
+ */
+export async function patchAddress(addressId: string | number, addressData: Partial<{
+  label: string;
+  address: string;
+  apartment?: string;
+  city: string;
+  state: string;
+  country: string;
+  zip_code: string;
+  latitude?: string;
+  longitude?: string;
+}>): Promise<any> {
+  return await apiRequest(`/api/frontend/address/${addressId}`, 'PUT', addressData, true);
+}
+
+/**
+ * Delete address
+ */
+export async function deleteAddress(addressId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/address/${addressId}`, 'DELETE', undefined, true);
+}
+
+// ==================== Country Code API Endpoints ====================
+
+/**
+ * Fetch all country codes
+ */
+export async function fetchCountryCodes(): Promise<any> {
+  return await apiRequest('/api/frontend/country-code', 'GET', undefined, false);
+}
+
+/**
+ * Fetch specific country details
+ */
+export async function fetchCountryDetails(countryId: string | number): Promise<any> {
+  return await apiRequest(`/api/frontend/country-code/show/${countryId}`, 'GET', undefined, false);
+}
+
+/**
+ * Fetch country by calling code
+ */
+export async function fetchCountryByCallingCode(callingCode: string): Promise<any> {
+  return await apiRequest(`/api/frontend/country-code/calling-code/${callingCode}`, 'GET', undefined, false);
+}
+
+// ==================== Settings API Endpoints ====================
+
+/**
+ * Fetch frontend settings
+ */
+export async function fetchSettings(): Promise<any> {
+  return await apiRequest('/api/frontend/setting', 'GET', undefined, false);
+}

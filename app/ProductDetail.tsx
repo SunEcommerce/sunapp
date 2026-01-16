@@ -1,5 +1,5 @@
 import { useCart } from '@/contexts/cart-context';
-import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, fetchVariationAncestorsString } from '@/utils/api';
+import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, fetchVariationAncestorsString, postWishlistToggle } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -210,9 +210,6 @@ export default function ProductDetailScreen() {
         // No children - this is the final variation (leaf node)
         setCurrentVariation(variation);
         
-        // Enable add to cart only if variation has stock
-        setEnableAddToCart(variation.stock > 0);
-        
         // Fetch and set variation names for display
         try {
           const namesResponse = await fetchVariationAncestorsString(product.id, variation.id);
@@ -221,6 +218,9 @@ export default function ProductDetailScreen() {
         } catch (err) {
           console.error('Failed to fetch variation names:', err);
         }
+        
+        // Enable add to cart only if variation has stock
+        setEnableAddToCart(variation.stock > 0);
         
         // Clear options after this level since no more children
         const newOptions = { ...availableOptions };
@@ -246,18 +246,26 @@ export default function ProductDetailScreen() {
     }
     
     const finalVariation = currentVariation || product;
+    const itemPrice = getCurrentPrice();
+    const itemDiscount = 0; // Calculate discount if applicable
+    const itemSubtotal = itemPrice * quantity;
+    const itemTax = 0; // Calculate tax if applicable
+    const itemTotal = itemSubtotal - itemDiscount + itemTax;
     
     addToCart({
-      productId: (currentVariation?.id || product.id)?.toString() || product.sku || '',
+      productId: product.id?.toString() || product.sku || '',
       name: product.name || 'Product',
-      price: getCurrentPrice(),
+      price: itemPrice,
       quantity: quantity,
       image: mainImage,
-      variant: currentVariation ? { 
-        variationId: currentVariation.id,
-        variationNames: variationNames,
-        sku: currentVariation.sku 
-      } : {},
+      item_type: currentVariation ? 'ProductVariation' : 'Product',
+      item_id: currentVariation ? currentVariation.id : product.id,
+      sku: currentVariation?.sku || product.sku || '',
+      discount: itemDiscount,
+      tax: itemTax,
+      subtotal: itemSubtotal,
+      total: itemTotal,
+      variation_names: variationNames?? '',
     });
     
     // Reset after adding to cart
@@ -300,6 +308,24 @@ export default function ProductDetailScreen() {
     return product.is_offer || product.flash_sale || false;
   };
 
+  const handleToggleFavorite = async () => {
+    if (!product?.id) return;
+    
+    const previousState = favorite;
+    // Optimistically update UI
+    setFavorite(!favorite);
+    
+    try {
+      await postWishlistToggle(product.id, !favorite);
+      // Successfully toggled on backend
+    } catch (err) {
+      console.error('Failed to toggle wishlist:', err);
+      // Revert on error
+      setFavorite(previousState);
+      // Optionally show error message to user
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -310,7 +336,7 @@ export default function ProductDetailScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {product.name}
         </Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => setFavorite(!favorite)}>
+        <TouchableOpacity style={styles.headerButton} onPress={handleToggleFavorite}>
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color={favorite ? '#E53935' : '#111'} />
         </TouchableOpacity>
       </View>
@@ -518,7 +544,7 @@ export default function ProductDetailScreen() {
         >
           <Ionicons name="cart" size={20} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.addToCartText}>
-            {getCurrentStock() === 0 ? 'Out of Stock' : Object.keys(availableOptions).length > 0 && !currentVariation ? 'Select Options' : 'Add to Cart'}
+            { !variationNames && variations.length > 0 ? 'Select Options' : getCurrentStock() === 0 ? 'Out of Stock' : 'Add to Cart' }
           </Text>
         </TouchableOpacity>
       </View>

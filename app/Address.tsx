@@ -1,23 +1,39 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import {
+  createAddress,
+  deleteAddress,
+  fetchAddresses,
+  updateAddress,
+} from '@/utils/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Address = {
-  id: string;
-  name: string;
+  id: number;
+  full_name: string;
+  country_code: string;
   phone: string;
   address: string;
-  isDefault: boolean;
+  city: string;
+  state: string;
+  country: string;
+  zip_code: string;
+  latitude?: string;
+  longitude?: string;
+  isDefault?: boolean;
 };
 
 export default function AddressScreen() {
@@ -25,68 +41,363 @@ export default function AddressScreen() {
   const params = useLocalSearchParams();
   const fromCheckout = params.fromCheckout === 'true';
 
-  // Sample addresses (in real app, fetch from user profile/database)
-  const [addresses, setAddresses] = useState<Address[]>([
-    {
-      id: '1',
-      name: 'John Doe',
-      phone: '+95 9 123 456 789',
-      address: '123 Main Street, Yangon, Myanmar',
-      isDefault: true,
-    },
-    {
-      id: '2',
-      name: 'John Doe',
-      phone: '+95 9 987 654 321',
-      address: '456 Second Avenue, Mandalay, Myanmar',
-      isDefault: false,
-    },
-  ]);
+  // State
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const [defaultAddressId, setDefaultAddressId] = useState<number | null>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    full_name: '',
+    country_code: '+95',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    country: '',
+    zip_code: '',
+  });
 
-  const handleAddAddress = () => {
-    // Navigate to add address form (to be created)
-    Alert.alert('Add Address', 'Navigate to Add Address Form');
-  };
+  // Load addresses on mount
+  useEffect(() => {
+    loadDefaultAddressId();
+    loadAddresses();
+  }, []);
 
-  const handleSelectAddress = (address: Address) => {
-    if (fromCheckout) {
-      // Return to Checkout with selected address
-      router.back();
-      // In real app, you would pass the selected address via state management or params
-      // For now, we'll use router.setParams or a global state
-      router.setParams({ selectedAddressId: address.id });
+  const loadDefaultAddressId = async () => {
+    try {
+      const storedId = await AsyncStorage.getItem('default_address_id');
+      if (storedId) {
+        setDefaultAddressId(parseInt(storedId));
+      }
+    } catch (error) {
+      console.error('Failed to load default address ID:', error);
     }
   };
 
-  const handleEditAddress = (id: string) => {
-    Alert.alert('Edit Address', `Edit address ${id}`);
+  const loadAddresses = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetchAddresses();
+      const addressList = response?.data || [];
+      
+      // Mark default address based on storage
+      const defaultId = defaultAddressId || (await AsyncStorage.getItem('default_address_id'));
+      const markedAddresses = addressList.map((addr: Address) => ({
+        ...addr,
+        isDefault: defaultId ? addr.id === parseInt(defaultId) : false,
+      }));
+      
+      setAddresses(markedAddresses);
+    } catch (error: any) {
+      console.error('Failed to load addresses:', error);
+      Alert.alert('Error', error.message || 'Failed to load addresses');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteAddress = (id: string, name: string) => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadAddresses();
+    setIsRefreshing(false);
+  };
+
+  const handleAddAddress = () => {
+    setFormData({
+      full_name: '',
+      country_code: '+95',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      country: '',
+      zip_code: '',
+    });
+    setEditingAddress(null);
+    setShowAddForm(true);
+  };
+
+  const handleSubmitAddress = async () => {
+    // Validation
+    if (!formData.full_name.trim()) {
+      Alert.alert('Error', 'Please enter the receiver\'s name');
+      return;
+    }
+    if (!formData.phone.trim()) {
+      Alert.alert('Error', 'Please enter the phone number');
+      return;
+    }
+    if (!formData.address.trim()) {
+      Alert.alert('Error', 'Please enter the address');
+      return;
+    }
+    if (!formData.city.trim()) {
+      Alert.alert('Error', 'Please enter the city');
+      return;
+    }
+    if (!formData.state.trim()) {
+      Alert.alert('Error', 'Please enter the state');
+      return;
+    }
+    if (!formData.country.trim()) {
+      Alert.alert('Error', 'Please enter the country');
+      return;
+    }
+    if (!formData.zip_code.trim()) {
+      Alert.alert('Error', 'Please enter the zip code');
+      return;
+    }
+
+    try {
+      if (editingAddress) {
+        // Update existing address
+        await updateAddress(editingAddress.id, formData);
+        Alert.alert('Success', 'Address updated successfully');
+      } else {
+        // Create new address
+        await createAddress(formData);
+        Alert.alert('Success', 'Address added successfully');
+      }
+      
+      setShowAddForm(false);
+      setEditingAddress(null);
+      await loadAddresses();
+    } catch (error: any) {
+      console.error('Failed to save address:', error);
+      Alert.alert('Error', error.message || 'Failed to save address');
+    }
+  };
+
+  const handleCancelForm = () => {
+    setShowAddForm(false);
+    setEditingAddress(null);
+    setFormData({
+      full_name: '',
+      country_code: '+95',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      country: '',
+      zip_code: '',
+    });
+  };
+
+  const handleSelectAddress = async (address: Address) => {
+    if (fromCheckout) {
+      // Save selected address to storage
+      await AsyncStorage.setItem('selected_address_id', address.id.toString());
+      // Return to Checkout
+      router.back();
+    }
+  };
+
+  const handleEditAddress = (address: Address) => {
+    setFormData({
+      full_name: address.full_name || '',
+      country_code: address.country_code || '+95',
+      phone: address.phone || '',
+      address: address.address,
+      city: address.city,
+      state: address.state,
+      country: address.country,
+      zip_code: address.zip_code,
+    });
+    setEditingAddress(address);
+    setShowAddForm(true);
+  };
+
+  const handleDeleteAddress = (id: number, fullName: string) => {
     Alert.alert(
       'Delete Address',
-      `Delete address for ${name}?`,
+      `Delete address for ${fullName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setAddresses(addresses.filter((addr) => addr.id !== id));
+          onPress: async () => {
+            try {
+              await deleteAddress(id);
+              Alert.alert('Success', 'Address deleted successfully');
+              await loadAddresses();
+            } catch (error: any) {
+              console.error('Failed to delete address:', error);
+              Alert.alert('Error', error.message || 'Failed to delete address');
+            }
           },
         },
       ]
     );
   };
 
-  const handleSetDefault = (id: string) => {
-    setAddresses(
-      addresses.map((addr) => ({
-        ...addr,
-        isDefault: addr.id === id,
-      }))
-    );
+  const handleSetDefault = async (address: Address) => {
+    try {
+      // Store default address ID in AsyncStorage
+      await AsyncStorage.setItem('default_address_id', address.id.toString());
+      setDefaultAddressId(address.id);
+      
+      // Update local state to mark as default
+      setAddresses(
+        addresses.map((addr) => ({
+          ...addr,
+          isDefault: addr.id === address.id,
+        }))
+      );
+      Alert.alert('Success', 'Default address updated');
+    } catch (error: any) {
+      console.error('Failed to set default address:', error);
+      Alert.alert('Error', error.message || 'Failed to set default address');
+    }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>My Addresses</ThemedText>
+          <View style={styles.headerRight} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196F3" />
+          <ThemedText style={styles.loadingText}>Loading addresses...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  // Address form modal
+  if (showAddForm) {
+    return (
+      <ThemedView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleCancelForm} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>
+            {editingAddress ? 'Edit Address' : 'Add New Address'}
+          </ThemedText>
+          <View style={styles.headerRight} />
+        </View>
+
+        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.formSection}>
+            <ThemedText style={styles.formLabel}>Receiver's Name *</ThemedText>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Full name of the person receiving"
+              placeholderTextColor="#999"
+              value={formData.full_name}
+              onChangeText={(text) => setFormData({ ...formData, full_name: text })}
+            />
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={[styles.formSection, { width: 100 }]}>
+              <ThemedText style={styles.formLabel}>Code</ThemedText>
+              <TextInput
+                style={[styles.formInput, styles.formInputDisabled]}
+                value={formData.country_code}
+                editable={false}
+              />
+            </View>
+
+            <View style={[styles.formSection, { flex: 1 }]}>
+              <ThemedText style={styles.formLabel}>Phone Number *</ThemedText>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Phone number"
+                placeholderTextColor="#999"
+                value={formData.phone}
+                onChangeText={(text) => {
+                  // Only allow digits and may start with zero
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  setFormData({ ...formData, phone: cleaned });
+                }}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <View style={styles.formSection}>
+            <ThemedText style={styles.formLabel}>Address *</ThemedText>
+            <TextInput
+              style={[styles.formInput, styles.formInputMultiline]}
+              placeholder="Street address"
+              placeholderTextColor="#999"
+              value={formData.address}
+              onChangeText={(text) => setFormData({ ...formData, address: text })}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
+          <View style={styles.formSection}>
+            <ThemedText style={styles.formLabel}>City *</ThemedText>
+            <TextInput
+              style={styles.formInput}
+              placeholder="City name"
+              placeholderTextColor="#999"
+              value={formData.city}
+              onChangeText={(text) => setFormData({ ...formData, city: text })}
+            />
+          </View>
+
+          <View style={styles.formRow}>
+            <View style={[styles.formSection, styles.formSectionHalf]}>
+              <ThemedText style={styles.formLabel}>State *</ThemedText>
+              <TextInput
+                style={styles.formInput}
+                placeholder="State"
+                placeholderTextColor="#999"
+                value={formData.state}
+                onChangeText={(text) => setFormData({ ...formData, state: text })}
+              />
+            </View>
+
+            <View style={[styles.formSection, styles.formSectionHalf]}>
+              <ThemedText style={styles.formLabel}>Zip Code *</ThemedText>
+              <TextInput
+                style={styles.formInput}
+                placeholder="Zip code"
+                placeholderTextColor="#999"
+                value={formData.zip_code}
+                onChangeText={(text) => setFormData({ ...formData, zip_code: text })}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <View style={styles.formSection}>
+            <ThemedText style={styles.formLabel}>Country *</ThemedText>
+            <TextInput
+              style={styles.formInput}
+              placeholder="Country"
+              placeholderTextColor="#999"
+              value={formData.country}
+              onChangeText={(text) => setFormData({ ...formData, country: text })}
+            />
+          </View>
+
+          <TouchableOpacity style={styles.submitButton} onPress={handleSubmitAddress}>
+            <ThemedText style={styles.submitButtonText}>
+              {editingAddress ? 'Update Address' : 'Add Address'}
+            </ThemedText>
+          </TouchableOpacity>
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.safeArea}>
@@ -98,8 +409,6 @@ export default function AddressScreen() {
         <ThemedText style={styles.headerTitle}>My Addresses</ThemedText>
         <View style={styles.headerRight} />
       </View>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Add Address Button */}
         <TouchableOpacity
           style={styles.addAddressButton}
@@ -111,66 +420,93 @@ export default function AddressScreen() {
           </View>
         </TouchableOpacity>
 
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+      >
+
         {/* Address List */}
-        <View style={styles.addressList}>
-          {addresses.map((address) => (
-            <TouchableOpacity
-              key={address.id}
-              style={styles.addressCard}
-              onPress={() => handleSelectAddress(address)}
-              activeOpacity={fromCheckout ? 0.7 : 1}
-            >
-              <View style={styles.addressHeader}>
-                <View style={styles.addressHeaderLeft}>
-                  <ThemedText style={styles.addressName}>{address.name}</ThemedText>
-                  {address.isDefault && (
-                    <View style={styles.defaultBadge}>
-                      <ThemedText style={styles.defaultText}>Default</ThemedText>
-                    </View>
+        {addresses.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="location-outline" size={64} color="#ccc" />
+            <ThemedText style={styles.emptyText}>No addresses yet</ThemedText>
+            <ThemedText style={styles.emptySubtext}>Add your first address to get started</ThemedText>
+          </View>
+        ) : (
+          <View style={styles.addressList}>
+            {addresses.map((address) => (
+              <TouchableOpacity
+                key={address.id}
+                style={styles.addressCard}
+                onPress={() => handleSelectAddress(address)}
+                activeOpacity={fromCheckout ? 0.7 : 1}
+              >
+                <View style={styles.addressHeader}>
+                  <View style={styles.addressHeaderLeft}>
+                    <ThemedText style={styles.addressName}>{address.full_name}</ThemedText>
+                    {address.isDefault && (
+                      <View style={styles.defaultBadge}>
+                        <ThemedText style={styles.defaultText}>Default</ThemedText>
+                      </View>
+                    )}
+                  </View>
+                  {!address.isDefault && (
+                    <TouchableOpacity
+                      onPress={() => handleSetDefault(address)}
+                      style={styles.setDefaultButton}
+                    >
+                      <ThemedText style={styles.setDefaultText}>Set Default</ThemedText>
+                    </TouchableOpacity>
                   )}
                 </View>
-                {!address.isDefault && (
+
+                <View style={styles.addressBody}>
+                  <View style={styles.addressInfoRow}>
+                    <Ionicons name="call-outline" size={16} color="#666" />
+                    <ThemedText style={styles.addressText}>
+                      {address.country_code} {address.phone}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.addressInfoRow}>
+                    <Ionicons name="location-outline" size={16} color="#666" />
+                    <ThemedText style={styles.addressText}>
+                      {address.address}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.addressInfoRow}>
+                    <Ionicons name="business-outline" size={16} color="#666" />
+                    <ThemedText style={styles.addressText}>
+                      {address.city}, {address.state} {address.zip_code}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.addressInfoRow}>
+                    <Ionicons name="globe-outline" size={16} color="#666" />
+                    <ThemedText style={styles.addressText}>{address.country}</ThemedText>
+                  </View>
+                </View>
+
+                <View style={styles.addressActions}>
                   <TouchableOpacity
-                    onPress={() => handleSetDefault(address.id)}
-                    style={styles.setDefaultButton}
+                    style={styles.actionButton}
+                    onPress={() => handleEditAddress(address)}
                   >
-                    <ThemedText style={styles.setDefaultText}>Set Default</ThemedText>
+                    <Ionicons name="create-outline" size={18} color="#2196F3" />
+                    <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
                   </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.addressBody}>
-                <View style={styles.addressInfoRow}>
-                  <Ionicons name="call-outline" size={16} color="#666" />
-                  <ThemedText style={styles.addressPhone}>{address.phone}</ThemedText>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleDeleteAddress(address.id, address.full_name)}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+                    <ThemedText style={[styles.actionButtonText, styles.deleteText]}>
+                      Delete
+                    </ThemedText>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.addressInfoRow}>
-                  <Ionicons name="location-outline" size={16} color="#666" />
-                  <ThemedText style={styles.addressText}>{address.address}</ThemedText>
-                </View>
-              </View>
-
-              <View style={styles.addressActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEditAddress(address.id)}
-                >
-                  <Ionicons name="create-outline" size={18} color="#2196F3" />
-                  <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleDeleteAddress(address.id, address.name)}
-                >
-                  <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-                  <ThemedText style={[styles.actionButtonText, styles.deleteText]}>
-                    Delete
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -206,6 +542,87 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    padding: 32,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 48,
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  // Form styles
+  formContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  formSectionHalf: {
+    flex: 1,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    color: '#000',
+  },
+  formInputMultiline: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  formInputDisabled: {
+    backgroundColor: '#f0f0f0',
+    color: '#666',
+  },
+  submitButton: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  bottomSpacer: {
+    height: 40,
   },
   // Add Address Button
   addAddressButton: {
@@ -293,12 +710,9 @@ const styles = StyleSheet.create({
   },
   addressInfoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
-  },
-  addressPhone: {
-    fontSize: 14,
-    color: '#666',
+    marginBottom: 4,
   },
   addressText: {
     fontSize: 14,
