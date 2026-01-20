@@ -33,6 +33,7 @@ type Address = {
   state: string;
   country: string;
   zip_code: string;
+  label: string;
   latitude?: string;
   longitude?: string;
   isDefault?: boolean;
@@ -64,6 +65,7 @@ export default function AddressScreen() {
     state: '',
     country: '',
     zip_code: '',
+    label: '',
   });
 
   // Load addresses on mount
@@ -93,7 +95,7 @@ export default function AddressScreen() {
       const defaultId = defaultAddressId || (await AsyncStorage.getItem('default_address_id'));
       const markedAddresses = addressList.map((addr: Address) => ({
         ...addr,
-        isDefault: defaultId ? addr.id === parseInt(defaultId) : false,
+        isDefault: defaultId ? addr.id === parseInt(String(defaultId)) : false,
       }));
       
       setAddresses(markedAddresses);
@@ -121,6 +123,7 @@ export default function AddressScreen() {
       state: '',
       country: '',
       zip_code: '',
+      label: '',
     });
     setEditingAddress(null);
     setShowAddForm(true);
@@ -189,6 +192,7 @@ export default function AddressScreen() {
       state: '',
       country: '',
       zip_code: '',
+      label: '',
     });
   };
 
@@ -211,6 +215,7 @@ export default function AddressScreen() {
       state: address.state,
       country: address.country,
       zip_code: address.zip_code,
+      label: address.label || '',
     });
     setEditingAddress(address);
     setShowAddForm(true);

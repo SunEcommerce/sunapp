@@ -244,8 +244,8 @@ export default function CheckoutScreen() {
           total_tax: item.tax,
           subtotal: item.subtotal,
           total: item.total,
-          variation_id: item.item_id,
           taxes: [],
+          variation_id: item.item_id ? parseInt(item.item_id.toString()): 0,
         })),
       };
 

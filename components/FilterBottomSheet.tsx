@@ -103,7 +103,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   key={chip}
                   style={[
                     styles.chip,
-                    active ? styles.chipActive : { backgroundColor: themeColors.background, borderWidth: 1, borderColor: themeColors.border }
+                    active ? styles.chipActive : { backgroundColor: themeColors.background, borderWidth: 1, borderColor: themeColors.borderColor }
                   ]}
                   onPress={() => setCategory(chip)}
                 >
@@ -115,7 +115,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             })}
           </ScrollView>
 
-          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
 
           {/* Price Range Slider */}
           <ThemedText style={styles.sectionTitle}>Price Range</ThemedText>
@@ -128,7 +128,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               step={10}
               sliderLength={280}
               selectedStyle={{ backgroundColor: '#1E88E5' }}
-              unselectedStyle={{ backgroundColor: themeColors.border }}
+              unselectedStyle={{ backgroundColor: themeColors.borderColor }}
               markerStyle={{ backgroundColor: '#1E88E5', width: 20, height: 20, borderRadius: 10 }}
             />
             <View style={styles.sliderLabels}>
@@ -137,7 +137,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
 
           {/* Brand Selection */}
           <ThemedText style={styles.sectionTitle}>Brand</ThemedText>
@@ -160,7 +160,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             })}
           </View>
 
-          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+          <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
 
           {/* Sort By */}
           <ThemedText style={styles.sectionTitle}>Sort By</ThemedText>
@@ -187,7 +187,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
         </ScrollView>
 
         {/* Bottom Action Bar */}
-        <View style={[styles.footerBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
+        <View style={[styles.footerBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
           <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
             <ThemedText style={styles.resetText}>Reset</ThemedText>
           </TouchableOpacity>
