@@ -1,19 +1,20 @@
 import FilterBottomSheet, { Filters } from '@/components/FilterBottomSheet';
 import { fetchProducts } from '@/utils/api';
+import { navigateToProductDetail } from '@/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -167,9 +168,13 @@ export default function ProductListScreen() {
     return (
       <TouchableOpacity 
         style={styles.card} 
-        onPress={() => router.push({
-          pathname: '/ProductDetail',
-          params: { slug }
+        onPress={() => navigateToProductDetail(router, slug, {
+          name: title,
+          price: discountedPrice,
+          image: imageUrl,
+          currency_price: discountedPrice,
+          old_currency_price: regularPrice,
+          discounted_price: discountedPrice,
         })} 
         activeOpacity={0.9}
       >

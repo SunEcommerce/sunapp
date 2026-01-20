@@ -2,6 +2,7 @@ import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchBrands, fetchHotSales, fetchNewArrivals, fetchSlider } from '@/utils/api';
+import { navigateToProductDetail } from '@/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useContext, useEffect, useRef, useState } from 'react';
@@ -275,9 +276,13 @@ export default function HomeScreen() {
     return (
       <TouchableOpacity 
         style={styles.productCard} 
-        onPress={() => router.push({
-          pathname: '/ProductDetail',
-          params: { slug }
+        onPress={() => navigateToProductDetail(router, slug, {
+          name: title,
+          price: discountedPrice,
+          image: imageUrl,
+          currency_price: discountedPrice,
+          old_currency_price: regularPrice,
+          discounted_price: discountedPrice,
         })} 
         activeOpacity={0.9}
       >

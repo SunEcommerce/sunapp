@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   Image,
   SafeAreaView,
@@ -20,11 +19,15 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ProductDetailScreen() {
   const router = useRouter();
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, preloadData } = useLocalSearchParams<{ slug: string; preloadData?: string }>();
   const { addToCart } = useCart();
   
-  const [product, setProduct] = useState<any>(null);
+  // Parse preloaded data for instant display
+  const initialData = preloadData ? JSON.parse(preloadData as string) : null;
+  
+  const [product, setProduct] = useState<any>(initialData);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -48,7 +51,13 @@ export default function ProductDetailScreen() {
       }
 
       try {
-        setIsLoading(true);
+        // Only show loading if we don't have preloaded data
+        if (!initialData && preloadData == null) {
+          setIsLoading(true);
+        } else {
+          setIsLoading(false); // partially loaded from preload
+          setIsLoadingDetails(true); // but still loading full details
+        }
         setError(null);
         const response = await fetchProductDetails(slug);
         const productData = response?.data || response;
@@ -94,12 +103,13 @@ export default function ProductDetailScreen() {
         setError(err instanceof Error ? err.message : 'Failed to load product');
       } finally {
         setIsLoading(false);
+        setIsLoadingDetails(false);
       }
     };
     loadProduct();
   }, [slug]);
 
-  // Show loading state
+  // Show skeleton loading state
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -107,12 +117,45 @@ export default function ProductDetailScreen() {
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#111" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Loading...</Text>
+          <View style={{ flex: 1, height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginHorizontal: 16 }} />
           <View style={styles.headerButton} />
         </View>
-        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator size="large" color="#1E88E5" />
-          <Text style={{ marginTop: 16, color: '#666' }}>Loading product...</Text>
+        
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Skeleton Image */}
+          <View style={[styles.carouselImage, { backgroundColor: '#E0E0E0' }]} />
+          
+          {/* Skeleton Product Info */}
+          <View style={styles.infoSection}>
+            <View style={{ height: 24, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 8, width: '80%' }} />
+            <View style={{ height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 8, width: '60%' }} />
+            <View style={{ height: 16, backgroundColor: '#E0E0E0', borderRadius: 4, width: '40%' }} />
+          </View>
+          
+          {/* Skeleton Variations */}
+          <View style={styles.variantSection}>
+            <View style={{ height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 12, width: 100 }} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {[1, 2, 3].map(i => (
+                <View key={i} style={{ width: 80, height: 44, backgroundColor: '#E0E0E0', borderRadius: 8 }} />
+              ))}
+            </View>
+          </View>
+          
+          {/* Skeleton Description */}
+          <View style={[styles.variantSection, { marginTop: 8 }]}>
+            <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 10, width: 120 }} />
+            <View style={{ height: 14, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 6, width: '100%' }} />
+            <View style={{ height: 14, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 6, width: '95%' }} />
+            <View style={{ height: 14, backgroundColor: '#E0E0E0', borderRadius: 4, width: '85%' }} />
+          </View>
+        </ScrollView>
+        
+        {/* Skeleton Bottom Bar */}
+        <View style={styles.bottomBar}>
+          <View style={{ width: 80, height: 40, backgroundColor: '#E0E0E0', borderRadius: 8, marginRight: 12 }} />
+          <View style={{ width: 100, height: 40, backgroundColor: '#E0E0E0', borderRadius: 20, marginRight: 12 }} />
+          <View style={{ flex: 1, height: 44, backgroundColor: '#E0E0E0', borderRadius: 12 }} />
         </View>
       </SafeAreaView>
     );
@@ -415,6 +458,16 @@ export default function ProductDetailScreen() {
         </View>
 
         {/* Product Variations */}
+        {isLoadingDetails && Object.keys(availableOptions).length === 0 ? (
+          <View style={styles.variantSection}>
+            <View style={{ height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 12, width: 100 }} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {[1, 2, 3].map(i => (
+                <View key={i} style={{ width: 80, height: 44, backgroundColor: '#E0E0E0', borderRadius: 8 }} />
+              ))}
+            </View>
+          </View>
+        ) : null}
         {Object.entries(availableOptions).map(([index, options]) => {
           const attributeIndex = parseInt(index);
           const firstOption = options[0];
@@ -447,6 +500,13 @@ export default function ProductDetailScreen() {
         })}
 
         {/* Description */}
+        {isLoadingDetails && !product.details ? (
+          <View style={styles.expandableSection}>
+            <View style={styles.expandableHeader}>
+              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 100 }} />
+            </View>
+          </View>
+        ) : null}
         {product.details? (
           <View style={styles.expandableSection}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('description')}>
@@ -466,6 +526,13 @@ export default function ProductDetailScreen() {
         ): <></>}
 
         {/* Feature Description */}
+        {isLoadingDetails && !product.feature_description ? (
+          <View style={styles.expandableSection}>
+            <View style={styles.expandableHeader}>
+              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 140 }} />
+            </View>
+          </View>
+        ) : null}
         {product.feature_description? (
           <View style={styles.expandableSection}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
@@ -485,6 +552,13 @@ export default function ProductDetailScreen() {
         ): <></>}
 
         {/* Specifications */}
+        {isLoadingDetails && (!product.specifications || product.specifications.length === 0) ? (
+          <View style={styles.expandableSection}>
+            <View style={styles.expandableHeader}>
+              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 120 }} />
+            </View>
+          </View>
+        ) : null}
         {product.specifications && product.specifications.length > 0 && (
           <View style={styles.expandableSection}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
@@ -509,6 +583,13 @@ export default function ProductDetailScreen() {
         )}
 
         {/* Shipping and Return */}
+        {isLoadingDetails && !product.shipping_and_return ? (
+          <View style={styles.expandableSection}>
+            <View style={styles.expandableHeader}>
+              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 130 }} />
+            </View>
+          </View>
+        ) : null}
         {product.shipping_and_return && (
           <View style={styles.expandableSection}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('shipping')}>
@@ -552,7 +633,7 @@ export default function ProductDetailScreen() {
             <Ionicons name="add" size={18} color="#1E88E5" />
           </TouchableOpacity>
         </View>
-
+        
         <TouchableOpacity 
           style={[styles.addToCartButton, !enableAddToCart && { backgroundColor: '#CCC' }]} 
           onPress={handleAddToCart}
@@ -560,7 +641,10 @@ export default function ProductDetailScreen() {
         >
           <Ionicons name="cart" size={20} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.addToCartText}>
-            { !currentVariation && variations.length > 0 ? 'Select Options' : getCurrentStock() === 0 ? 'Out of Stock' : 'Add to Cart' }
+            {
+            isLoadingDetails? 'Loading...' :
+            !currentVariation && variations.length > 0 ? 'Select Options' : getCurrentStock() === 0 ? 'Out of Stock' : 'Add to Cart'
+            }
           </Text>
         </TouchableOpacity>
       </View>
