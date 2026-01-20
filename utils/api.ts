@@ -311,6 +311,10 @@ export async function fetchWishlist(): Promise<any> {
   return await apiRequest('/api/frontend/wishlist', 'GET', undefined, true);
 }
 
+export async function fetchWishlistProducts(): Promise<any> {
+  return await apiRequest('/api/frontend/product/wishlist-products', 'GET', undefined, true);
+}
+
 // ==================== Order & Checkout API Endpoints ====================
 
 /**

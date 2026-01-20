@@ -186,7 +186,12 @@ export default function TabTwoScreen() {
               </View>
 
               <View style={styles.actionsContainer}>
-                <ActionButton iconName="heart-circle" label="Favorite" />
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => router.push('/FavoriteProducts')}>
+                  <Ionicons name="heart-circle" size={28} color="#4A4A4A" />
+                  <Text style={styles.actionLabel}>Favorite</Text>
+                </TouchableOpacity>
                 <ActionButton iconName="list-circle-sharp" label="Orders" />
                 <TouchableOpacity 
                   style={styles.actionButton}

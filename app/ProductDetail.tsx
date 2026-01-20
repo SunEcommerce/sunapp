@@ -1,5 +1,5 @@
 import { useCart } from '@/contexts/cart-context';
-import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, fetchVariationAncestorsString, postWishlistToggle } from '@/utils/api';
+import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, postWishlistToggle } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -180,6 +180,18 @@ export default function ProductDetailScreen() {
     
     // Always try to fetch children for this variation
     try {
+        
+        // Build variation names from selected variations
+        const selectedNames: string[] = [];
+        Object.keys(newSelected).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
+          const selectedVar = newSelected[parseInt(key)];
+          if (selectedVar?.product_attribute_option_name) {
+            selectedNames.push(selectedVar.product_attribute_option_name);
+          }
+        });
+        const names = selectedNames.join(' | ');
+        setVariationNames(names);
+
       const childrenResponse = await fetchChildrenVariations(product.id, variation.id);
       const children = childrenResponse?.data || [];
       
@@ -210,14 +222,16 @@ export default function ProductDetailScreen() {
         // No children - this is the final variation (leaf node)
         setCurrentVariation(variation);
         
-        // Fetch and set variation names for display
-        try {
-          const namesResponse = await fetchVariationAncestorsString(product.id, variation.id);
-          const names = namesResponse?.data || '';
-          setVariationNames(names);
-        } catch (err) {
-          console.error('Failed to fetch variation names:', err);
-        }
+        // Build variation names from selected variations
+        const selectedNames: string[] = [];
+        Object.keys(newSelected).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
+          const selectedVar = newSelected[parseInt(key)];
+          if (selectedVar?.product_attribute_option_name) {
+            selectedNames.push(selectedVar.product_attribute_option_name);
+          }
+        });
+        const names = selectedNames.join(' | ');
+        setVariationNames(names);
         
         // Enable add to cart only if variation has stock
         setEnableAddToCart(variation.stock > 0);
@@ -432,23 +446,6 @@ export default function ProductDetailScreen() {
           );
         })}
 
-        {/* Quantity Selector */}
-        <View style={styles.variantSection}>
-          <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('features')}>
-            <Text style={styles.expandableTitle}>Features</Text>
-            <Ionicons
-              name={expandedSection === 'features' ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color="#666"
-            />
-          </TouchableOpacity>
-          {expandedSection === 'features' && (
-            <View style={styles.expandableBody}>
-              <Text style={styles.descriptionText}>{product.feature_description.replace(/<[^>]*>/g, '')}</Text>
-            </View>
-          )}
-        </View>
-
         {/* Description */}
         {product.details && (
           <View style={styles.expandableSection}>
@@ -463,6 +460,25 @@ export default function ProductDetailScreen() {
             {expandedSection === 'description' && (
               <View style={styles.expandableBody}>
                 <Text style={styles.descriptionText}>{product.details.replace(/<[^>]*>/g, '')}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Feature Description */}
+        {product.feature_description && (
+          <View style={styles.expandableSection}>
+            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
+              <Text style={styles.expandableTitle}>Feature Description</Text>
+              <Ionicons
+                name={expandedSection === 'feature_description' ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#666"
+              />
+            </TouchableOpacity>
+            {expandedSection === 'feature_description' && (
+              <View style={styles.expandableBody}>
+                <Text style={styles.descriptionText}>{product.feature_description.replace(/<[^>]*>/g, '')}</Text>
               </View>
             )}
           </View>
@@ -544,7 +560,7 @@ export default function ProductDetailScreen() {
         >
           <Ionicons name="cart" size={20} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.addToCartText}>
-            { !variationNames && variations.length > 0 ? 'Select Options' : getCurrentStock() === 0 ? 'Out of Stock' : 'Add to Cart' }
+            { !currentVariation && variations.length > 0 ? 'Select Options' : getCurrentStock() === 0 ? 'Out of Stock' : 'Add to Cart' }
           </Text>
         </TouchableOpacity>
       </View>
