@@ -447,7 +447,7 @@ export default function ProductDetailScreen() {
         })}
 
         {/* Description */}
-        {product.details && (
+        {product.details? (
           <View style={styles.expandableSection}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('description')}>
               <Text style={styles.expandableTitle}>Description</Text>
@@ -463,10 +463,10 @@ export default function ProductDetailScreen() {
               </View>
             )}
           </View>
-        )}
+        ): <></>}
 
         {/* Feature Description */}
-        {product.feature_description && (
+        {product.feature_description? (
           <View style={styles.expandableSection}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
               <Text style={styles.expandableTitle}>Feature Description</Text>
@@ -482,7 +482,7 @@ export default function ProductDetailScreen() {
               </View>
             )}
           </View>
-        )}
+        ): <></>}
 
         {/* Specifications */}
         {product.specifications && product.specifications.length > 0 && (
