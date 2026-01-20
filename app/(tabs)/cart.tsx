@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
+import { ThemeContext } from '@/contexts/theme-context';
 import { useRouter } from 'expo-router';
 
 function InlineCartIllustration() {
@@ -30,6 +32,9 @@ export default function CartScreen() {
   const [promoCode, setPromoCode] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const themeContext = useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
 
   // Calculate totals
   const subtotal = totalAmount;
@@ -91,8 +96,8 @@ export default function CartScreen() {
   // Empty cart state
   if (itemCount === 0) {
     return (
-      <ThemedView style={styles.safeArea}>
-        <ThemedView style={styles.container}>
+      <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+        <ThemedView style={[styles.container]}>
           <InlineCartIllustration />
 
           <ThemedText type="title" style={styles.heading}>
@@ -117,9 +122,9 @@ export default function CartScreen() {
 
   // Cart with items
   return (
-    <ThemedView style={styles.safeArea}>
+    <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
         <View style={styles.headerLeft} />
         <ThemedText style={styles.headerTitle}>Cart ({uniqueItemCount})</ThemedText>
         <View style={styles.headerRight}>
@@ -138,7 +143,7 @@ export default function CartScreen() {
         {/* Cart Items */}
         <View style={styles.itemsContainer}>
           {items.map((item) => (
-            <View key={item.id} style={styles.cartItem}>
+            <View key={item.id} style={[styles.cartItem, { backgroundColor: themeColors.background }]}>
               {/* Checkbox for edit mode */}
               {isEditMode && (
                 <TouchableOpacity 
@@ -146,6 +151,7 @@ export default function CartScreen() {
                   style={styles.checkboxContainer}>
                   <View style={[
                     styles.checkbox,
+                    { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' },
                     selectedItems.includes(item.id) && styles.checkboxChecked
                   ]}>
                     {selectedItems.includes(item.id) && (
@@ -185,7 +191,7 @@ export default function CartScreen() {
                     <View style={styles.quantityControl}>
                       <TouchableOpacity 
                         onPress={() => handleQuantityChange(item.id, -1, item.quantity)}
-                        style={styles.quantityButton}>
+                        style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
                         <ThemedText style={styles.quantityButtonText}>-</ThemedText>
                       </TouchableOpacity>
                       
@@ -193,7 +199,7 @@ export default function CartScreen() {
                       
                       <TouchableOpacity 
                         onPress={() => handleQuantityChange(item.id, 1, item.quantity)}
-                        style={styles.quantityButton}>
+                        style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
                         <ThemedText style={styles.quantityButtonText}>+</ThemedText>
                       </TouchableOpacity>
                     </View>
@@ -207,7 +213,7 @@ export default function CartScreen() {
         {/* Promo Code */}
         <View style={styles.promoSection}>
           <TextInput
-            style={styles.promoInput}
+            style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0', color: themeColors.text }]}
             placeholder="Enter promo code"
             placeholderTextColor="#999"
             value={promoCode}
@@ -235,7 +241,7 @@ export default function CartScreen() {
             <ThemedText style={styles.freeValue}>Free</ThemedText>
           </View>
           
-          <View style={[styles.summaryRow, styles.totalRow]}>
+          <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
             <ThemedText style={styles.totalLabel}>Total</ThemedText>
             <ThemedText style={styles.totalValue}>${total.toFixed(2)}</ThemedText>
           </View>
@@ -243,7 +249,7 @@ export default function CartScreen() {
       </ScrollView>
 
       {/* Checkout Button */}
-      <View style={styles.checkoutContainer}>
+      <View style={[styles.checkoutContainer, { backgroundColor: themeColors.background, borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
         <TouchableOpacity 
           style={styles.checkoutButton}
           onPress={() => router.push('/Checkout')}>
@@ -268,8 +274,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
   },
   headerLeft: {
     width: 60,
@@ -277,7 +281,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
     flex: 1,
     textAlign: 'center',
   },
@@ -303,7 +306,6 @@ const styles = StyleSheet.create({
   },
   cartItem: {
     flexDirection: 'row',
-    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 12,
     gap: 12,
@@ -317,10 +319,8 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#ddd',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
   checkboxChecked: {
     backgroundColor: '#2196F3',
@@ -348,7 +348,6 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
   },
   productSku: {
     fontSize: 12,
@@ -387,11 +386,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 6,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
   },
   quantityButtonText: {
     fontSize: 18,
@@ -401,7 +398,6 @@ const styles = StyleSheet.create({
   quantity: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
     minWidth: 20,
     textAlign: 'center',
   },
@@ -415,11 +411,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 14,
-    backgroundColor: '#fff',
   },
   applyButton: {
     backgroundColor: '#FFD700',
@@ -450,7 +444,6 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#000',
   },
   discountValue: {
     fontSize: 14,
@@ -465,25 +458,20 @@ const styles = StyleSheet.create({
   totalRow: {
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
     marginTop: 8,
   },
   totalLabel: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
   },
   totalValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#000',
   },
   checkoutContainer: {
     padding: 16,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    backgroundColor: '#fff',
   },
   checkoutButton: {
     backgroundColor: '#2196F3',

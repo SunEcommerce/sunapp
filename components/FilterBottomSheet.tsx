@@ -1,13 +1,15 @@
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { ThemeContext } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
-import React, { useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import Modal from 'react-native-modal';
 
@@ -38,6 +40,9 @@ const DEFAULTS: Filters = {
 };
 
 export default function FilterBottomSheet({ visible, onClose, onApply, onReset, initial }: Props) {
+  const themeContext = useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
   const mergedDefaults = useMemo(() => ({ ...DEFAULTS, ...(initial || {}) }), [initial]);
   const [category, setCategory] = useState<string>(mergedDefaults.category);
   const [priceRange, setPriceRange] = useState<[number, number]>(mergedDefaults.priceRange);
@@ -73,7 +78,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
       useNativeDriver
       propagateSwipe
     >
-      <SafeAreaView style={styles.sheet}>
+      <SafeAreaView style={[styles.sheet, { backgroundColor: themeColors.card }]}>
         {/* Handle */}
         <View style={styles.handleContainer}>
           <View style={styles.handle} />
@@ -81,36 +86,39 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
 
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Filters</Text>
+          <ThemedText style={styles.headerTitle}>Filters</ThemedText>
           <TouchableOpacity onPress={clearAll}>
-            <Text style={styles.clearAll}>Clear All</Text>
+            <ThemedText style={styles.clearAll}>Clear All</ThemedText>
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Category Chips */}
-          <Text style={styles.sectionTitle}>Category</Text>
+          <ThemedText style={styles.sectionTitle}>Category</ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {CATEGORY_CHIPS.map((chip) => {
               const active = chip === category;
               return (
                 <TouchableOpacity
                   key={chip}
-                  style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+                  style={[
+                    styles.chip,
+                    active ? styles.chipActive : { backgroundColor: themeColors.background, borderWidth: 1, borderColor: themeColors.border }
+                  ]}
                   onPress={() => setCategory(chip)}
                 >
-                  <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
+                  <ThemedText style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
                     {chip}
-                  </Text>
+                  </ThemedText>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           {/* Price Range Slider */}
-          <Text style={styles.sectionTitle}>Price Range</Text>
+          <ThemedText style={styles.sectionTitle}>Price Range</ThemedText>
           <View style={styles.sliderContainer}>
             <MultiSlider
               values={[priceRange[0], priceRange[1]]}
@@ -120,19 +128,19 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               step={10}
               sliderLength={280}
               selectedStyle={{ backgroundColor: '#1E88E5' }}
-              unselectedStyle={{ backgroundColor: '#E5E5E5' }}
+              unselectedStyle={{ backgroundColor: themeColors.border }}
               markerStyle={{ backgroundColor: '#1E88E5', width: 20, height: 20, borderRadius: 10 }}
             />
             <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabel}>$100</Text>
-              <Text style={styles.sliderLabel}>$2000</Text>
+              <ThemedText style={styles.sliderLabel}>$100</ThemedText>
+              <ThemedText style={styles.sliderLabel}>$2000</ThemedText>
             </View>
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           {/* Brand Selection */}
-          <Text style={styles.sectionTitle}>Brand</Text>
+          <ThemedText style={styles.sectionTitle}>Brand</ThemedText>
           <View style={styles.brandList}>
             {BRANDS.map((b) => {
               const checked = brands.includes(b);
@@ -143,7 +151,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   onPress={() => toggleBrand(b)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.brandName}>{b}</Text>
+                  <ThemedText style={styles.brandName}>{b}</ThemedText>
                   <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
                     {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
                   </View>
@@ -152,10 +160,10 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             })}
           </View>
 
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           {/* Sort By */}
-          <Text style={styles.sectionTitle}>Sort By</Text>
+          <ThemedText style={styles.sectionTitle}>Sort By</ThemedText>
           <View style={styles.sortList}>
             {[
               { key: 'newest', label: 'Newest' },
@@ -171,7 +179,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
                     {active && <View style={styles.radioInner} />}
                   </View>
-                  <Text style={styles.sortLabel}>{opt.label}</Text>
+                  <ThemedText style={styles.sortLabel}>{opt.label}</ThemedText>
                 </TouchableOpacity>
               );
             })}
@@ -179,12 +187,12 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
         </ScrollView>
 
         {/* Bottom Action Bar */}
-        <View style={styles.footerBar}>
+        <View style={[styles.footerBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.border }]}>
           <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
-            <Text style={styles.resetText}>Reset</Text>
+            <ThemedText style={styles.resetText}>Reset</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity style={styles.applyBtn} onPress={apply}>
-            <Text style={styles.applyText}>Apply Filters</Text>
+            <ThemedText style={styles.applyText}>Apply Filters</ThemedText>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -198,7 +206,6 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '92%',
@@ -223,7 +230,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111',
   },
   clearAll: {
     fontSize: 14,
@@ -236,7 +242,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111',
     paddingHorizontal: 16,
     marginTop: 10,
     marginBottom: 8,
@@ -254,9 +259,6 @@ const styles = StyleSheet.create({
   chipActive: {
     backgroundColor: '#0D47A1',
   },
-  chipInactive: {
-    backgroundColor: '#F0F2F5',
-  },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
@@ -265,7 +267,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   chipTextInactive: {
-    color: '#111',
+    fontWeight: '600',
   },
   sliderContainer: {
     paddingHorizontal: 16,
@@ -281,7 +283,6 @@ const styles = StyleSheet.create({
   },
   sliderLabel: {
     fontSize: 12,
-    color: '#666',
   },
   brandList: {
     paddingHorizontal: 8,
@@ -295,7 +296,6 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 14,
-    color: '#111',
   },
   checkbox: {
     width: 22,
@@ -341,11 +341,9 @@ const styles = StyleSheet.create({
   },
   sortLabel: {
     fontSize: 14,
-    color: '#111',
   },
   divider: {
     height: 1,
-    backgroundColor: '#ECEFF3',
     marginTop: 14,
     marginBottom: 10,
   },
@@ -356,8 +354,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#ECEFF3',
-    backgroundColor: '#fff',
   },
   resetBtn: {
     paddingHorizontal: 8,

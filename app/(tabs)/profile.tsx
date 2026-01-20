@@ -19,7 +19,7 @@ import {
 
 // Reusable component for the menu list items
 const MenuItem: React.FC<{
-  iconName: string;
+  iconName: any;
   label: string;
   color?: string;
   onPress?: () => void;
@@ -92,7 +92,12 @@ export default function TabTwoScreen() {
     }, []);
   }
 
-  const menuItems = [
+  const menuItems: Array<{
+    label: string;
+    icon: string;
+    action: () => void;
+    color?: string;
+  }> = [
     {
       label: 'Language',
       icon: 'globe-outline',
@@ -136,7 +141,7 @@ export default function TabTwoScreen() {
   ];
 
   const ActionButton: React.FC<{
-    iconName: string;
+    iconName: any;
     label: string;
     color?: string;
   }> = ({ iconName, label }) => (
@@ -192,7 +197,12 @@ export default function TabTwoScreen() {
                   <Ionicons name="heart-circle" size={28} color="#4A4A4A" />
                   <Text style={styles.actionLabel}>Favorite</Text>
                 </TouchableOpacity>
-                <ActionButton iconName="list-circle-sharp" label="Orders" />
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => router.push('/OrderList')}>
+                  <Ionicons name="list-circle-sharp" size={28} color="#4A4A4A" />
+                  <Text style={styles.actionLabel}>My Orders</Text>
+                </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={() => router.push('/Address')}>

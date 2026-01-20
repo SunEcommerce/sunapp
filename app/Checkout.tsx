@@ -14,7 +14,9 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
+import { ThemeContext } from '@/contexts/theme-context';
 import {
   createOrder,
   fetchAddresses,
@@ -64,6 +66,9 @@ type CouponValidation = {
 export default function CheckoutScreen() {
   const router = useRouter();
   const { items, totalAmount, clearCart } = useCart();
+  const themeContext = React.useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
   
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
@@ -301,9 +306,9 @@ export default function CheckoutScreen() {
   if (items.length === 0) {
     return (
       <ThemedView style={styles.safeArea}>
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
           <View style={styles.headerRight} />
@@ -319,9 +324,9 @@ export default function CheckoutScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.safeArea}>
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
           <View style={styles.headerRight} />
@@ -338,7 +343,7 @@ export default function CheckoutScreen() {
   if (showThankYou) {
     return (
       <ThemedView style={styles.safeArea}>
-        <View style={styles.thankYouContainer}>
+        <View style={[styles.thankYouContainer, { backgroundColor: themeColors.background }]}>
           <View style={styles.thankYouIconContainer}>
             <Ionicons name="checkmark-circle" size={120} color="#4CAF50" />
           </View>
@@ -362,9 +367,9 @@ export default function CheckoutScreen() {
   return (
     <ThemedView style={styles.safeArea}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
         <View style={styles.headerRight} />
@@ -372,7 +377,7 @@ export default function CheckoutScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Delivery Address Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="location-outline" size={20} color="#2196F3" />
@@ -382,7 +387,7 @@ export default function CheckoutScreen() {
 
           {!selectedAddress ? (
             <TouchableOpacity
-              style={styles.chooseAddressCard}
+              style={[styles.chooseAddressCard, { backgroundColor: themeColors.background, borderColor: '#2196F3' }]}
               onPress={handleChooseAddress}
             >
               <Ionicons name="location-outline" size={48} color="#2196F3" />
@@ -395,7 +400,7 @@ export default function CheckoutScreen() {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.selectedAddressCard}
+              style={[styles.selectedAddressCard, { backgroundColor: themeColors.background, borderColor: '#2196F3' }]}
               onPress={handleChooseAddress}
             >
               {(() => {
@@ -433,7 +438,7 @@ export default function CheckoutScreen() {
 
         {/* Delivery Area Section */}
         {orderAreas.length > 0 && (
-          <View style={styles.section}>
+          <View style={[styles.section, { backgroundColor: themeColors.card }]}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <Ionicons name="map-outline" size={20} color="#2196F3" />
@@ -447,6 +452,7 @@ export default function CheckoutScreen() {
                   key={area.id}
                   style={[
                     styles.paymentMethod,
+                    { backgroundColor: themeColors.background, borderColor: themeColors.borderColor },
                     selectedArea === area.id && styles.paymentMethodSelected,
                   ]}
                   onPress={() => setSelectedArea(area.id)}
@@ -476,7 +482,7 @@ export default function CheckoutScreen() {
         )}
 
         {/* Payment Method Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="card-outline" size={20} color="#2196F3" />
@@ -490,6 +496,7 @@ export default function CheckoutScreen() {
                 key={method.id}
                 style={[
                   styles.paymentMethod,
+                  { backgroundColor: themeColors.background, borderColor: themeColors.borderColor },
                   selectedPayment === method.id && styles.paymentMethodSelected,
                 ]}
                 onPress={() => setSelectedPayment(method.id)}
@@ -498,7 +505,7 @@ export default function CheckoutScreen() {
                   <Ionicons
                     name={getPaymentIcon(method.name)}
                     size={24}
-                    color={selectedPayment === method.id ? '#2196F3' : '#666'}
+                    color={selectedPayment === method.id ? '#2196F3' : themeColors.icon}
                   />
                   <ThemedText
                     style={[
@@ -520,7 +527,7 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Order Note Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="create-outline" size={20} color="#2196F3" />
@@ -529,7 +536,7 @@ export default function CheckoutScreen() {
           </View>
           <View style={styles.noteContainer}>
             <TextInput
-              style={styles.noteInput}
+              style={[styles.noteInput, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Add any special instructions for your order..."
               placeholderTextColor="#999"
               value={orderNote}
@@ -541,7 +548,7 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Promo Code Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="pricetag-outline" size={20} color="#2196F3" />
@@ -567,7 +574,7 @@ export default function CheckoutScreen() {
           ) : (
             <View style={styles.promoContainer}>
               <TextInput
-                style={styles.promoInput}
+                style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="Enter promo code"
                 placeholderTextColor="#999"
                 value={promoCode}
@@ -596,7 +603,7 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Order Summary Section */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
               <Ionicons name="receipt-outline" size={20} color="#2196F3" />
@@ -607,7 +614,7 @@ export default function CheckoutScreen() {
           {/* Products */}
           <View style={styles.productsContainer}>
             {items.map((item) => (
-              <View key={item.id} style={styles.productItem}>
+              <View key={item.id} style={[styles.productItem, { borderBottomColor: themeColors.borderColor }]}>
                 <Image source={{ uri: item.image }} style={styles.productImage} />
                 <View style={styles.productDetails}>
                   <ThemedText style={styles.productName} numberOfLines={2}>
@@ -664,7 +671,7 @@ export default function CheckoutScreen() {
               </View>
             )}
             
-            <View style={[styles.priceRow, styles.totalPriceRow]}>
+            <View style={[styles.priceRow, styles.totalPriceRow, { borderTopColor: themeColors.borderColor }]}>
               <ThemedText style={styles.totalPriceLabel}>Total</ThemedText>
               <ThemedText style={styles.totalPriceValue}>
                 ${total.toFixed(2)}
@@ -678,7 +685,7 @@ export default function CheckoutScreen() {
       </ScrollView>
 
       {/* Sticky Place Order Button */}
-      <View style={styles.placeOrderContainer}>
+      <View style={[styles.placeOrderContainer, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
         <TouchableOpacity
           style={[styles.placeOrderButton, isPlacingOrder && styles.placeOrderButtonDisabled]}
           onPress={handlePlaceOrder}
@@ -704,7 +711,6 @@ export default function CheckoutScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -712,9 +718,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   backButton: {
     padding: 4,
@@ -722,7 +726,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
     flex: 1,
     textAlign: 'center',
   },
@@ -747,7 +750,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-    backgroundColor: '#fff',
   },
   thankYouIconContainer: {
     marginBottom: 24,
@@ -755,7 +757,6 @@ const styles = StyleSheet.create({
   thankYouTitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -776,7 +777,6 @@ const styles = StyleSheet.create({
     color: '#2196F3',
   },
   section: {
-    backgroundColor: '#fff',
     marginTop: 12,
     paddingVertical: 16,
   },
@@ -795,7 +795,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
   },
   addButton: {
     fontSize: 14,
@@ -810,9 +809,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#2196F3',
     borderStyle: 'dashed',
-    backgroundColor: '#F5F9FF',
     gap: 8,
   },
   chooseAddressText: {
@@ -831,8 +828,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2196F3',
-    backgroundColor: '#E3F2FD',
   },
   selectedAddressHeader: {
     flexDirection: 'row',
@@ -851,7 +846,6 @@ const styles = StyleSheet.create({
   addressName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
   },
   defaultBadge: {
     backgroundColor: '#4CAF50',
@@ -898,8 +892,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fafafa',
   },
   paymentMethodSelected: {
     borderColor: '#2196F3',
@@ -930,13 +922,11 @@ const styles = StyleSheet.create({
   },
   noteInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
     minHeight: 80,
     textAlignVertical: 'top',
-    backgroundColor: '#fafafa',
   },
   // Promo code styles
   promoContainer: {
@@ -948,11 +938,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 14,
-    backgroundColor: '#fafafa',
   },
   applyButton: {
     backgroundColor: '#FFD700',
@@ -1015,7 +1003,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   productImage: {
     width: 60,
@@ -1030,7 +1017,6 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#000',
   },
   productVariant: {
     fontSize: 12,
@@ -1053,7 +1039,6 @@ const styles = StyleSheet.create({
   productTotal: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
   },
   // Price breakdown styles
   priceBreakdown: {
@@ -1073,7 +1058,6 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#000',
   },
   discountValue: {
     fontSize: 14,
@@ -1088,18 +1072,15 @@ const styles = StyleSheet.create({
   totalPriceRow: {
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
     marginTop: 4,
   },
   totalPriceLabel: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
   },
   totalPriceValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#000',
   },
   bottomSpacer: {
     height: 80,
@@ -1108,9 +1089,7 @@ const styles = StyleSheet.create({
   placeOrderContainer: {
     padding: 16,
     paddingBottom: 24,
-    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 8,

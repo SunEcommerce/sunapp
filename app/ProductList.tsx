@@ -1,20 +1,23 @@
 import FilterBottomSheet, { Filters } from '@/components/FilterBottomSheet';
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { ThemeContext } from '@/contexts/theme-context';
 import { fetchProducts } from '@/utils/api';
 import { navigateToProductDetail } from '@/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -82,6 +85,9 @@ const MOCK_PRODUCTS = [
 export default function ProductListScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const themeContext = useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
   const [filterVisible, setFilterVisible] = useState(false);
   const [filters, setFilters] = useState<Partial<Filters>>({});
   const [localSearchQuery, setLocalSearchQuery] = useState('');
@@ -167,7 +173,7 @@ export default function ProductListScreen() {
 
     return (
       <TouchableOpacity 
-        style={styles.card} 
+        style={[styles.card, { backgroundColor: themeColors.card }]} 
         onPress={() => navigateToProductDetail(router, slug, {
           name: title,
           price: discountedPrice,
@@ -182,13 +188,13 @@ export default function ProductListScreen() {
           <Image source={{ uri: imageUrl }} style={styles.image} />
         </View>
         <View style={styles.cardBody}>
-          <Text style={styles.title} numberOfLines={2}>
+          <ThemedText style={styles.title} numberOfLines={2}>
             {title}
-          </Text>
+          </ThemedText>
           <View style={styles.priceContainer}>
-            <Text style={styles.price}>${discountedPrice.toFixed(2)}</Text>
+            <ThemedText style={styles.price}>${discountedPrice.toFixed(2)}</ThemedText>
             {regularPrice > discountedPrice && (
-              <Text style={styles.originalPrice}>${regularPrice.toFixed(2)}</Text>
+              <ThemedText style={styles.originalPrice}>${regularPrice.toFixed(2)}</ThemedText>
             )}
           </View>
         </View>
@@ -197,47 +203,47 @@ export default function ProductListScreen() {
   };
 
   const ListHeader = (
-    <View style={styles.stickyHeaderContent}>
+    <View style={[styles.stickyHeaderContent, { backgroundColor: themeColors.background }]}>
       <View style={styles.controlRow}>
-        <TouchableOpacity style={styles.controlButton} onPress={() => setFilterVisible(true)}>
+        <TouchableOpacity style={[styles.controlButton, { backgroundColor: themeColors.card, borderColor: '#1E88E5' }]} onPress={() => setFilterVisible(true)}>
           <Ionicons name="filter-outline" size={16} color="#1E88E5" />
-          <Text style={styles.controlText}>Filter</Text>
+          <ThemedText style={styles.controlText}>Filter</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.sortButton, selectedSort === 'best' && styles.sortButtonActive]} 
+          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, selectedSort === 'best' && styles.sortButtonActive]} 
           onPress={() => setSelectedSort('best')}>
-          <Text style={[styles.sortButtonText, selectedSort === 'best' && styles.sortButtonTextActive]}>Best Match</Text>
+          <ThemedText style={[styles.sortButtonText, selectedSort === 'best' && styles.sortButtonTextActive]}>Best Match</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.sortButton, selectedSort === 'sales' && styles.sortButtonActive]} 
+          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, selectedSort === 'sales' && styles.sortButtonActive]} 
           onPress={() => setSelectedSort('sales')}>
-          <Text style={[styles.sortButtonText, selectedSort === 'sales' && styles.sortButtonTextActive]}>Top Sales</Text>
+          <ThemedText style={[styles.sortButtonText, selectedSort === 'sales' && styles.sortButtonTextActive]}>Top Sales</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.sortButton, selectedSort === 'price' && styles.sortButtonActive]} 
+          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, selectedSort === 'price' && styles.sortButtonActive]} 
           onPress={() => setSelectedSort('price')}>
-          <Text style={[styles.sortButtonText, selectedSort === 'price' && styles.sortButtonTextActive]}>Price ↕</Text>
+          <ThemedText style={[styles.sortButtonText, selectedSort === 'price' && styles.sortButtonTextActive]}>Price ↕</ThemedText>
         </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       {/* Header Navigation */}
-      <View style={styles.headerNav}>
+      <View style={[styles.headerNav, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#999" style={styles.searchIcon} />
+        <View style={[styles.searchContainer, { backgroundColor: themeColors.background }]}>
+          <Ionicons name="search-outline" size={20} color={themeColors.icon} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: themeColors.text }]}
             placeholder="Search products..."
-            placeholderTextColor="#999"
+            placeholderTextColor={themeColors.icon}
             value={localSearchQuery}
             onChangeText={setLocalSearchQuery}
             returnKeyType="search"
@@ -258,12 +264,12 @@ export default function ProductListScreen() {
       {isLoading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#1E88E5" />
-          <Text style={styles.loadingText}>Loading products...</Text>
+          <ThemedText style={styles.loadingText}>Loading products...</ThemedText>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
-          <Text style={styles.errorText}>{error}</Text>
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
           <TouchableOpacity 
             style={styles.retryButton} 
             onPress={() => {
@@ -286,8 +292,8 @@ export default function ProductListScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={64} color="#CCC" />
-              <Text style={styles.emptyText}>No products found</Text>
-              <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
+              <ThemedText style={styles.emptyText}>No products found</ThemedText>
+              <ThemedText style={styles.emptySubtext}>Try adjusting your search or filters</ThemedText>
             </View>
           }
           stickyHeaderIndices={[0]}
@@ -315,16 +321,13 @@ export default function ProductListScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F6F8',
   },
   headerNav: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
     gap: 12,
   },
   backButton: {
@@ -334,7 +337,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F6F8',
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
@@ -345,7 +347,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#111',
     paddingVertical: 0,
   },
   listContent: {
@@ -354,7 +355,6 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   stickyHeaderContent: {
-    backgroundColor: '#F5F6F8',
     paddingVertical: 10,
   },
   resultText: {
@@ -380,8 +380,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1E88E5',
-    backgroundColor: '#FFFFFF',
   },
   controlText: {
     fontSize: 13,
@@ -393,8 +391,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#FFFFFF',
   },
   sortButtonActive: {
     backgroundColor: '#1E88E5',
@@ -414,7 +410,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -445,7 +440,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A1A',
     marginBottom: 6,
   },
   priceContainer: {
@@ -473,7 +467,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#666',
   },
   errorText: {
     marginTop: 12,
@@ -502,12 +495,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
   },
   emptySubtext: {
     marginTop: 8,
     fontSize: 14,
-    color: '#999',
+    opacity: 0.6,
   },
   cartButton: {
     position: 'absolute',

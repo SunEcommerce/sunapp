@@ -399,8 +399,8 @@ export async function fetchOrders(params?: {
   
   if (params?.page) queryParams.append('page', params.page.toString());
   if (params?.per_page) queryParams.append('per_page', params.per_page.toString());
-  if (params?.order_column) queryParams.append('order_column', params.order_column);
-  if (params?.order_type) queryParams.append('order_type', params.order_type);
+  // if (params?.order_column) queryParams.append('order_column', params.order_column);
+  // if (params?.order_type) queryParams.append('order_type', params.order_type);
   if (params?.status) queryParams.append('status', params.status);
   
   const query = queryParams.toString();

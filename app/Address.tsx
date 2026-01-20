@@ -13,6 +13,8 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { ThemeContext } from '@/contexts/theme-context';
 import {
   createAddress,
   deleteAddress,
@@ -40,6 +42,9 @@ export default function AddressScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const fromCheckout = params.fromCheckout === 'true';
+  const themeContext = React.useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
 
   // State
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -259,9 +264,9 @@ export default function AddressScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.safeArea}>
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>My Addresses</ThemedText>
           <View style={styles.headerRight} />
@@ -278,9 +283,9 @@ export default function AddressScreen() {
   if (showAddForm) {
     return (
       <ThemedView style={styles.safeArea}>
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={handleCancelForm} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>
             {editingAddress ? 'Edit Address' : 'Add New Address'}
@@ -292,7 +297,7 @@ export default function AddressScreen() {
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>Receiver's Name *</ThemedText>
             <TextInput
-              style={styles.formInput}
+              style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Full name of the person receiving"
               placeholderTextColor="#999"
               value={formData.full_name}
@@ -304,7 +309,7 @@ export default function AddressScreen() {
             <View style={[styles.formSection, { width: 100 }]}>
               <ThemedText style={styles.formLabel}>Code</ThemedText>
               <TextInput
-                style={[styles.formInput, styles.formInputDisabled]}
+                style={[styles.formInput, styles.formInputDisabled, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 value={formData.country_code}
                 editable={false}
               />
@@ -313,7 +318,7 @@ export default function AddressScreen() {
             <View style={[styles.formSection, { flex: 1 }]}>
               <ThemedText style={styles.formLabel}>Phone Number *</ThemedText>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="Phone number"
                 placeholderTextColor="#999"
                 value={formData.phone}
@@ -330,7 +335,7 @@ export default function AddressScreen() {
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>Address *</ThemedText>
             <TextInput
-              style={[styles.formInput, styles.formInputMultiline]}
+              style={[styles.formInput, styles.formInputMultiline, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Street address"
               placeholderTextColor="#999"
               value={formData.address}
@@ -343,7 +348,7 @@ export default function AddressScreen() {
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>City *</ThemedText>
             <TextInput
-              style={styles.formInput}
+              style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="City name"
               placeholderTextColor="#999"
               value={formData.city}
@@ -355,7 +360,7 @@ export default function AddressScreen() {
             <View style={[styles.formSection, styles.formSectionHalf]}>
               <ThemedText style={styles.formLabel}>State *</ThemedText>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="State"
                 placeholderTextColor="#999"
                 value={formData.state}
@@ -366,7 +371,7 @@ export default function AddressScreen() {
             <View style={[styles.formSection, styles.formSectionHalf]}>
               <ThemedText style={styles.formLabel}>Zip Code *</ThemedText>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="Zip code"
                 placeholderTextColor="#999"
                 value={formData.zip_code}
@@ -379,7 +384,7 @@ export default function AddressScreen() {
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>Country *</ThemedText>
             <TextInput
-              style={styles.formInput}
+              style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Country"
               placeholderTextColor="#999"
               value={formData.country}
@@ -402,16 +407,16 @@ export default function AddressScreen() {
   return (
     <ThemedView style={styles.safeArea}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>My Addresses</ThemedText>
         <View style={styles.headerRight} />
       </View>
         {/* Add Address Button */}
         <TouchableOpacity
-          style={styles.addAddressButton}
+          style={[styles.addAddressButton, { backgroundColor: themeColors.card, borderColor: '#2196F3' }]}
           onPress={handleAddAddress}
         >
           <View style={styles.addAddressContent}>
@@ -437,7 +442,7 @@ export default function AddressScreen() {
             {addresses.map((address) => (
               <TouchableOpacity
                 key={address.id}
-                style={styles.addressCard}
+                style={[styles.addressCard, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}
                 onPress={() => handleSelectAddress(address)}
                 activeOpacity={fromCheckout ? 0.7 : 1}
               >
@@ -460,27 +465,27 @@ export default function AddressScreen() {
                   )}
                 </View>
 
-                <View style={styles.addressBody}>
+                <View style={[styles.addressBody, { borderBottomColor: themeColors.borderColor }]}>
                   <View style={styles.addressInfoRow}>
-                    <Ionicons name="call-outline" size={16} color="#666" />
+                    <Ionicons name="call-outline" size={16} color={themeColors.icon} />
                     <ThemedText style={styles.addressText}>
                       {address.country_code} {address.phone}
                     </ThemedText>
                   </View>
                   <View style={styles.addressInfoRow}>
-                    <Ionicons name="location-outline" size={16} color="#666" />
+                    <Ionicons name="location-outline" size={16} color={themeColors.icon} />
                     <ThemedText style={styles.addressText}>
                       {address.address}
                     </ThemedText>
                   </View>
                   <View style={styles.addressInfoRow}>
-                    <Ionicons name="business-outline" size={16} color="#666" />
+                    <Ionicons name="business-outline" size={16} color={themeColors.icon} />
                     <ThemedText style={styles.addressText}>
                       {address.city}, {address.state} {address.zip_code}
                     </ThemedText>
                   </View>
                   <View style={styles.addressInfoRow}>
-                    <Ionicons name="globe-outline" size={16} color="#666" />
+                    <Ionicons name="globe-outline" size={16} color={themeColors.icon} />
                     <ThemedText style={styles.addressText}>{address.country}</ThemedText>
                   </View>
                 </View>
@@ -515,7 +520,6 @@ export default function AddressScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -523,9 +527,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   backButton: {
     padding: 4,
@@ -533,7 +535,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
     flex: 1,
     textAlign: 'center',
   },
@@ -568,7 +569,6 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
     textAlign: 'center',
   },
   // Form styles
@@ -589,25 +589,20 @@ const styles = StyleSheet.create({
   formLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
     marginBottom: 8,
   },
   formInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
-    backgroundColor: '#fff',
-    color: '#000',
   },
   formInputMultiline: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   formInputDisabled: {
-    backgroundColor: '#f0f0f0',
-    color: '#666',
+    opacity: 0.6,
   },
   submitButton: {
     backgroundColor: '#2196F3',
@@ -630,9 +625,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#2196F3',
     borderStyle: 'dashed',
-    backgroundColor: '#fff',
   },
   addAddressContent: {
     flexDirection: 'row',
@@ -652,7 +645,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   addressCard: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -660,7 +652,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#eee',
   },
   addressHeader: {
     flexDirection: 'row',
@@ -676,7 +667,6 @@ const styles = StyleSheet.create({
   addressName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
   },
   defaultBadge: {
     backgroundColor: '#4CAF50',
@@ -687,7 +677,6 @@ const styles = StyleSheet.create({
   defaultText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#fff',
   },
   setDefaultButton: {
     paddingHorizontal: 12,
@@ -706,7 +695,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   addressInfoRow: {
     flexDirection: 'row',
@@ -716,7 +704,6 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 14,
-    color: '#333',
     lineHeight: 20,
     flex: 1,
   },

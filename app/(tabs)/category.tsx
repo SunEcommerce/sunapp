@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -6,11 +6,14 @@ import {
   Platform,
   SafeAreaView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   UIManager,
   View,
 } from 'react-native';
+
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { ThemeContext } from '@/contexts/theme-context';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -76,6 +79,10 @@ const SUBCATEGORY_MAP: Record<string, SubCategory[]> = {
 };
 
 export default function CategoryScreen() {
+  const themeContext = useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
+  
   const [activeCategory, setActiveCategory] = useState<string>(MAIN_CATEGORIES[0].id);
   const [subcategories, setSubcategories] = useState<SubCategory[]>(SUBCATEGORY_MAP[MAIN_CATEGORIES[0].id]);
 
@@ -88,26 +95,30 @@ export default function CategoryScreen() {
     const isActive = item.id === activeCategory;
     return (
       <TouchableOpacity
-        style={[styles.mainCategoryItem, isActive && styles.mainCategoryItemActive]}
+        style={[
+          styles.mainCategoryItem,
+          { borderBottomColor: themeColors.borderColor },
+          isActive && { backgroundColor: colorScheme === 'dark' ? '#1a2a3a' : '#F2F7FF' },
+        ]}
         onPress={() => setActiveCategory(item.id)}
       >
         <View style={[styles.accentBar, isActive && styles.accentBarActive]} />
-        <Text style={[styles.mainCategoryText, isActive && styles.mainCategoryTextActive]}>{item.name}</Text>
+        <ThemedText style={[styles.mainCategoryText, isActive && styles.mainCategoryTextActive]}>{item.name}</ThemedText>
       </TouchableOpacity>
     );
   };
 
   const renderSubCategory = ({ item }: { item: SubCategory }) => (
-    <View style={styles.subCategoryCard}>
+    <View style={[styles.subCategoryCard, { backgroundColor: themeColors.card }]}>
       <Image source={{ uri: item.image }} style={styles.subCategoryImage} />
-      <Text style={styles.subCategoryText}>{item.name}</Text>
+      <ThemedText style={styles.subCategoryText}>{item.name}</ThemedText>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <View style={styles.container}>
-        <View style={styles.leftColumn}>
+        <View style={[styles.leftColumn, { backgroundColor: themeColors.card }]}>
           <FlatList
             data={MAIN_CATEGORIES}
             renderItem={renderMainCategory}
@@ -116,9 +127,9 @@ export default function CategoryScreen() {
           />
         </View>
 
-        <View style={styles.dividerShadow} />
+        <View style={[styles.dividerShadow, { backgroundColor: themeColors.borderColor }]} />
 
-        <View style={styles.rightColumn}>
+        <View style={[styles.rightColumn, { backgroundColor: themeColors.card }]}>
           <FlatList
             data={subcategories}
             renderItem={renderSubCategory}
@@ -137,7 +148,6 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
   },
   container: {
     flex: 1,
@@ -145,15 +155,12 @@ const styles = StyleSheet.create({
   },
   leftColumn: {
     width: '30%',
-    backgroundColor: '#FFFFFF',
   },
   rightColumn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   dividerShadow: {
     width: 1,
-    backgroundColor: '#E5E5E5',
     shadowColor: '#000',
     shadowOffset: { width: 1, height: 0 },
     shadowOpacity: 0.08,
@@ -166,11 +173,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F0F0F0',
   },
-  mainCategoryItemActive: {
-    backgroundColor: '#F2F7FF',
-  },
+  mainCategoryItemActive: {},
   accentBar: {
     width: 4,
     height: '100%',
@@ -183,7 +187,6 @@ const styles = StyleSheet.create({
   },
   mainCategoryText: {
     fontSize: 15,
-    color: '#444',
   },
   mainCategoryTextActive: {
     color: '#1E88E5',
@@ -200,7 +203,6 @@ const styles = StyleSheet.create({
   },
   subCategoryCard: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
@@ -221,7 +223,6 @@ const styles = StyleSheet.create({
   },
   subCategoryText: {
     fontSize: 13,
-    color: '#333',
     textAlign: 'center',
     fontWeight: '600',
   },

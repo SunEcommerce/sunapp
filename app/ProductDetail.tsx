@@ -1,8 +1,11 @@
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
+import { ThemeContext } from '@/contexts/theme-context';
 import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, postWishlistToggle } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -16,11 +19,13 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-
 export default function ProductDetailScreen() {
   const router = useRouter();
   const { slug, preloadData } = useLocalSearchParams<{ slug: string; preloadData?: string }>();
   const { addToCart } = useCart();
+  const themeContext = useContext(ThemeContext);
+  const colorScheme = themeContext?.colorScheme ?? 'light';
+  const themeColors = Colors[colorScheme];
   
   // Parse preloaded data for instant display
   const initialData = preloadData ? JSON.parse(preloadData as string) : null;
@@ -112,10 +117,10 @@ export default function ProductDetailScreen() {
   // Show skeleton loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={{ flex: 1, height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginHorizontal: 16 }} />
           <View style={styles.headerButton} />
@@ -164,19 +169,19 @@ export default function ProductDetailScreen() {
   // Show error state
   if (error || !product) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Error</Text>
+          <ThemedText style={styles.headerTitle}>Error</ThemedText>
           <View style={styles.headerButton} />
         </View>
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }]}>
           <Ionicons name="alert-circle-outline" size={64} color="#E53935" />
-          <Text style={{ marginTop: 16, fontSize: 16, color: '#333', textAlign: 'center' }}>
+          <ThemedText style={{ marginTop: 16, fontSize: 16, textAlign: 'center' }}>
             {error || 'Product not found'}
-          </Text>
+          </ThemedText>
           <TouchableOpacity 
             style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1E88E5', borderRadius: 8 }}
             onPress={() => router.back()}
@@ -384,17 +389,17 @@ export default function ProductDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
+        <ThemedText style={styles.headerTitle} numberOfLines={1}>
           {product.name}
-        </Text>
+        </ThemedText>
         <TouchableOpacity style={styles.headerButton} onPress={handleToggleFavorite}>
-          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color={favorite ? '#E53935' : '#111'} />
+          <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color={favorite ? '#E53935' : themeColors.text} />
         </TouchableOpacity>
       </View>
 
@@ -427,17 +432,17 @@ export default function ProductDetailScreen() {
               )}
             </>
           ) : (
-            <View style={[styles.carouselImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5' }]}>
+            <View style={[styles.carouselImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.card }]}>
               <Ionicons name="image-outline" size={64} color="#CCC" />
-              <Text style={{ color: '#999', marginTop: 8 }}>No image available</Text>
+              <ThemedText style={{ color: '#999', marginTop: 8 }}>No image available</ThemedText>
             </View>
           )}
         </View>
 
         {/* Product Info */}
-        <View style={styles.infoSection}>
+        <View style={[styles.infoSection, { backgroundColor: themeColors.card }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <Text style={styles.productName}>{product.name}</Text>
+            <ThemedText style={styles.productName}>{product.name}</ThemedText>
             {hasOffer() && (
               <View style={{ backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
                 <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>SALE</Text>
@@ -445,14 +450,14 @@ export default function ProductDetailScreen() {
             )}
           </View>
           <View style={styles.metaRow}>
-            <Text style={styles.sku}>SKU: {currentVariation?.sku || product.sku || 'N/A'}</Text>
-            <Text style={[styles.stock, getCurrentStock() > 0 ? {} : { color: '#E53935' }]}>
+            <ThemedText style={styles.sku}>SKU: {currentVariation?.sku || product.sku || 'N/A'}</ThemedText>
+            <ThemedText style={[styles.stock, getCurrentStock() > 0 ? {} : { color: '#E53935' }]}>
               {getCurrentStock() > 0 ? `In Stock: ${getCurrentStock()} ${product.unit || 'pcs'}` : variationNames ? 'Out of Stock' : 'Please select options'}
-            </Text>
+            </ThemedText>
           </View>
           {variationNames != undefined? (
-            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E5E5E5' }}>
-              <Text style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Selected: {variationNames}</Text>
+            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: themeColors.borderColor }}>
+              <ThemedText style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Selected: {variationNames}</ThemedText>
             </View>
           ) : <></>}
         </View>
@@ -474,8 +479,8 @@ export default function ProductDetailScreen() {
           const attributeName = firstOption?.product_attribute?.name || firstOption.product_attribute_name;
           
           return (
-            <View key={index} style={styles.variantSection}>
-              <Text style={styles.variantLabel}>{attributeName}</Text>
+            <View key={index} style={[styles.variantSection, { backgroundColor: themeColors.card }]}>
+              <ThemedText style={styles.variantLabel}>{attributeName}</ThemedText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.variationRow}>
                   {options.map((variation: any) => {
@@ -484,7 +489,11 @@ export default function ProductDetailScreen() {
                     return (
                       <TouchableOpacity
                         key={variation.id}
-                        style={[styles.variationChip, isSelected && styles.variationChipSelected]}
+                        style={[
+                          styles.variationChip,
+                          { backgroundColor: themeColors.background, borderColor: themeColors.borderColor },
+                          isSelected && styles.variationChipSelected
+                        ]}
                         onPress={() => handleVariationSelect(attributeIndex, variation)}
                       >
                         <Text style={[styles.variationText, isSelected && styles.variationTextSelected]}>
@@ -508,18 +517,18 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
         {product.details? (
-          <View style={styles.expandableSection}>
+          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('description')}>
-              <Text style={styles.expandableTitle}>Description</Text>
+              <ThemedText style={styles.expandableTitle}>Description</ThemedText>
               <Ionicons
                 name={expandedSection === 'description' ? 'chevron-up' : 'chevron-down'}
                 size={20}
-                color="#666"
+                color={themeColors.icon}
               />
             </TouchableOpacity>
             {expandedSection === 'description' && (
-              <View style={styles.expandableBody}>
-                <Text style={styles.descriptionText}>{product.details.replace(/<[^>]*>/g, '')}</Text>
+              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
+                <ThemedText style={styles.descriptionText}>{product.details.replace(/<[^>]*>/g, '')}</ThemedText>
               </View>
             )}
           </View>
@@ -534,18 +543,18 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
         {product.feature_description? (
-          <View style={styles.expandableSection}>
+          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
-              <Text style={styles.expandableTitle}>Feature Description</Text>
+              <ThemedText style={styles.expandableTitle}>Feature Description</ThemedText>
               <Ionicons
                 name={expandedSection === 'feature_description' ? 'chevron-up' : 'chevron-down'}
                 size={20}
-                color="#666"
+                color={themeColors.icon}
               />
             </TouchableOpacity>
             {expandedSection === 'feature_description' && (
-              <View style={styles.expandableBody}>
-                <Text style={styles.descriptionText}>{product.feature_description.replace(/<[^>]*>/g, '')}</Text>
+              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
+                <ThemedText style={styles.descriptionText}>{product.feature_description.replace(/<[^>]*>/g, '')}</ThemedText>
               </View>
             )}
           </View>
@@ -560,21 +569,21 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
         {product.specifications && product.specifications.length > 0 && (
-          <View style={styles.expandableSection}>
+          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
-              <Text style={styles.expandableTitle}>Specifications</Text>
+              <ThemedText style={styles.expandableTitle}>Specifications</ThemedText>
               <Ionicons
                 name={expandedSection === 'specifications' ? 'chevron-up' : 'chevron-down'}
                 size={20}
-                color="#666"
+                color={themeColors.icon}
               />
             </TouchableOpacity>
             {expandedSection === 'specifications' && (
-              <View style={styles.expandableBody}>
+              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
                 {product.specifications.map((spec: any, idx: number) => (
-                  <View key={idx} style={styles.specRow}>
-                    <Text style={styles.specKey}>{spec.key || spec.name}:</Text>
-                    <Text style={styles.specValue}>{spec.value}</Text>
+                  <View key={idx} style={[styles.specRow, { borderBottomColor: themeColors.borderColor }]}>
+                    <ThemedText style={styles.specKey}>{spec.key || spec.name}:</ThemedText>
+                    <ThemedText style={styles.specValue}>{spec.value}</ThemedText>
                   </View>
                 ))}
               </View>
@@ -591,18 +600,18 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
         {product.shipping_and_return && (
-          <View style={styles.expandableSection}>
+          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
             <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('shipping')}>
-              <Text style={styles.expandableTitle}>Shipping & Return</Text>
+              <ThemedText style={styles.expandableTitle}>Shipping & Return</ThemedText>
               <Ionicons
                 name={expandedSection === 'shipping' ? 'chevron-up' : 'chevron-down'}
                 size={20}
-                color="#666"
+                color={themeColors.icon}
               />
             </TouchableOpacity>
             {expandedSection === 'shipping' && (
-              <View style={styles.expandableBody}>
-                <Text style={styles.descriptionText}>{product.shipping_and_return.replace(/<[^>]*>/g, '')}</Text>
+              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
+                <ThemedText style={styles.descriptionText}>{product.shipping_and_return.replace(/<[^>]*>/g, '')}</ThemedText>
               </View>
             )}
           </View>
@@ -613,23 +622,23 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       {/* Sticky Bottom Action Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
         <View style={styles.priceSection}>
-          <Text style={styles.priceLabel}>Price</Text>
+          <ThemedText style={styles.priceLabel}>Price</ThemedText>
           <View>
-            <Text style={styles.priceValue}>${getCurrentPrice().toFixed(2)}</Text>
+            <ThemedText style={styles.priceValue}>${getCurrentPrice().toFixed(2)}</ThemedText>
             {getCurrentOldPrice() > getCurrentPrice() && (
-              <Text style={styles.oldPriceValue}>${getCurrentOldPrice().toFixed(2)}</Text>
+              <ThemedText style={styles.oldPriceValue}>${getCurrentOldPrice().toFixed(2)}</ThemedText>
             )}
           </View>
         </View>
 
-        <View style={styles.quantitySelector}>
-          <TouchableOpacity style={styles.quantityButton} onPress={decrementQuantity}>
+        <View style={[styles.quantitySelector, { backgroundColor: themeColors.background }]}>
+          <TouchableOpacity style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={decrementQuantity}>
             <Ionicons name="remove" size={18} color="#1E88E5" />
           </TouchableOpacity>
-          <Text style={styles.quantityValue}>{quantity}</Text>
-          <TouchableOpacity style={styles.quantityButton} onPress={incrementQuantity}>
+          <ThemedText style={styles.quantityValue}>{quantity}</ThemedText>
+          <TouchableOpacity style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={incrementQuantity}>
             <Ionicons name="add" size={18} color="#1E88E5" />
           </TouchableOpacity>
         </View>
@@ -655,7 +664,6 @@ export default function ProductDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
   },
   header: {
     flexDirection: 'row',
@@ -663,9 +671,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
   },
   headerButton: {
     width: 40,
@@ -677,7 +683,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -712,7 +717,6 @@ const styles = StyleSheet.create({
     width: 24,
   },
   infoSection: {
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginTop: 8,
@@ -726,7 +730,6 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111',
     marginBottom: 8,
   },
   metaRow: {
@@ -744,7 +747,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   variantSection: {
-    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginTop: 8,
@@ -752,7 +754,6 @@ const styles = StyleSheet.create({
   variantLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111',
     marginBottom: 12,
   },
   colorRow: {
@@ -811,8 +812,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#F7F9FC',
     minWidth: 80,
     alignItems: 'center',
   },
@@ -837,12 +836,10 @@ const styles = StyleSheet.create({
     color: '#1E88E5',
   },
   expandableSection: {
-    backgroundColor: '#fff',
     marginTop: 8,
     borderRadius: 8,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
   },
   expandableHeader: {
     flexDirection: 'row',
@@ -854,13 +851,11 @@ const styles = StyleSheet.create({
   expandableTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111',
   },
   expandableBody: {
     paddingHorizontal: 16,
     paddingBottom: 14,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
   },
   featureRow: {
     flexDirection: 'row',
@@ -883,7 +878,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   specKey: {
     fontSize: 13,
@@ -893,7 +887,6 @@ const styles = StyleSheet.create({
   },
   specValue: {
     fontSize: 13,
-    color: '#111',
     flex: 2,
   },
   bottomSpacer: {
@@ -908,9 +901,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
@@ -928,7 +919,6 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111',
   },
   oldPriceValue: {
     fontSize: 12,
@@ -939,7 +929,6 @@ const styles = StyleSheet.create({
   quantitySelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7F9FC',
     borderRadius: 20,
     paddingHorizontal: 4,
     marginRight: 12,
@@ -950,12 +939,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
-    backgroundColor: '#fff',
   },
   quantityValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111',
     paddingHorizontal: 12,
     minWidth: 32,
     textAlign: 'center',
