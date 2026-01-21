@@ -209,7 +209,12 @@ export default function TabTwoScreen() {
                   <Ionicons name="navigate-circle-sharp" size={28} color="#4A4A4A" />
                   <Text style={styles.actionLabel}>Address</Text>
                 </TouchableOpacity>
-                <ActionButton iconName="person-circle" label="Edit Profile" />
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => router.push('/EditProfile')}>
+                  <Ionicons name="person-circle" size={28} color="#4A4A4A" />
+                  <Text style={styles.actionLabel}>Edit Profile</Text>
+                </TouchableOpacity>
               </View>
             </>
           ) : (

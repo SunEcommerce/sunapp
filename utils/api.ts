@@ -539,3 +539,57 @@ export async function fetchCountryByCallingCode(callingCode: string): Promise<an
 export async function fetchSettings(): Promise<any> {
   return await apiRequest('/api/frontend/setting', 'GET', undefined, false);
 }
+
+// ==================== Profile API Endpoints ====================
+
+/**
+ * Fetch user profile
+ */
+export async function fetchProfile(): Promise<any> {
+  return await apiRequest('/profile', 'GET', undefined, true);
+}
+
+/**
+ * Update user profile
+ */
+export async function updateProfile(profileData: FormData): Promise<any> {
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {};
+
+  // Add API key if available
+  if (API_CONFIG.API_KEY) {
+    headers['x-api-key'] = API_CONFIG.API_KEY;
+  }
+
+  // Add locale header
+  if (API_CONFIG.LOCALE) {
+    headers['Accept-Language'] = API_CONFIG.LOCALE;
+  }
+
+  // Add authorization token
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_CONFIG.BASE_URL}/profile`, {
+    method: 'PUT',
+    headers,
+    body: profileData,
+  });
+
+  const text = await response.text();
+  let data: any = null;
+  
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!response.ok) {
+    const msg = data?.message || data?.error || `Request failed (${response.status})`;
+    throw new Error(typeof msg === 'string' ? msg : 'Request failed');
+  }
+
+  return data;
+}
