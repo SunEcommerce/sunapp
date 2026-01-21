@@ -2,8 +2,50 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { SplashScreen, Stack, usePathname, useRouter } from 'expo-router';
 import { useContext, useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
+import { Linking, LogBox, Platform } from 'react-native';
 import 'react-native-reanimated';
+
+// Suppress known deprecation warnings from React Native internals
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    'props.pointerEvents is deprecated',
+    'Image: style.resizeMode is deprecated',
+  ]);
+}
+
+// Configure passive event listeners for web to improve scroll performance
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  const supportsPassive = (() => {
+    let support = false;
+    try {
+      const opts = Object.defineProperty({}, 'passive', {
+        get() {
+          support = true;
+          return true;
+        },
+      });
+      window.addEventListener('test', null as any, opts);
+      window.removeEventListener('test', null as any, opts);
+    } catch (e) {}
+    return support;
+  })();
+
+  if (supportsPassive) {
+    const addEventListenerOriginal = EventTarget.prototype.addEventListener;
+    const passiveEvents = ['touchstart', 'touchmove', 'wheel', 'mousewheel'];
+
+    EventTarget.prototype.addEventListener = function (
+      type: string,
+      listener: any,
+      options?: any
+    ) {
+      if (passiveEvents.includes(type) && typeof options !== 'object') {
+        return addEventListenerOriginal.call(this, type, listener, { passive: true });
+      }
+      return addEventListenerOriginal.call(this, type, listener, options);
+    };
+  }
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,6 +58,9 @@ export const unstable_settings = {
 
 import { CartProvider } from '@/contexts/cart-context';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '@/contexts/theme-context';
+import { persistor, store } from '@/store/store';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
 
 function RootLayoutNav() {
   const { colorScheme } = useContext(ThemeContext)!;
@@ -50,7 +95,7 @@ function RootLayoutNav() {
             }
           }
           if (target !== pathname) {
-            router.replace(target);
+            router.replace(target as any);
           } else if (pathname !== '/(tabs)') {
             router.replace('/(tabs)');
           }
@@ -74,7 +119,7 @@ function RootLayoutNav() {
               }
             }
             if (target !== pathname) {
-              router.replace(target);
+              router.replace(target as any);
             } else if (pathname !== '/(tabs)') {
               router.replace('/(tabs)');
             }
@@ -107,10 +152,14 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <CustomThemeProvider>
-      <CartProvider>
-        <RootLayoutNav />
-      </CartProvider>
-    </CustomThemeProvider>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <CustomThemeProvider>
+          <CartProvider>
+            <RootLayoutNav />
+          </CartProvider>
+        </CustomThemeProvider>
+      </PersistGate>
+    </Provider>
   );
 }

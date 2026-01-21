@@ -232,6 +232,13 @@ export async function fetchCategories(): Promise<any> {
 }
 
 /**
+ * Fetch category tree
+ */
+export async function fetchCategoryTree(): Promise<any> {
+  return await apiRequest('/api/frontend/product-category/tree', 'GET', undefined, false);
+}
+
+/**
  * Fetch products with optional filters
  */
 export async function fetchProducts(params?: {

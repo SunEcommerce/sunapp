@@ -1,7 +1,13 @@
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
-import { fetchBrands, fetchHotSales, fetchNewArrivals, fetchSlider } from '@/utils/api';
+import {
+  selectCategoriesLoading,
+  selectParentCategories,
+  setCategoriesTree,
+  setLoading
+} from '@/store/categoriesSlice';
+import { fetchBrands, fetchCategoryTree, fetchHotSales, fetchNewArrivals, fetchSlider } from '@/utils/api';
 import { navigateToProductDetail } from '@/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,85 +25,29 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDispatch, useSelector } from 'react-redux';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Sample data for categories
-const CATEGORIES = [
-  { id: '1', name: 'Electronics', icon: 'laptop-outline' },
-  { id: '2', name: 'Fashion', icon: 'shirt-outline' },
-  { id: '3', name: 'Home', icon: 'home-outline' },
-  { id: '4', name: 'Sports', icon: 'basketball-outline' },
-  { id: '5', name: 'Books', icon: 'book-outline' },
-  { id: '6', name: 'Toys', icon: 'game-controller-outline' },
-  { id: '7', name: 'Beauty', icon: 'heart-outline' },
-  { id: '8', name: 'Food', icon: 'fast-food-outline' },
-];
-
-// Search categories for dropdown
-const SEARCH_CATEGORIES = [
-  { label: 'All Categories', value: 'all' },
-  { label: 'Electronics', value: 'electronics' },
-  { label: 'Fashion', value: 'fashion' },
-  { label: 'Home', value: 'home' },
-  { label: 'Sports', value: 'sports' },
-  { label: 'Books', value: 'books' },
-];
-
-// Sample data for hot sales products
-const HOT_SALES = [
-  {
-    id: '1',
-    title: 'Premium Wireless Headphones',
-    brand: 'Audio Max',
-    image: 'https://placehold.co/200x200/png?text=Product+1',
-    originalPrice: 199.99,
-    price: 149.99,
-    discount: '25% OFF',
-  },
-  {
-    id: '2',
-    title: 'Smart Watch Pro',
-    brand: 'TechFit',
-    image: 'https://placehold.co/200x200/png?text=Product+2',
-    originalPrice: 299.99,
-    price: 199.99,
-    discount: '33% OFF',
-  },
-  {
-    id: '3',
-    title: 'Portable Power Bank',
-    brand: 'PowerXL',
-    image: 'https://placehold.co/200x200/png?text=Product+3',
-    originalPrice: 79.99,
-    price: 49.99,
-    discount: '38% OFF',
-  },
-  {
-    id: '4',
-    title: 'USB-C Fast Charger',
-    brand: 'ChargePro',
-    image: 'https://placehold.co/200x200/png?text=Product+4',
-    originalPrice: 59.99,
-    price: 39.99,
-    discount: '33% OFF',
-  },
-];
-
-// Sample data for featured brands
-const FEATURED_BRANDS = [
-  { id: '1', name: 'Sony', logo: 'https://placehold.co/100x100/png?text=Sony' },
-  { id: '2', name: 'Samsung', logo: 'https://placehold.co/100x100/png?text=Samsung' },
-  { id: '3', name: 'Apple', logo: 'https://placehold.co/100x100/png?text=Apple' },
-  { id: '4', name: 'LG', logo: 'https://placehold.co/100x100/png?text=LG' },
-  { id: '5', name: 'Canon', logo: 'https://placehold.co/100x100/png?text=Canon' },
-  { id: '6', name: 'Nikon', logo: 'https://placehold.co/100x100/png?text=Nikon' },
-];
 
 export default function HomeScreen() {
   const { colorScheme } = useContext(ThemeContext)!;
   const { itemCount } = useCart();
   const router = useRouter();
+  const dispatch = useDispatch();
+  
+  // Redux selectors
+  const parentCategories = useSelector(selectParentCategories);
+  const isLoadingCategories = useSelector(selectCategoriesLoading);
+
+  // Create search categories dropdown from API data
+  const SEARCH_CATEGORIES = [
+    { label: 'All Categories', value: 'all' },
+    ...parentCategories.map(cat => ({
+      label: cat.name || cat.name_mm || 'Category',
+      value: cat.slug || cat.id.toString(),
+    }))
+  ];
+  
   const [cartItemCount] = useState(5);
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -114,6 +64,27 @@ export default function HomeScreen() {
   const [isLoadingNewArrivals, setIsLoadingNewArrivals] = useState(true);
   const [brandsData, setBrandsData] = useState<any[]>([]);
   const [isLoadingBrands, setIsLoadingBrands] = useState(true);
+
+  // Fetch categories from API and store in Redux
+  useEffect(() => {
+    const loadCategories = async () => {
+      // Only fetch if we don't have categories yet
+      if (parentCategories.length === 0) {
+        try {
+          dispatch(setLoading(true));
+          const response = await fetchCategoryTree();
+          const categories = response?.data || response || [];
+          dispatch(setCategoriesTree(categories));
+        } catch (error) {
+          console.error('Failed to fetch categories:', error);
+        } finally {
+          dispatch(setLoading(false));
+        }
+      }
+    };
+
+    loadCategories();
+  }, [dispatch]);
 
   // Fetch slider data from API
   useEffect(() => {
@@ -237,19 +208,48 @@ export default function HomeScreen() {
     <View style={styles.bannerItem}>
       <Image 
         source={{ uri: item.image || item.image_url || item.url }} 
-        style={styles.bannerImage} 
+        style={styles.bannerImage}
+        resizeMode="cover"
       />
     </View>
   );
 
-  const renderCategoryItem = ({ item }: { item: typeof CATEGORIES[0] }) => (
-    <TouchableOpacity style={styles.categoryItem}>
-      <View style={[styles.categoryIconContainer, { backgroundColor: Colors[colorScheme].tint + '20' }]}>
-        <Ionicons name={item.icon as any} size={32} color={Colors[colorScheme].tint} />
-      </View>
-      <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+  const renderCategoryItem = ({ item }: { item: any }) => {
+    const categoryName = item.name || item.name_mm || 'Category';
+    const categoryImage = item.image || item.icon;
+    const categorySlug = item.slug || '';
+    
+    return (
+      <TouchableOpacity 
+        style={styles.categoryItem}
+        onPress={() => router.push({
+          pathname: '/ProductList',
+          params: {
+            category: categorySlug,
+            name: '',
+            source: 'category',
+          },
+        })}
+      >
+        {categoryImage ? (
+          <View style={styles.categoryIconContainer}>
+            <Image 
+              source={{ uri: categoryImage }} 
+              style={styles.categoryIconImage}
+              resizeMode="cover"
+            />
+          </View>
+        ) : (
+          <View style={[styles.categoryIconContainer, { backgroundColor: Colors[colorScheme].tint + '20' }]}>
+            <Ionicons name="apps-outline" size={32} color={Colors[colorScheme].tint} />
+          </View>
+        )}
+        <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={2}>
+          {categoryName}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderProductItem = ({ item }: { item: any }) => {
     // Handle API response structure
@@ -287,7 +287,7 @@ export default function HomeScreen() {
         activeOpacity={0.9}
       >
         <View style={styles.productImageContainer}>
-          <Image source={{ uri: imageUrl }} style={styles.productImage} />
+          <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
           {hasDiscount && discountPercent > 0 && (
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>{discountPercent}% OFF</Text>
@@ -328,7 +328,7 @@ export default function HomeScreen() {
           },
         })}
       >
-        <Image source={{ uri: logoUrl }} style={styles.brandLogo} />
+        <Image source={{ uri: logoUrl }} style={styles.brandLogo} resizeMode="contain" />
       </TouchableOpacity>
     );
   };
@@ -460,14 +460,24 @@ export default function HomeScreen() {
 
         {/* Category Section */}
         <View style={styles.sectionContainer}>
-          <FlatList
-            data={CATEGORIES}
-            renderItem={renderCategoryItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryList}
-          />
+          {isLoadingCategories ? (
+            <View style={styles.loadingProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text }}>Loading categories...</Text>
+            </View>
+          ) : parentCategories.length > 0 ? (
+            <FlatList
+              data={parentCategories}
+              renderItem={renderCategoryItem}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryList}
+            />
+          ) : (
+            <View style={styles.emptyProductsContainer}>
+              <Text style={{ color: Colors[colorScheme].text, fontSize: 14 }}>No categories available</Text>
+            </View>
+          )}
         </View>
 
         {/* Hot Sales Section */}
@@ -619,10 +629,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.05)',
     elevation: 2,
   },
   categoryDropdown: {
@@ -707,7 +714,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 0,
-    resizeMode: 'cover',
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -761,6 +767,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
+    overflow: 'hidden',
+  },
+  categoryIconImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -789,7 +801,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 160,
     borderRadius: 12,
-    resizeMode: 'cover',
   },
   discountBadge: {
     position: 'absolute',
@@ -850,6 +861,5 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 8,
-    resizeMode: 'contain',
   },
 });
