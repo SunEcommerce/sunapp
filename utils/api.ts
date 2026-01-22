@@ -187,25 +187,76 @@ export async function register(
 }
 
 /**
- * Reset password
+ * Request OTP for forgot password (email or phone)
+ */
+export async function requestPasswordResetOTP(
+  method: 'email' | 'phone',
+  email?: string,
+  phone?: string,
+  countryCode?: string
+): Promise<any> {
+  const payload: any = {};
+  if (method === 'email') {
+    payload.email = email;
+  } else {
+    payload.phone = phone;
+    payload.country_code = countryCode || '+95';
+  }
+  return await apiRequest('/api/auth/forgot-password', 'POST', payload, false);
+}
+
+/**
+ * Verify OTP for password reset
+ */
+export async function verifyPasswordResetOTP(
+  method: 'email' | 'phone',
+  token: string,
+  email?: string,
+  phone?: string,
+  countryCode?: string
+): Promise<any> {
+  const endpoint = method === 'email'
+    ? '/api/auth/forgot-password/verify-email'
+    : '/api/auth/forgot-password/verify-phone';
+  
+  const payload: any = { token };
+  if (method === 'email') {
+    payload.email = email;
+  } else {
+    payload.phone = phone;
+    payload.country_code = countryCode || '+95';
+  }
+  
+  return await apiRequest(endpoint, 'POST', payload, false);
+}
+
+/**
+ * Reset password after OTP verification
  */
 export async function resetPassword(
-  email: string,
-  otp: string,
+  method: 'email' | 'phone',
+  token: string,
   password: string,
-  passwordConfirmation: string
+  passwordConfirmation: string,
+  email?: string,
+  phone?: string,
+  countryCode?: string
 ): Promise<any> {
-  return await apiRequest(
-    '/api/auth/forgot-password/reset-password',
-    'POST',
-    {
-      email,
-      otp,
-      password,
-      password_confirmation: passwordConfirmation,
-    },
-    false
-  );
+  const payload: any = {
+    token,
+    password,
+    password_confirmation: passwordConfirmation,
+  };
+  
+  if (method === 'email') {
+    payload.email = email;
+  } else {
+    payload.phone = phone;
+    payload.country_code = countryCode || '+95';
+  }
+  console.log(payload);
+  
+  return await apiRequest('/api/auth/forgot-password/reset-password', 'POST', payload, false);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -7,6 +7,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 function InlineCartIllustration() {
@@ -35,6 +36,7 @@ export default function CartScreen() {
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   // Calculate totals
   const subtotal = totalAmount;
@@ -43,6 +45,18 @@ export default function CartScreen() {
   const total = subtotal - discount + deliveryFee;
   
   const uniqueItemCount = items.length;
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      try {
+        const token = await AsyncStorage.getItem('access_token'); // adjust key to your auth token key
+        setIsLoggedIn(!!token);
+      } catch (e) {
+        setIsLoggedIn(false);
+      }
+    };
+    checkLogin();
+  }, []);
 
   const handleRemoveItem = (id: string, name: string) => {
     removeFromCart(id)
@@ -250,11 +264,20 @@ export default function CartScreen() {
 
       {/* Checkout Button */}
       <View style={[styles.checkoutContainer, { backgroundColor: themeColors.background, borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-        <TouchableOpacity 
+        {isLoggedIn === false? (
+          <TouchableOpacity 
+          style={styles.checkoutButton}
+          onPress={() => router.push('/Auth')}>
+          <ThemedText style={styles.checkoutButtonText}>Please login to Checkout</ThemedText>
+        </TouchableOpacity>
+        ): (
+          <TouchableOpacity 
           style={styles.checkoutButton}
           onPress={() => router.push('/Checkout')}>
           <ThemedText style={styles.checkoutButtonText}>Proceed to Checkout</ThemedText>
         </TouchableOpacity>
+        )}
+        
       </View>
     </ThemedView>
   );

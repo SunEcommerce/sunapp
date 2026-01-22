@@ -221,7 +221,7 @@ export default function TabTwoScreen() {
             <View style={styles.guestContainer}>
               <Text style={styles.guestTitle}>Welcome</Text>
               <Text style={styles.guestSubtitle}>
-                Please register or login to access your profile
+                Please login or register to access your profile
               </Text>
 
               <View style={styles.authButtonsRow}>

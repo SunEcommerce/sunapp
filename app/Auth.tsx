@@ -1,3 +1,10 @@
+import {
+  login,
+  register,
+  requestPasswordResetOTP,
+  resetPassword,
+  verifyPasswordResetOTP
+} from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -15,42 +22,7 @@ import {
   View
 } from 'react-native';
 
-// Basic API configuration derived from api.json
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost';
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
-const LOCALE = 'en';
-
 type AuthMode = 'login' | 'register' | 'forgot';
-
-type Json = Record<string, any>;
-
-async function jsonFetch(path: string, method: 'GET' | 'POST', body?: Json) {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (API_KEY) headers['x-api-key'] = API_KEY;
-  if (LOCALE) headers['Accept-Language'] = LOCALE;
-
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const text = await res.text();
-  let data: any = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = { message: text };
-  }
-
-  if (!res.ok) {
-    const msg = data?.message || data?.error || `Request failed (${res.status})`;
-    throw new Error(typeof msg === 'string' ? msg : 'Request failed');
-  }
-  return data;
-}
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -73,10 +45,16 @@ export default function AuthScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Forgot password states
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1);
+  const [forgotMethod, setForgotMethod] = useState<'email' | 'phone'>('email');
   const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotPhone, setForgotPhone] = useState('');
+  const [forgotCountryCode, setForgotCountryCode] = useState('+95');
   const [forgotOtp, setForgotOtp] = useState('');
   const [forgotPassword, setForgotPassword] = useState('');
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!loginEmail || !loginPassword) {
@@ -85,20 +63,9 @@ export default function AuthScreen() {
     }
     try {
       setLoading(true);
-      const data = await jsonFetch('/api/auth/login', 'POST', {
-        email: loginEmail,
-        password: loginPassword,
-      });
-      
-      // Store tokens
-      if (data?.token) {
-        await AsyncStorage.setItem('access_token', data.token);
-      }
-      if (data?.refresh_token) {
-        await AsyncStorage.setItem('refresh_token', data.refresh_token);
-      }
-
+      const data = await login(loginEmail, loginPassword);
       if (data?.user) {
+        await AsyncStorage.setItem('access_token', data.token);
         await AsyncStorage.setItem('user_profile', JSON.stringify(data.user));
       }
       
@@ -122,22 +89,14 @@ export default function AuthScreen() {
     }
     try {
       setLoading(true);
-      const data = await jsonFetch('/api/auth/signup/register', 'POST', {
-        name: registerName,
-        email: registerEmail,
-        phone: registerPhone,
-        password: registerPassword,
-        password_confirmation: registerConfirmPassword,
-        otp: registerOtp,
-      });
-      
-      // Store tokens if provided
-      if (data?.token) {
-        await AsyncStorage.setItem('access_token', data.token);
-      }
-      if (data?.refresh_token) {
-        await AsyncStorage.setItem('refresh_token', data.refresh_token);
-      }
+      await register(
+        registerName,
+        registerEmail,
+        registerPhone,
+        registerPassword,
+        registerConfirmPassword,
+        registerOtp
+      );
       
       Alert.alert('Success', 'Registration successful! Please login.');
       setMode('login');
@@ -148,9 +107,61 @@ export default function AuthScreen() {
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!forgotEmail || !forgotOtp || !forgotPassword || !forgotConfirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+  // Step 1: Request OTP
+  const handleRequestOTP = async () => {
+    if (forgotMethod === 'email' && !forgotEmail) {
+      Alert.alert('Error', 'Please enter your email');
+      return;
+    }
+    if (forgotMethod === 'phone' && !forgotPhone) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+    try {
+      setLoading(true);
+      await requestPasswordResetOTP(
+        forgotMethod,
+        forgotEmail,
+        forgotPhone,
+        forgotCountryCode
+      );
+      Alert.alert('Success', 'OTP has been sent. Please check your ' + (forgotMethod === 'email' ? 'email' : 'phone') + '.');
+      setForgotStep(2);
+    } catch (err: any) {
+      Alert.alert('Request failed', err?.message || 'Unable to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOTP = async () => {
+    if (!forgotOtp) {
+      Alert.alert('Error', 'Please enter the OTP');
+      return;
+    }
+    try {
+      setLoading(true);
+      await verifyPasswordResetOTP(
+        forgotMethod,
+        forgotOtp,
+        forgotEmail,
+        forgotPhone,
+        forgotCountryCode
+      );
+      Alert.alert('Success', 'OTP verified! Please enter your new password.');
+      setForgotStep(3);
+    } catch (err: any) {
+      Alert.alert('Verification failed', err?.message || 'Invalid OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 3: Reset Password
+  const handleResetPassword = async () => {
+    if (!forgotPassword || !forgotConfirmPassword) {
+      Alert.alert('Error', 'Please fill in all password fields');
       return;
     }
     if (forgotPassword !== forgotConfirmPassword) {
@@ -159,14 +170,24 @@ export default function AuthScreen() {
     }
     try {
       setLoading(true);
-      await jsonFetch('/api/auth/forgot-password/reset-password', 'POST', {
-        email: forgotEmail,
-        otp: forgotOtp,
-        password: forgotPassword,
-        password_confirmation: forgotConfirmPassword,
-      });
+      await resetPassword(
+        forgotMethod,
+        forgotOtp,
+        forgotPassword,
+        forgotConfirmPassword,
+        forgotEmail,
+        forgotPhone,
+        forgotCountryCode
+      );
       Alert.alert('Success', 'Password reset successful! Please login.');
       setMode('login');
+      // Reset forgot password states
+      setForgotStep(1);
+      setForgotEmail('');
+      setForgotPhone('');
+      setForgotOtp('');
+      setForgotPassword('');
+      setForgotConfirmPassword('');
     } catch (err: any) {
       Alert.alert('Reset failed', err?.message || 'Unable to reset password');
     } finally {
@@ -395,82 +416,220 @@ export default function AuthScreen() {
           <View style={styles.formContainer}>
             <Text style={styles.forgotTitle}>Reset Password</Text>
             <Text style={styles.forgotSubtitle}>
-              Enter your email, OTP and new password to reset your password.
+              {forgotStep === 1 && 'Enter your email or phone to receive an OTP.'}
+              {forgotStep === 2 && 'Enter the OTP sent to your ' + (forgotMethod === 'email' ? 'email' : 'phone') + '.'}
+              {forgotStep === 3 && 'Enter your new password to complete the reset.'}
             </Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#999"
-                  value={forgotEmail}
-                  onChangeText={setForgotEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
+            {/* Step Indicator */}
+            <View style={styles.stepIndicator}>
+              <View style={[styles.stepDot, forgotStep >= 1 && styles.stepDotActive]}>
+                <Text style={[styles.stepText, forgotStep >= 1 && styles.stepTextActive]}>1</Text>
+              </View>
+              <View style={[styles.stepLine, forgotStep >= 2 && styles.stepLineActive]} />
+              <View style={[styles.stepDot, forgotStep >= 2 && styles.stepDotActive]}>
+                <Text style={[styles.stepText, forgotStep >= 2 && styles.stepTextActive]}>2</Text>
+              </View>
+              <View style={[styles.stepLine, forgotStep >= 3 && styles.stepLineActive]} />
+              <View style={[styles.stepDot, forgotStep >= 3 && styles.stepDotActive]}>
+                <Text style={[styles.stepText, forgotStep >= 3 && styles.stepTextActive]}>3</Text>
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>OTP</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="key-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter the OTP"
-                  placeholderTextColor="#999"
-                  value={forgotOtp}
-                  onChangeText={setForgotOtp}
-                  keyboardType="number-pad"
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+            {/* Step 1: Request OTP */}
+            {forgotStep === 1 && (
+              <>
+                {/* Method Selector */}
+                <View style={styles.methodSelector}>
+                  <TouchableOpacity 
+                    style={[styles.methodButton, forgotMethod === 'email' && styles.methodButtonActive]}
+                    onPress={() => setForgotMethod('email')}
+                  >
+                    <Ionicons 
+                      name="mail-outline" 
+                      size={20} 
+                      color={forgotMethod === 'email' ? '#2196F3' : '#999'} 
+                    />
+                    <Text style={[styles.methodButtonText, forgotMethod === 'email' && styles.methodButtonTextActive]}>Email</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.methodButton, forgotMethod === 'phone' && styles.methodButtonActive]}
+                    onPress={() => setForgotMethod('phone')}
+                  >
+                    <Ionicons 
+                      name="call-outline" 
+                      size={20} 
+                      color={forgotMethod === 'phone' ? '#2196F3' : '#999'} 
+                    />
+                    <Text style={[styles.methodButtonText, forgotMethod === 'phone' && styles.methodButtonTextActive]}>Phone</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>New Password</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter new password"
-                  placeholderTextColor="#999"
-                  value={forgotPassword}
-                  onChangeText={setForgotPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+                {forgotMethod === 'email' ? (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Email</Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter your email"
+                        placeholderTextColor="#999"
+                        value={forgotEmail}
+                        onChangeText={setForgotEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Phone Number</Text>
+                    <View style={styles.phoneInputContainer}>
+                      <View style={styles.countryCodeWrapper}>
+                        <Text style={styles.countryCodeText}>{forgotCountryCode}</Text>
+                      </View>
+                      <View style={[styles.inputWrapper, styles.phoneInput]}>
+                        <Ionicons name="call-outline" size={20} color="#999" style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter your phone number"
+                          placeholderTextColor="#999"
+                          value={forgotPhone}
+                          onChangeText={setForgotPhone}
+                          keyboardType="phone-pad"
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm New Password</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm new password"
-                  placeholderTextColor="#999"
-                  value={forgotConfirmPassword}
-                  onChangeText={setForgotConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
+                <TouchableOpacity 
+                  style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+                  onPress={handleRequestOTP} 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Send OTP</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
 
-            <TouchableOpacity style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} onPress={handleForgotPassword} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Send Reset</Text>
-              )}
-            </TouchableOpacity>
+            {/* Step 2: Verify OTP */}
+            {forgotStep === 2 && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>OTP Code</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="key-outline" size={20} color="#999" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter the OTP"
+                      placeholderTextColor="#999"
+                      value={forgotOtp}
+                      onChangeText={setForgotOtp}
+                      keyboardType="number-pad"
+                      autoCapitalize="none"
+                      maxLength={6}
+                    />
+                  </View>
+                </View>
 
-            <TouchableOpacity onPress={() => setMode('login')} style={styles.backButton}>
+                <TouchableOpacity 
+                  style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+                  onPress={handleVerifyOTP} 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Verify OTP</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleRequestOTP} style={styles.resendButton}>
+                  <Text style={styles.resendButtonText}>Resend OTP</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* Step 3: Reset Password */}
+            {forgotStep === 3 && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>New Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter new password"
+                      placeholderTextColor="#999"
+                      value={forgotPassword}
+                      onChangeText={setForgotPassword}
+                      secureTextEntry={!showForgotPassword}
+                      autoCapitalize="none"
+                    />
+                    <TouchableOpacity onPress={() => setShowForgotPassword(!showForgotPassword)}>
+                      <Ionicons 
+                        name={showForgotPassword ? "eye-outline" : "eye-off-outline"} 
+                        size={20} 
+                        color="#999" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Confirm New Password</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Confirm new password"
+                      placeholderTextColor="#999"
+                      value={forgotConfirmPassword}
+                      onChangeText={setForgotConfirmPassword}
+                      secureTextEntry={!showForgotConfirmPassword}
+                      autoCapitalize="none"
+                    />
+                    <TouchableOpacity onPress={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}>
+                      <Ionicons 
+                        name={showForgotConfirmPassword ? "eye-outline" : "eye-off-outline"} 
+                        size={20} 
+                        color="#999" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.primaryButton, loading && styles.primaryButtonDisabled]} 
+                  onPress={handleResetPassword} 
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Reset Password</Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity 
+              onPress={() => {
+                setMode('login');
+                setForgotStep(1);
+                setForgotEmail('');
+                setForgotPhone('');
+                setForgotOtp('');
+                setForgotPassword('');
+                setForgotConfirmPassword('');
+              }} 
+              style={styles.backButton}
+            >
               <Text style={styles.backButtonText}>Back to Login</Text>
             </TouchableOpacity>
           </View>
@@ -631,6 +790,99 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 14,
     color: '#999',
+    fontWeight: '600',
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 32,
+  },
+  stepDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepDotActive: {
+    backgroundColor: '#2196F3',
+  },
+  stepText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+  },
+  stepTextActive: {
+    color: '#fff',
+  },
+  stepLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: '#E0E0E0',
+  },
+  stepLineActive: {
+    backgroundColor: '#2196F3',
+  },
+  methodSelector: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  methodButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#F9F9F9',
+  },
+  methodButtonActive: {
+    borderColor: '#2196F3',
+    backgroundColor: '#E3F2FD',
+  },
+  methodButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#999',
+  },
+  methodButtonTextActive: {
+    color: '#2196F3',
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  countryCodeWrapper: {
+    width: 70,
+    height: 52,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    backgroundColor: '#F9F9F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countryCodeText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  phoneInput: {
+    flex: 1,
+  },
+  resendButton: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  resendButtonText: {
+    fontSize: 14,
+    color: '#2196F3',
     fontWeight: '600',
   },
 });
