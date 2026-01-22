@@ -1,17 +1,21 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
+import { selectParentCategories } from '@/store/categoriesSlice';
+import { fetchBrands } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import Modal from 'react-native-modal';
+import { useSelector } from 'react-redux';
 
 export type Filters = {
   category: string;
@@ -30,8 +34,6 @@ type Props = {
   initial?: Partial<Filters>;
 };
 
-const CATEGORY_CHIPS = ['All', 'Mobiles', 'Tablets', 'Laptops'];
-const BRANDS = ['Samsung', 'OPPO', 'Apple', 'Dell', 'Sony'];
 const DEFAULTS: Filters = {
   category: 'All',
   priceRange: [100, 2000],
@@ -44,6 +46,31 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
   const mergedDefaults = useMemo(() => ({ ...DEFAULTS, ...(initial || {}) }), [initial]);
+
+  // Get categories from Redux
+  const parentCategories = useSelector(selectParentCategories);
+  const categoryChips = useMemo(() => [
+    'All',
+    ...parentCategories.map(cat => cat.name || cat.name_mm || 'Category')
+  ], [parentCategories]);
+
+  // Fetch brands from API
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  useEffect(() => {
+    const loadBrands = async () => {
+      try {
+        const response = await fetchBrands();
+        const brandsList = response?.data || response?.brands || response || [];
+        const brandNames = brandsList.map((b: any) => b.name || 'Brand').filter(Boolean);
+        setAvailableBrands(brandNames);
+      } catch (error) {
+        console.error('Failed to fetch brands:', error);
+        setAvailableBrands([]);
+      }
+    };
+    loadBrands();
+  }, []);
+
   const [category, setCategory] = useState<string>(mergedDefaults.category);
   const [priceRange, setPriceRange] = useState<[number, number]>(mergedDefaults.priceRange);
   const [brands, setBrands] = useState<string[]>(mergedDefaults.brands);
@@ -96,7 +123,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
           {/* Category Chips */}
           <ThemedText style={styles.sectionTitle}>Category</ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {CATEGORY_CHIPS.map((chip) => {
+            {categoryChips.map((chip) => {
               const active = chip === category;
               return (
                 <TouchableOpacity
@@ -118,22 +145,63 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
           <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
 
           {/* Price Range Slider */}
-          <ThemedText style={styles.sectionTitle}>Price Range</ThemedText>
-          <View style={styles.sliderContainer}>
-            <MultiSlider
-              values={[priceRange[0], priceRange[1]]}
-              onValuesChangeFinish={(vals) => setPriceRange([vals[0], vals[1]] as [number, number])}
-              min={100}
-              max={2000}
-              step={10}
-              sliderLength={280}
-              selectedStyle={{ backgroundColor: '#1E88E5' }}
-              unselectedStyle={{ backgroundColor: themeColors.borderColor }}
-              markerStyle={{ backgroundColor: '#1E88E5', width: 20, height: 20, borderRadius: 10 }}
-            />
-            <View style={styles.sliderLabels}>
-              <ThemedText style={styles.sliderLabel}>$100</ThemedText>
-              <ThemedText style={styles.sliderLabel}>$2000</ThemedText>
+          <ThemedText style={styles.sectionTitle}>Price</ThemedText>
+          <View style={styles.priceContainer}>
+            <View style={styles.priceInputsRow}>
+
+              {/* Min Price Input */}
+              <View style={[styles.priceInputContainer, { borderColor: themeColors.borderColor }]}>
+                <ThemedText style={styles.priceInputLabel}>$</ThemedText>
+                <TextInput
+                  style={[styles.priceInput, { color: themeColors.text }]}
+                  // value ကို string အဖြစ်ပြပေးရုံတင်မကဘဲ user ရိုက်နေချိန်မှာ ပျောက်မသွားအောင် handle လုပ်ရပါမယ်
+                  value={priceRange[0].toString()}
+                  keyboardType="numeric"
+                  onChangeText={(text) => {
+                    // စာသားကို နံပါတ်ပြောင်းပါ၊ အလွတ်ဖြစ်နေရင် 0 လို့သတ်မှတ်ပါ
+                    const val = text === '' ? 0 : parseInt(text.replace(/[^0-9]/g, ''));
+                    // Min value သည် Max ထက်မကျော်စေရန် check လုပ်နိုင်သည် (optional)
+                    setPriceRange([val, priceRange[1]]);
+                  }}
+                  placeholderTextColor={themeColors.textSecondary}
+                />
+              </View>
+
+              <ThemedText style={styles.priceSeparator}>—</ThemedText>
+
+              {/* Max Price Input */}
+              <View style={[styles.priceInputContainer, { borderColor: themeColors.borderColor }]}>
+                <ThemedText style={styles.priceInputLabel}>$</ThemedText>
+                <TextInput
+                  style={[styles.priceInput, { color: themeColors.text }]}
+                  value={priceRange[1].toString()}
+                  keyboardType="numeric"
+                  onChangeText={(text) => {
+                    const val = text === '' ? 0 : parseInt(text.replace(/[^0-9]/g, ''));
+                    setPriceRange([priceRange[0], val]);
+                  }}
+                  placeholderTextColor={themeColors.textSecondary}
+                />
+              </View>
+            </View>
+
+            {/* Dual-Thumb Slider */}
+            <View style={styles.sliderContainer}>
+              <MultiSlider
+                values={[priceRange[0], priceRange[1]]}
+                onValuesChange={(values) => setPriceRange([values[0], values[1]])}
+                min={0}
+                max={5000}
+                step={1} // Step ကို သေးပေးထားရင် Input ရိုက်ရတာ ပိုမှန်ပါလိမ့်မယ်
+                sliderLength={280}
+                selectedStyle={styles.sliderSelected}
+                unselectedStyle={styles.sliderUnselected}
+                markerStyle={styles.sliderMarker}
+                pressedMarkerStyle={styles.sliderMarkerPressed}
+                trackStyle={styles.sliderTrack}
+                containerStyle={styles.sliderInnerContainer}
+              // Slider ရွှေ့ပြီးမှ state update လုပ်ချင်ရင် onValuesChangeFinish ကို သုံးနိုင်ပါတယ်
+              />
             </View>
           </View>
 
@@ -142,7 +210,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
           {/* Brand Selection */}
           <ThemedText style={styles.sectionTitle}>Brand</ThemedText>
           <View style={styles.brandList}>
-            {BRANDS.map((b) => {
+            {availableBrands.map((b) => {
               const checked = brands.includes(b);
               return (
                 <TouchableOpacity
@@ -269,20 +337,84 @@ const styles = StyleSheet.create({
   chipTextInactive: {
     fontWeight: '600',
   },
-  sliderContainer: {
+  priceContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
-    alignItems: 'center',
+    paddingVertical: 8,
   },
-  sliderLabels: {
-    width: '100%',
+  priceInputsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginBottom: 20,
   },
-  sliderLabel: {
-    fontSize: 12,
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minWidth: 120,
+    flex: 1,
+  },
+  priceInputLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginRight: 4,
+  },
+  priceInput: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+    padding: 0,
+    textAlign: 'left',
+  },
+  priceSeparator: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginHorizontal: 12,
+  },
+  sliderContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  sliderInnerContainer: {
+    height: 40,
+  },
+  sliderTrack: {
+    height: 4,
+    borderRadius: 2,
+  },
+  sliderSelected: {
+    backgroundColor: '#3d629a',
+    height: 6,
+    borderRadius: 3,
+  },
+  sliderUnselected: {
+    backgroundColor: '#E0E0E0',
+    height: 4,
+    borderRadius: 2,
+  },
+  sliderMarker: {
+    backgroundColor: '#0D47A1',
+    height: 24,
+    width: 24,
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+    top: 1.5,
+  },
+  sliderMarkerPressed: {
+    backgroundColor: '#1565C0',
+    height: 26,
+    width: 26,
+    borderRadius: 13,
   },
   brandList: {
     paddingHorizontal: 8,

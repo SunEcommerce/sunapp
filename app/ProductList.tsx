@@ -25,62 +25,6 @@ const CARD_GUTTER = 12;
 const NUM_COLUMNS = 2;
 const CARD_WIDTH = (SCREEN_WIDTH - CARD_GUTTER * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
-const MOCK_PRODUCTS = [
-  {
-    id: '1',
-    name: 'Wireless Noise-Canceling Headphones with Long Battery Life',
-    price: '$149.99',
-    image: 'https://placehold.co/400x400/png?text=Product+1',
-  },
-  {
-    id: '2',
-    name: 'Smartwatch with Fitness Tracking and GPS',
-    price: '$199.99',
-    image: 'https://placehold.co/400x400/png?text=Product+2',
-  },
-  {
-    id: '3',
-    name: 'Portable Bluetooth Speaker with Deep Bass',
-    price: '$89.99',
-    image: 'https://placehold.co/400x400/png?text=Product+3',
-  },
-  {
-    id: '4',
-    name: 'Ergonomic Wireless Mouse',
-    price: '$39.99',
-    image: 'https://placehold.co/400x400/png?text=Product+4',
-  },
-  {
-    id: '5',
-    name: '4K Action Camera with Stabilization',
-    price: '$249.99',
-    image: 'https://placehold.co/400x400/png?text=Product+5',
-  },
-  {
-    id: '6',
-    name: 'USB-C GaN Fast Charger (65W)',
-    price: '$29.99',
-    image: 'https://placehold.co/400x400/png?text=Product+6',
-  },
-  {
-    id: '7',
-    name: 'Ergonomic Wireless Mouse',
-    price: '$39.99',
-    image: 'https://placehold.co/400x400/png?text=Product+4',
-  },
-  {
-    id: '8',
-    name: '4K Action Camera with Stabilization',
-    price: '$249.99',
-    image: 'https://placehold.co/400x400/png?text=Product+5',
-  },
-  {
-    id: '9',
-    name: 'USB-C GaN Fast Charger (65W)',
-    price: '$29.99',
-    image: 'https://placehold.co/400x400/png?text=Product+6',
-  },
-];
 
 export default function ProductListScreen() {
   const router = useRouter();
