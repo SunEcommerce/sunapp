@@ -403,7 +403,7 @@ export default function ProductDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.scrollView, {paddingBottom: 20 }]} showsVerticalScrollIndicator={false}>
         {/* Image Carousel */}
         <View style={styles.carouselContainer}>
           {allImages.length > 0 ? (
@@ -465,7 +465,7 @@ export default function ProductDetailScreen() {
         {/* Product Variations */}
         {isLoadingDetails && Object.keys(availableOptions).length === 0 ? (
           <View style={styles.variantSection}>
-            <View style={{ height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 12, width: 100 }} />
+            <View style={{ height: 10, backgroundColor: '#E0E0E0', borderRadius: 4, width: 100 }} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
               {[1, 2, 3].map(i => (
                 <View key={i} style={{ width: 80, height: 44, backgroundColor: '#E0E0E0', borderRadius: 8 }} />
@@ -748,8 +748,8 @@ const styles = StyleSheet.create({
   },
   variantSection: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginTop: 8,
+    paddingVertical: 5,
+    marginTop: 0,
   },
   variantLabel: {
     fontSize: 14,
