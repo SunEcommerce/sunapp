@@ -1,5 +1,7 @@
+import { useRouter } from 'expo-router';
 import { useContext, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   LayoutAnimation,
@@ -14,84 +16,85 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
+import { fetchCategoryTree } from '@/utils/api';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type MainCategory = {
-  id: string;
+type Category = {
+  id: number;
   name: string;
+  slug: string;
+  description: string | null;
+  status: number;
+  parent_id: number | null;
+  thumb: string;
+  cover: string;
+  children?: Category[];
 };
 
-type SubCategory = {
-  id: string;
-  name: string;
-  image: string;
-};
-
-const MAIN_CATEGORIES: MainCategory[] = [
-  { id: 'electronics', name: 'Electronics' },
-  { id: 'fashion', name: 'Fashion' },
-  { id: 'home', name: 'Home' },
-  { id: 'sports', name: 'Sports' },
-  { id: 'books', name: 'Books' },
-  { id: 'beauty', name: 'Beauty' },
-];
-
-const SUBCATEGORY_MAP: Record<string, SubCategory[]> = {
-  electronics: [
-    { id: 'phones', name: 'Smartphones', image: 'https://placehold.co/200x200?text=Phones' },
-    { id: 'laptops', name: 'Laptops', image: 'https://placehold.co/200x200?text=Laptops' },
-    { id: 'audio', name: 'Audio', image: 'https://placehold.co/200x200?text=Audio' },
-    { id: 'cameras', name: 'Cameras', image: 'https://placehold.co/200x200?text=Cameras' },
-  ],
-  fashion: [
-    { id: 'men', name: 'Men', image: 'https://placehold.co/200x200?text=Men' },
-    { id: 'women', name: 'Women', image: 'https://placehold.co/200x200?text=Women' },
-    { id: 'accessories', name: 'Accessories', image: 'https://placehold.co/200x200?text=Accessories' },
-    { id: 'shoes', name: 'Shoes', image: 'https://placehold.co/200x200?text=Shoes' },
-  ],
-  home: [
-    { id: 'kitchen', name: 'Kitchen', image: 'https://placehold.co/200x200?text=Kitchen' },
-    { id: 'decor', name: 'Decor', image: 'https://placehold.co/200x200?text=Decor' },
-    { id: 'furniture', name: 'Furniture', image: 'https://placehold.co/200x200?text=Furniture' },
-    { id: 'bedding', name: 'Bedding', image: 'https://placehold.co/200x200?text=Bedding' },
-  ],
-  sports: [
-    { id: 'fitness', name: 'Fitness', image: 'https://placehold.co/200x200?text=Fitness' },
-    { id: 'outdoor', name: 'Outdoor', image: 'https://placehold.co/200x200?text=Outdoor' },
-    { id: 'team', name: 'Team Sports', image: 'https://placehold.co/200x200?text=Team' },
-    { id: 'cycling', name: 'Cycling', image: 'https://placehold.co/200x200?text=Cycling' },
-  ],
-  books: [
-    { id: 'fiction', name: 'Fiction', image: 'https://placehold.co/200x200?text=Fiction' },
-    { id: 'nonfiction', name: 'Non-fiction', image: 'https://placehold.co/200x200?text=Nonfiction' },
-    { id: 'kids', name: 'Kids', image: 'https://placehold.co/200x200?text=Kids' },
-    { id: 'comics', name: 'Comics', image: 'https://placehold.co/200x200?text=Comics' },
-  ],
-  beauty: [
-    { id: 'skincare', name: 'Skincare', image: 'https://placehold.co/200x200?text=Skincare' },
-    { id: 'makeup', name: 'Makeup', image: 'https://placehold.co/200x200?text=Makeup' },
-    { id: 'hair', name: 'Hair Care', image: 'https://placehold.co/200x200?text=Hair' },
-    { id: 'fragrance', name: 'Fragrance', image: 'https://placehold.co/200x200?text=Fragrance' },
-  ],
-};
+function getAllChildren(category: Category): Category[] {
+  let allChildren: Category[] = [];
+  
+  if (category.children && category.children.length > 0) {
+    for (const child of category.children) {
+      allChildren.push(child);
+      // Recursively get children of children
+      allChildren = allChildren.concat(getAllChildren(child));
+    }
+  }
+  
+  return allChildren;
+}
 
 export default function CategoryScreen() {
+  const router = useRouter();
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
   
-  const [activeCategory, setActiveCategory] = useState<string>(MAIN_CATEGORIES[0].id);
-  const [subcategories, setSubcategories] = useState<SubCategory[]>(SUBCATEGORY_MAP[MAIN_CATEGORIES[0].id]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeCategory, setActiveCategory] = useState<number | null>(null);
+  const [subcategories, setSubcategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSubcategories(SUBCATEGORY_MAP[activeCategory] || []);
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchCategoryTree();
+      // Filter only parent categories (parent_id is null)
+      const parentCategories = data.filter((cat: Category) => cat.parent_id === null);
+      setCategories(parentCategories);
+      
+      // Set first category as active
+      if (parentCategories.length > 0) {
+        const firstCategory = parentCategories[0];
+        setActiveCategory(firstCategory.id);
+        setSubcategories(getAllChildren(firstCategory));
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeCategory !== null) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      const category = categories.find(cat => cat.id === activeCategory);
+      if (category) {
+        setSubcategories(getAllChildren(category));
+      }
+    }
   }, [activeCategory]);
 
-  const renderMainCategory = ({ item }: { item: MainCategory }) => {
+  const renderMainCategory = ({ item }: { item: Category }) => {
     const isActive = item.id === activeCategory;
     return (
       <TouchableOpacity
@@ -102,27 +105,45 @@ export default function CategoryScreen() {
         ]}
         onPress={() => setActiveCategory(item.id)}
       >
-        <View style={[styles.accentBar, isActive && styles.accentBarActive]} />
+        <Image source={{ uri: item.cover }} style={styles.mainCategoryImage} />
         <ThemedText style={[styles.mainCategoryText, isActive && styles.mainCategoryTextActive]}>{item.name}</ThemedText>
       </TouchableOpacity>
     );
   };
 
-  const renderSubCategory = ({ item }: { item: SubCategory }) => (
-    <View style={[styles.subCategoryCard, { backgroundColor: themeColors.card }]}>
-      <Image source={{ uri: item.image }} style={styles.subCategoryImage} />
+  const renderSubCategory = ({ item }: { item: Category }) => (
+    <TouchableOpacity
+      style={[styles.subCategoryCard, { backgroundColor: themeColors.card }]}
+      onPress={() => router.push(`/ProductList?category=${item.slug}`)}
+    >
+      <Image source={{ uri: item.cover }} style={styles.subCategoryImage} />
       <ThemedText style={styles.subCategoryText}>{item.name}</ThemedText>
-    </View>
+    </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color="#1E88E5" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
+        <ThemedText style={styles.headerTitle}>Category</ThemedText>
+      </View>
+
       <View style={styles.container}>
         <View style={[styles.leftColumn, { backgroundColor: themeColors.card }]}>
           <FlatList
-            data={MAIN_CATEGORIES}
+            data={categories}
             renderItem={renderMainCategory}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
           />
         </View>
@@ -133,7 +154,7 @@ export default function CategoryScreen() {
           <FlatList
             data={subcategories}
             renderItem={renderSubCategory}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             numColumns={2}
             columnWrapperStyle={styles.subCategoryRow}
             showsVerticalScrollIndicator={false}
@@ -148,6 +169,17 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
   },
   container: {
     flex: 1,
@@ -168,25 +200,24 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   mainCategoryItem: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   mainCategoryItemActive: {},
-  accentBar: {
-    width: 4,
-    height: '100%',
-    marginRight: 10,
-    borderRadius: 2,
-    backgroundColor: 'transparent',
-  },
-  accentBarActive: {
-    backgroundColor: '#1E88E5',
+  mainCategoryImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    marginBottom: 6,
+    resizeMode: 'cover',
   },
   mainCategoryText: {
-    fontSize: 15,
+    fontSize: 12,
+    textAlign: 'center',
   },
   mainCategoryTextActive: {
     color: '#1E88E5',
