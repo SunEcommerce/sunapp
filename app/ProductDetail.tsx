@@ -9,13 +9,13 @@ import { useContext, useEffect, useState } from 'react';
 import {
   Dimensions,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -26,6 +26,7 @@ export default function ProductDetailScreen() {
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
   
   // Parse preloaded data for instant display
   const initialData = preloadData ? JSON.parse(preloadData as string) : null;
@@ -622,7 +623,7 @@ export default function ProductDetailScreen() {
       </ScrollView>
 
       {/* Sticky Bottom Action Bar */}
-      <View style={[styles.bottomBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
+      <View style={[styles.bottomBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.priceSection}>
           <ThemedText style={styles.priceLabel}>Price</ThemedText>
           <View>

@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchOrderDetails } from '@/utils/api';
@@ -8,13 +7,14 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface OrderAddress {
   id: number;
@@ -139,22 +139,22 @@ export default function OrderDetailScreen() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.centerContainer}>
+      <SafeAreaView style={[styles.centerContainer, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <ActivityIndicator size="large" color="#2b5fe2" />
         <ThemedText style={styles.loadingText}>Loading order details...</ThemedText>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   if (error || !orderDetail) {
     return (
-      <ThemedView style={styles.centerContainer}>
+      <SafeAreaView style={[styles.centerContainer, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
         <ThemedText style={styles.errorText}>{error || 'Order not found'}</ThemedText>
         <TouchableOpacity style={styles.retryButton} onPress={loadOrderDetail}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
@@ -162,7 +162,7 @@ export default function OrderDetailScreen() {
   const billingAddress = orderDetail.order_address?.find(addr => addr.address_type === 5);
 
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColors.background }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -312,7 +312,7 @@ export default function OrderDetailScreen() {
           </View>
         </View>
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 

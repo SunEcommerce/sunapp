@@ -11,9 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -305,7 +305,7 @@ export default function CheckoutScreen() {
   // Check if cart is empty
   if (items.length === 0) {
     return (
-      <ThemedView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -316,14 +316,14 @@ export default function CheckoutScreen() {
         <View style={styles.emptyContainer}>
           <ThemedText style={styles.emptyText}>Your cart is empty</ThemedText>
         </View>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   // Loading state
   if (isLoading) {
     return (
-      <ThemedView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -335,14 +335,14 @@ export default function CheckoutScreen() {
           <ActivityIndicator size="large" color="#2196F3" />
           <ThemedText style={styles.loadingText}>Loading checkout...</ThemedText>
         </View>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   // Thank You page
   if (showThankYou) {
     return (
-      <ThemedView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right', 'bottom']}>
         <View style={[styles.thankYouContainer, { backgroundColor: themeColors.background }]}>
           <View style={styles.thankYouIconContainer}>
             <Ionicons name="checkmark-circle" size={120} color="#4CAF50" />
@@ -358,14 +358,12 @@ export default function CheckoutScreen() {
             </ThemedText>
           </View>
         </View>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
-
-
   return (
-    <ThemedView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -446,7 +444,12 @@ export default function CheckoutScreen() {
               </View>
             </View>
 
-            <View style={styles.paymentMethodsContainer}>
+            <ScrollView 
+              style={styles.paymentMethodsContainer} 
+              contentContainerStyle={styles.paymentMethodList}
+              nestedScrollEnabled={true} 
+              showsVerticalScrollIndicator={false}
+            >
               {orderAreas.map((area) => (
                 <TouchableOpacity
                   key={area.id}
@@ -477,7 +480,7 @@ export default function CheckoutScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
           </View>
         )}
 
@@ -490,7 +493,12 @@ export default function CheckoutScreen() {
             </View>
           </View>
 
-          <View style={styles.paymentMethodsContainer}>
+          <ScrollView 
+            style={styles.paymentMethodsContainer} 
+            contentContainerStyle={styles.paymentMethodList}
+            nestedScrollEnabled={true} 
+            showsVerticalScrollIndicator={false}
+          >
             {paymentMethods.map((method) => (
               <TouchableOpacity
                 key={method.id}
@@ -523,7 +531,7 @@ export default function CheckoutScreen() {
                 </View>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Order Note Section */}
@@ -704,7 +712,7 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
@@ -881,9 +889,10 @@ const styles = StyleSheet.create({
   // Payment method styles
   paymentMethodsContainer: {
     paddingHorizontal: 16,
-    gap: 8,
     maxHeight: 200,
-    overflow: 'scroll',
+  },
+  paymentMethodList: {
+    gap: 8,
   },
   paymentMethod: {
     flexDirection: 'row',

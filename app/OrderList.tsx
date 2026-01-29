@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchOrders } from '@/utils/api';
@@ -7,15 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface OrderUser {
   id: number;
@@ -152,27 +152,27 @@ export default function OrderListScreen() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.centerContainer}>
+      <SafeAreaView style={[styles.centerContainer, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <ActivityIndicator size="large" color="#2b5fe2" />
         <ThemedText style={styles.loadingText}>Loading orders...</ThemedText>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <ThemedView style={styles.centerContainer}>
+      <SafeAreaView style={[styles.centerContainer, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
         <ThemedText style={styles.errorText}>{error}</ThemedText>
         <TouchableOpacity style={styles.retryButton} onPress={loadOrders}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColors.background }]}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -209,7 +209,7 @@ export default function OrderListScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 

@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchWishlistProducts } from '@/utils/api';
@@ -8,16 +7,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface WishlistProduct {
   id: number;
@@ -146,7 +146,7 @@ export default function FavoriteProducts() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -157,12 +157,12 @@ export default function FavoriteProducts() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2b5fe2" />
         </View>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -183,7 +183,7 @@ export default function FavoriteProducts() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 

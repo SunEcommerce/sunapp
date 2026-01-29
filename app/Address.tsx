@@ -10,9 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import {
@@ -268,7 +268,7 @@ export default function AddressScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <ThemedView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -280,14 +280,14 @@ export default function AddressScreen() {
           <ActivityIndicator size="large" color="#2196F3" />
           <ThemedText style={styles.loadingText}>Loading addresses...</ThemedText>
         </View>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   // Address form modal
   if (showAddForm) {
     return (
-      <ThemedView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
           <TouchableOpacity onPress={handleCancelForm} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -405,12 +405,12 @@ export default function AddressScreen() {
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
-      </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ThemedView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -518,7 +518,7 @@ export default function AddressScreen() {
           </View>
         )}
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 

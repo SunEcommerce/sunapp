@@ -12,13 +12,13 @@ import {
   Dimensions,
   FlatList,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GUTTER = 12;
@@ -176,7 +176,7 @@ export default function ProductListScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       {/* Header Navigation */}
       <View style={[styles.headerNav, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>

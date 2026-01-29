@@ -9,6 +9,7 @@ import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function InlineCartIllustration() {
   return (
@@ -43,7 +44,7 @@ export default function CartScreen() {
   const discount = 40.00; // You can make this dynamic based on promo code
   const deliveryFee = 0; // Free delivery
   const total = subtotal - discount + deliveryFee;
-  
+
   const uniqueItemCount = items.length;
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function CartScreen() {
   };
 
   const toggleSelectItem = (id: string) => {
-    setSelectedItems(prev => 
+    setSelectedItems(prev =>
       prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
     );
   };
@@ -94,9 +95,9 @@ export default function CartScreen() {
       `Delete ${selectedItems.length} selected item(s)?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
+        {
+          text: 'Delete',
+          style: 'destructive',
           onPress: () => {
             selectedItems.forEach(id => removeFromCart(id));
             setSelectedItems([]);
@@ -136,150 +137,152 @@ export default function CartScreen() {
 
   // Cart with items
   return (
-    <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-        <View style={styles.headerLeft} />
-        <ThemedText style={styles.headerTitle}>Cart ({uniqueItemCount})</ThemedText>
-        <View style={styles.headerRight}>
-          {selectedItems.length > 0 && (
-            <TouchableOpacity onPress={handleDeleteSelected} style={styles.headerButton}>
-              <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
+          <View style={styles.headerLeft} />
+          <ThemedText style={styles.headerTitle}>Cart ({uniqueItemCount})</ThemedText>
+          <View style={styles.headerRight}>
+            {selectedItems.length > 0 && (
+              <TouchableOpacity onPress={handleDeleteSelected} style={styles.headerButton}>
+                <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={toggleEditMode} style={styles.headerButton}>
+              <ThemedText style={styles.editText}>{isEditMode ? 'Done' : 'Edit'}</ThemedText>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={toggleEditMode} style={styles.headerButton}>
-            <ThemedText style={styles.editText}>{isEditMode ? 'Done' : 'Edit'}</ThemedText>
-          </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Cart Items */}
-        <View style={styles.itemsContainer}>
-          {items.map((item) => (
-            <View key={item.id} style={[styles.cartItem, { backgroundColor: themeColors.background }]}>
-              {/* Checkbox for edit mode */}
-              {isEditMode && (
-                <TouchableOpacity 
-                  onPress={() => toggleSelectItem(item.id)}
-                  style={styles.checkboxContainer}>
-                  <View style={[
-                    styles.checkbox,
-                    { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' },
-                    selectedItems.includes(item.id) && styles.checkboxChecked
-                  ]}>
-                    {selectedItems.includes(item.id) && (
-                      <Ionicons name="checkmark" size={16} color="#fff" />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
-              
-              <Image source={{ uri: item.image }} style={styles.productImage} />
-              
-              <View style={styles.itemDetails}>
-                <View style={styles.itemHeader}>
-                  <View style={styles.itemInfo}>
-                    <ThemedText style={styles.productName}>{item.name}</ThemedText>
-                    <ThemedText style={styles.productSku}>
-                      SKU: {item.sku}
-                    </ThemedText>
-                    {item.variation_names && (
-                      <ThemedText style={styles.productVariant}>
-                        {item.variation_names}
-                      </ThemedText>
-                    )}
-                  </View>
-                  
-                  <TouchableOpacity 
-                    onPress={() => handleRemoveItem(item.id, item.name)}
-                    style={styles.removeButton}>
-                    <Ionicons name="trash-outline" size={20} color="#999" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.itemFooter}>
-                  <ThemedText style={styles.itemPrice}>${item.price.toFixed(2)}</ThemedText>
-                  
-                  {!isEditMode && (
-                    <View style={styles.quantityControl}>
-                      <TouchableOpacity 
-                        onPress={() => handleQuantityChange(item.id, -1, item.quantity)}
-                        style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-                        <ThemedText style={styles.quantityButtonText}>-</ThemedText>
-                      </TouchableOpacity>
-                      
-                      <ThemedText style={styles.quantity}>{item.quantity}</ThemedText>
-                      
-                      <TouchableOpacity 
-                        onPress={() => handleQuantityChange(item.id, 1, item.quantity)}
-                        style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-                        <ThemedText style={styles.quantityButtonText}>+</ThemedText>
-                      </TouchableOpacity>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Cart Items */}
+          <View style={styles.itemsContainer}>
+            {items.map((item) => (
+              <View key={item.id} style={[styles.cartItem, { backgroundColor: themeColors.background }]}>
+                {/* Checkbox for edit mode */}
+                {isEditMode && (
+                  <TouchableOpacity
+                    onPress={() => toggleSelectItem(item.id)}
+                    style={styles.checkboxContainer}>
+                    <View style={[
+                      styles.checkbox,
+                      { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' },
+                      selectedItems.includes(item.id) && styles.checkboxChecked
+                    ]}>
+                      {selectedItems.includes(item.id) && (
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      )}
                     </View>
-                  )}
+                  </TouchableOpacity>
+                )}
+
+                <Image source={{ uri: item.image }} style={styles.productImage} />
+
+                <View style={styles.itemDetails}>
+                  <View style={styles.itemHeader}>
+                    <View style={styles.itemInfo}>
+                      <ThemedText style={styles.productName}>{item.name}</ThemedText>
+                      <ThemedText style={styles.productSku}>
+                        SKU: {item.sku}
+                      </ThemedText>
+                      {item.variation_names && (
+                        <ThemedText style={styles.productVariant}>
+                          {item.variation_names}
+                        </ThemedText>
+                      )}
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => handleRemoveItem(item.id, item.name)}
+                      style={styles.removeButton}>
+                      <Ionicons name="trash-outline" size={20} color="#999" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.itemFooter}>
+                    <ThemedText style={styles.itemPrice}>${item.price.toFixed(2)}</ThemedText>
+
+                    {!isEditMode && (
+                      <View style={styles.quantityControl}>
+                        <TouchableOpacity
+                          onPress={() => handleQuantityChange(item.id, -1, item.quantity)}
+                          style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
+                          <ThemedText style={styles.quantityButtonText}>-</ThemedText>
+                        </TouchableOpacity>
+
+                        <ThemedText style={styles.quantity}>{item.quantity}</ThemedText>
+
+                        <TouchableOpacity
+                          onPress={() => handleQuantityChange(item.id, 1, item.quantity)}
+                          style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
+                          <ThemedText style={styles.quantityButtonText}>+</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
+            ))}
+          </View>
+
+          {/* Promo Code */}
+          <View style={styles.promoSection}>
+            <TextInput
+              style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0', color: themeColors.text }]}
+              placeholder="Enter promo code"
+              placeholderTextColor="#999"
+              value={promoCode}
+              onChangeText={setPromoCode}
+            />
+            <TouchableOpacity style={styles.applyButton}>
+              <ThemedText style={styles.applyButtonText}>Apply</ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Order Summary */}
+          <View style={styles.summarySection}>
+            <View style={styles.summaryRow}>
+              <ThemedText style={styles.summaryLabel}>Subtotal</ThemedText>
+              <ThemedText style={styles.summaryValue}>${subtotal.toFixed(2)}</ThemedText>
             </View>
-          ))}
-        </View>
 
-        {/* Promo Code */}
-        <View style={styles.promoSection}>
-          <TextInput
-            style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0', color: themeColors.text }]}
-            placeholder="Enter promo code"
-            placeholderTextColor="#999"
-            value={promoCode}
-            onChangeText={setPromoCode}
-          />
-          <TouchableOpacity style={styles.applyButton}>
-            <ThemedText style={styles.applyButtonText}>Apply</ThemedText>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.summaryRow}>
+              <ThemedText style={styles.summaryLabel}>Discount</ThemedText>
+              <ThemedText style={styles.discountValue}>-${discount.toFixed(2)}</ThemedText>
+            </View>
 
-        {/* Order Summary */}
-        <View style={styles.summarySection}>
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Subtotal</ThemedText>
-            <ThemedText style={styles.summaryValue}>${subtotal.toFixed(2)}</ThemedText>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Discount</ThemedText>
-            <ThemedText style={styles.discountValue}>-${discount.toFixed(2)}</ThemedText>
-          </View>
-          
-          <View style={styles.summaryRow}>
-            <ThemedText style={styles.summaryLabel}>Delivery Fee</ThemedText>
-            <ThemedText style={styles.freeValue}>Free</ThemedText>
-          </View>
-          
-          <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-            <ThemedText style={styles.totalLabel}>Total</ThemedText>
-            <ThemedText style={styles.totalValue}>${total.toFixed(2)}</ThemedText>
-          </View>
-        </View>
-      </ScrollView>
+            <View style={styles.summaryRow}>
+              <ThemedText style={styles.summaryLabel}>Delivery Fee</ThemedText>
+              <ThemedText style={styles.freeValue}>Free</ThemedText>
+            </View>
 
-      {/* Checkout Button */}
-      <View style={[styles.checkoutContainer, { backgroundColor: themeColors.background, borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-        {isLoggedIn === false? (
-          <TouchableOpacity 
-          style={styles.checkoutButton}
-          onPress={() => router.push('/Auth')}>
-          <ThemedText style={styles.checkoutButtonText}>Please login to Checkout</ThemedText>
-        </TouchableOpacity>
-        ): (
-          <TouchableOpacity 
-          style={styles.checkoutButton}
-          onPress={() => router.push('/Checkout')}>
-          <ThemedText style={styles.checkoutButtonText}>Proceed to Checkout</ThemedText>
-        </TouchableOpacity>
-        )}
-        
-      </View>
-    </ThemedView>
+            <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
+              <ThemedText style={styles.totalLabel}>Total</ThemedText>
+              <ThemedText style={styles.totalValue}>${total.toFixed(2)}</ThemedText>
+            </View>
+          </View>
+        </ScrollView>
+      </ThemedView>
+
+        {/* Checkout Button */}
+        <View style={[styles.checkoutContainer, { backgroundColor: themeColors.background, borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
+          {isLoggedIn === false ? (
+            <TouchableOpacity
+              style={styles.checkoutButton}
+              onPress={() => router.push('/Auth')}>
+              <ThemedText style={styles.checkoutButtonText}>Please login to Checkout</ThemedText>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.checkoutButton}
+              onPress={() => router.push('/Checkout')}>
+              <ThemedText style={styles.checkoutButtonText}>Proceed to Checkout</ThemedText>
+            </TouchableOpacity>
+          )}
+
+        </View>
+    </SafeAreaView>
   );
 }
 
@@ -493,7 +496,7 @@ const styles = StyleSheet.create({
   },
   checkoutContainer: {
     padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 2,
     borderTopWidth: 1,
   },
   checkoutButton: {

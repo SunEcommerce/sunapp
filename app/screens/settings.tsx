@@ -1,11 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useContext } from 'react';
 import { StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -20,10 +20,10 @@ export default function SettingsScreen() {
   const themeColors = Colors[colorScheme ?? 'light'];
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>App Setting</ThemedText>
         <View style={styles.headerRight} />
@@ -43,7 +43,7 @@ export default function SettingsScreen() {
           />
         </View>
       </View>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 

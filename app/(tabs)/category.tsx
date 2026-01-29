@@ -6,14 +6,15 @@ import {
   Image,
   LayoutAnimation,
   Platform,
-  SafeAreaView,
   StyleSheet,
   TouchableOpacity,
   UIManager,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchCategoryTree } from '@/utils/api';
@@ -36,7 +37,7 @@ type Category = {
 
 function getAllChildren(category: Category): Category[] {
   let allChildren: Category[] = [];
-  
+
   if (category.children && category.children.length > 0) {
     for (const child of category.children) {
       allChildren.push(child);
@@ -44,7 +45,7 @@ function getAllChildren(category: Category): Category[] {
       allChildren = allChildren.concat(getAllChildren(child));
     }
   }
-  
+
   return allChildren;
 }
 
@@ -53,7 +54,7 @@ export default function CategoryScreen() {
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
-  
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [subcategories, setSubcategories] = useState<Category[]>([]);
@@ -70,7 +71,7 @@ export default function CategoryScreen() {
       // Filter only parent categories (parent_id is null)
       const parentCategories = data.filter((cat: Category) => cat.parent_id === null);
       setCategories(parentCategories);
-      
+
       // Set first category as active
       if (parentCategories.length > 0) {
         const firstCategory = parentCategories[0];
@@ -133,35 +134,37 @@ export default function CategoryScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-        <ThemedText style={styles.headerTitle}>Category</ThemedText>
-      </View>
-
-      <View style={styles.container}>
-        <View style={[styles.leftColumn, { backgroundColor: themeColors.card }]}>
-          <FlatList
-            data={categories}
-            renderItem={renderMainCategory}
-            keyExtractor={(item) => item.id.toString()}
-            showsVerticalScrollIndicator={false}
-          />
+      <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
+          <ThemedText style={styles.headerTitle}>Category</ThemedText>
         </View>
 
-        <View style={[styles.dividerShadow, { backgroundColor: themeColors.borderColor }]} />
+        <View style={styles.container}>
+          <View style={[styles.leftColumn, { backgroundColor: themeColors.card }]}>
+            <FlatList
+              data={categories}
+              renderItem={renderMainCategory}
+              keyExtractor={(item) => item.id.toString()}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
 
-        <View style={[styles.rightColumn, { backgroundColor: themeColors.card }]}>
-          <FlatList
-            data={subcategories}
-            renderItem={renderSubCategory}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={2}
-            columnWrapperStyle={styles.subCategoryRow}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.subCategoryList}
-          />
+          <View style={[styles.dividerShadow, { backgroundColor: themeColors.borderColor }]} />
+
+          <View style={[styles.rightColumn, { backgroundColor: themeColors.card }]}>
+            <FlatList
+              data={subcategories}
+              renderItem={renderSubCategory}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={2}
+              columnWrapperStyle={styles.subCategoryRow}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.subCategoryList}
+            />
+          </View>
         </View>
-      </View>
+      </ThemedView>
     </SafeAreaView>
   );
 }
@@ -171,9 +174,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
   },
   headerTitle: {
     fontSize: 18,
