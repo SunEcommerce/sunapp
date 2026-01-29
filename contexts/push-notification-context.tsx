@@ -1,15 +1,17 @@
 import {
-    clearBadge,
-    initializePushy,
-    isPushyRegistered,
-    PushNotificationData,
-    setBadge,
-    setNotificationHandler,
-    subscribeToTopic,
-    unregisterPushy,
-    unsubscribeFromTopic
+  clearBadge,
+  initializePushy,
+  isPushyRegistered,
+  PushNotificationData,
+  setBadge,
+  setNotificationClickHandler,
+  setNotificationHandler,
+  subscribeToTopic,
+  unregisterPushy,
+  unsubscribeFromTopic
 } from '@/utils/pushNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 const PUSHY_DEVICE_TOKEN_KEY = '@pushy_device_token';
@@ -26,6 +28,7 @@ interface PushNotificationContextType {
   updateBadge: (count: number) => void;
   clearBadgeCount: () => void;
   unregister: () => Promise<void>;
+  handleNotificationNavigation: (notification: PushNotificationData) => void;
 }
 
 const PushNotificationContext = createContext<PushNotificationContextType | undefined>(
@@ -43,6 +46,7 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
   apiKey,
   autoInitialize = false,
 }) => {
+  const router = useRouter();
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -72,6 +76,45 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
     }
   }, []);
 
+  // Handle notification navigation based on data
+  const handleNotificationNavigation = (notification: PushNotificationData) => {
+    try {
+      // Check if notification has screen data
+      if (notification.screen) {
+        const screen = notification.screen;
+        
+        // Navigate based on screen name from notification
+        switch (screen) {
+          case 'OrderDetails':
+          case 'OrderDetail':
+          case 'OrderList':
+            router.push('/OrderList');
+            break;
+          case 'ProductDetail':
+          case 'ProductDetails':
+            if (notification.productId) {
+              router.push(`/ProductDetail?productId=${notification.productId}`);
+            }
+            break;
+          case 'Cart':
+            router.push('/(tabs)/cart');
+            break;
+          case 'Profile':
+            router.push('/(tabs)/profile');
+            break;
+          case 'Category':
+            router.push('/(tabs)/category');
+            break;
+          default:
+            // Navigate to main screen if unknown
+            router.push('/(tabs)');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to navigate from notification:', err);
+    }
+  };
+
   const initialize = async (key: string) => {
     if (isInitializing) return;
 
@@ -80,10 +123,20 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
 
     console.log("start initializing push notifications");
     try {
-      // Set up notification handler
+      // Set up notification received handler (just update state, no navigation)
       setNotificationHandler((data) => {
         console.log('Notification received in context:', data);
         setLastNotification(data);
+        // DO NOT navigate here
+      });
+
+      // Set up notification click handler (handle navigation)
+      setNotificationClickHandler((data) => {
+        console.log('Notification clicked in context:', data);
+        setLastNotification(data);
+        
+        // Handle navigation ONLY when notification is clicked
+        handleNotificationNavigation(data);
       });
 
       // Initialize Pushy
@@ -157,6 +210,7 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
     updateBadge,
     clearBadgeCount,
     unregister,
+    handleNotificationNavigation,
   };
 
   return (

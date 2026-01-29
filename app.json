@@ -20,7 +20,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.SunStore"
+      "package": "com.anonymous.SunStore",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS"
+      ],
+      "useNextNotificationsApi": true
     },
     "web": {
       "output": "static",
@@ -28,6 +34,16 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {

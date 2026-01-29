@@ -1,3 +1,4 @@
+import * as Notifications from 'expo-notifications';
 import Pushy from 'pushy-react-native';
 import { Platform } from 'react-native';
 
@@ -11,14 +12,122 @@ import { Platform } from 'react-native';
 export interface PushNotificationData {
   title?: string;
   message?: string;
+  body?: string; // Support both message and body fields
   badge?: number;
-  [key: string]: any;
+  screen?: string; // Target screen to navigate to
+  orderId?: string; // Order ID for order-related notifications
+  productId?: string; // Product ID for product-related notifications
+  [key: string]: any; // Allow additional custom data
 }
 
 export type NotificationHandler = (data: PushNotificationData) => void;
+export type NotificationClickHandler = (data: PushNotificationData) => void;
 
 let deviceToken: string | null = null;
 let notificationHandler: NotificationHandler | null = null;
+let notificationClickHandler: NotificationClickHandler | null = null;
+
+// Configure how notifications are handled when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+/**
+ * Request notification permissions
+ */
+const requestNotificationPermissions = async (): Promise<boolean> => {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    if (finalStatus !== 'granted') {
+      console.warn('Notification permission not granted');
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to request notification permissions:', error);
+    return false;
+  }
+};
+
+/**
+ * Setup Android notification channel (required for Android 8.0+)
+ */
+const setupAndroidNotificationChannel = async (): Promise<void> => {
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+      });
+      console.log('Android notification channel created');
+    } catch (error) {
+      console.error('Failed to create notification channel:', error);
+    }
+  }
+};
+
+/**
+ * Display a local notification
+ */
+const showLocalNotification = async (data: PushNotificationData): Promise<void> => {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: data.title || 'Notification',
+        body: data.body || data.message || '',
+        data: data,
+        sound: true,
+        badge: data.badge,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: null, // Show immediately
+    });
+    console.log('Local notification displayed');
+  } catch (error) {
+    console.error('Failed to show local notification:', error);
+  }
+};
+
+/**
+ * Parse and normalize notification data from Pushy
+ * Handles stringified data field and merges all properties
+ */
+const parseNotificationData = (data: string | object): PushNotificationData => {
+  let parsedData: any = typeof data === 'string' ? {} : { ...data };
+  
+  // If data field is a stringified JSON, parse it
+  if (parsedData.data && typeof parsedData.data === 'string') {
+    try {
+      const nestedData = JSON.parse(parsedData.data);
+      // Merge nested data with top-level data
+      parsedData = { ...parsedData, ...nestedData };
+      delete parsedData.data; // Remove the stringified data field
+    } catch (error) {
+      console.error('Failed to parse notification data field:', error);
+    }
+  }
+  
+  console.log('Parsed notification data:', parsedData);
+  return parsedData as PushNotificationData;
+};
 
 /**
  * Initialize Pushy push notifications
@@ -45,27 +154,73 @@ export const initializePushy = async (apiKey: string): Promise<string> => {
       throw new Error('Push notifications are not supported on web platform');
     }
 
+    // Request notification permissions
+    await requestNotificationPermissions();
+    
+    // Setup Android notification channel
+    await setupAndroidNotificationChannel();
+    
+    // Set up expo notification response listener (for when user taps notification)
+    Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        console.log('Notification response received:', response);
+        const data = response.notification.request.content.data as PushNotificationData;
+        
+        if (notificationClickHandler && data) {
+          notificationClickHandler(data);
+        }
+      } catch (error) {
+        console.error('Error handling notification response:', error);
+      }
+    });
+    
     // Register the device for push notifications
     deviceToken = await Pushy.register();
     console.log('Pushy device token:', deviceToken);
 
-    // Set up notification listener
+    // Set up notification listener (when notification is received, not clicked)
     Pushy.setNotificationListener(async (data: string | object) => {
-      console.log('Received notification:', data);
-      
-      // Call the registered handler if exists
-      if (notificationHandler && typeof data === 'object') {
-        notificationHandler(data as PushNotificationData);
+      try {
+        console.log('Received notification (raw):', data);
+        
+        const notificationData = parseNotificationData(data);
+        
+        // Show visual notification
+        await showLocalNotification(notificationData);
+        
+        // Handle badge updates automatically
+        if (notificationData.badge !== undefined) {
+          setBadge(notificationData.badge);
+        }
+        
+        // DO NOT navigate here - only when clicked
+        // Call the received handler if exists (for other purposes like updating UI state)
+        if (notificationHandler) {
+          notificationHandler(notificationData);
+        }
+      } catch (error) {
+        console.error('Error in notification listener:', error);
       }
     });
 
-    // Set up notification click listener
+    // Set up notification click listener (when user clicks on notification)
     Pushy.setNotificationClickListener(async (data: string | object) => {
-      console.log('Notification clicked:', data);
-      
-      // You can navigate to specific screens based on notification data
-      if (notificationHandler && typeof data === 'object') {
-        notificationHandler(data as PushNotificationData);
+      try {
+        console.log('Notification clicked (raw):', data);
+        
+        const notificationData = parseNotificationData(data);
+        
+        // Handle badge updates
+        if (notificationData.badge !== undefined) {
+          setBadge(notificationData.badge);
+        }
+        
+        // Pass to CLICK handler for navigation
+        if (notificationClickHandler) {
+          notificationClickHandler(notificationData);
+        }
+      } catch (error) {
+        console.error('Error in notification click listener:', error);
       }
     });
 
@@ -89,11 +244,19 @@ export const initializePushy = async (apiKey: string): Promise<string> => {
 };
 
 /**
- * Register a handler for incoming push notifications
+ * Register a handler for incoming push notifications (received, not clicked)
  * @param handler Function to be called when notification is received
  */
 export const setNotificationHandler = (handler: NotificationHandler) => {
   notificationHandler = handler;
+};
+
+/**
+ * Register a handler for notification clicks
+ * @param handler Function to be called when notification is clicked
+ */
+export const setNotificationClickHandler = (handler: NotificationClickHandler) => {
+  notificationClickHandler = handler;
 };
 
 /**
