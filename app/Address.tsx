@@ -269,7 +269,7 @@ export default function AddressScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <StatusBar 
           barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
@@ -293,7 +293,7 @@ export default function AddressScreen() {
   // Address form modal
   if (showAddForm) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <StatusBar 
           barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
@@ -421,7 +421,7 @@ export default function AddressScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <StatusBar 
         barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"

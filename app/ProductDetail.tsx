@@ -119,7 +119,7 @@ export default function ProductDetailScreen() {
   // Show skeleton loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <StatusBar 
           barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
@@ -176,7 +176,7 @@ export default function ProductDetailScreen() {
   // Show error state
   if (error || !product) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
         <StatusBar 
           barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
@@ -401,7 +401,7 @@ export default function ProductDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <StatusBar 
         barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"

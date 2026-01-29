@@ -14,9 +14,8 @@ import {
   RefreshControl,
   StatusBar,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -39,15 +38,15 @@ const STORAGE_KEY = 'wishlist_products';
 export default function FavoriteProducts() {
   const themeContext = useContext(ThemeContext);
   const router = useRouter();
-  
+
   const [products, setProducts] = useState<WishlistProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   if (!themeContext) {
     return null;
   }
-  
+
   const { colorScheme } = themeContext;
   const themeColors = Colors[colorScheme];
 
@@ -98,37 +97,37 @@ export default function FavoriteProducts() {
         <Image source={{ uri: item.cover }} style={styles.productImage} />
         {item.flash_sale && (
           <View style={styles.flashSaleBadge}>
-            <Text style={styles.flashSaleText}>Flash Sale</Text>
+            <ThemedText style={styles.flashSaleText}>Flash Sale</ThemedText>
           </View>
         )}
         {item.is_offer && (
           <View style={styles.offerBadge}>
-            <Text style={styles.offerText}>Offer</Text>
+            <ThemedText style={styles.offerText}>Offer</ThemedText>
           </View>
         )}
         <View style={styles.wishlistBadge}>
           <Ionicons name="heart" size={20} color="#E95757" />
         </View>
       </View>
-      
+
       <View style={styles.productInfo}>
         <ThemedText style={styles.productName} numberOfLines={2}>
           {item.name}
         </ThemedText>
-        
+
         <View style={styles.priceContainer}>
-          <Text style={styles.price}>{item.currency_price}</Text>
+          <ThemedText style={styles.price}>{item.currency_price}</ThemedText>
           {item.discounted_price !== item.currency_price && (
-            <Text style={styles.originalPrice}>{item.discounted_price}</Text>
+            <ThemedText style={styles.originalPrice}>{item.discounted_price}</ThemedText>
           )}
         </View>
-        
+
         {item.rating_star !== null && (
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={14} color="#FFB800" />
-            <Text style={styles.ratingText}>
+            <ThemedText style={styles.ratingText}>
               {item.rating_star} ({item.rating_star_count})
-            </Text>
+            </ThemedText>
           </View>
         )}
       </View>
@@ -147,8 +146,8 @@ export default function FavoriteProducts() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
-        <StatusBar 
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+        <StatusBar
           barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
           translucent={true}
@@ -168,11 +167,13 @@ export default function FavoriteProducts() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>      <StatusBar 
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+      <StatusBar
         barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent={true}
-      />      <View style={styles.header}>
+      />
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
