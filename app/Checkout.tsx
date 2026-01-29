@@ -420,8 +420,8 @@ export default function CheckoutScreen() {
                       <Ionicons name="create-outline" size={20} color="#2196F3" />
                     </View>
                     <View style={styles.selectedAddressBody}>
-                      <ThemedText style={styles.addressText}>
-                        <b>{addr.country_code} {addr.phone}</b>
+                      <ThemedText style={[styles.addressText, { fontWeight: '600' }]}>
+                        {addr.country_code} {addr.phone}
                       </ThemedText>
                       <ThemedText style={styles.addressText}>
                         {addr.address}
