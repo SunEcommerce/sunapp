@@ -57,6 +57,7 @@ export const unstable_settings = {
 };
 
 import { CartProvider } from '@/contexts/cart-context';
+import { PushNotificationProvider, usePushNotifications } from '@/contexts/push-notification-context';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '@/contexts/theme-context';
 import { persistor, store } from '@/store/store';
 import { Provider } from 'react-redux';
@@ -67,6 +68,22 @@ function RootLayoutNav() {
   const router = useRouter();
   const pathname = usePathname();
   const didNavigate = useRef(false);
+
+  const { initialize, deviceToken, isInitializing, error } = usePushNotifications();
+
+  useEffect(() => {
+    // Initialize with your Pushy API key
+    const initPushNotifications = async () => {
+      try {
+        await initialize('f623a9888636195ff0a9186b33b237541f37295d28b8bec76c2e5910a1d1734a');
+        console.log('Push notifications initialized');
+      } catch (err) {
+        console.error('Failed to initialize push notifications:', err);
+      }
+    };
+
+    initPushNotifications();
+  }, []);
 
   useEffect(() => {
     const checkInterstitial = async () => {
@@ -155,9 +172,11 @@ export default function RootLayout() {
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <CustomThemeProvider>
-          <CartProvider>
-            <RootLayoutNav />
-          </CartProvider>
+          <PushNotificationProvider autoInitialize={true}>
+            <CartProvider>
+              <RootLayoutNav />
+            </CartProvider>
+          </PushNotificationProvider>
         </CustomThemeProvider>
       </PersistGate>
     </Provider>
