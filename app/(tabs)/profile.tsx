@@ -11,11 +11,13 @@ import { useRouter } from 'expo-router';
 import React, { useContext, useEffect, useState } from 'react';
 import {
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Reusable component for the menu list items
 const MenuItem: React.FC<{
@@ -164,7 +166,12 @@ export default function TabTwoScreen() {
   }
 
   return (
-    <ThemedView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right', 'top']}>
+      <StatusBar 
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent={true}
+      />
       <ThemedView>
         <LinearGradient
           colors={['#2b5fe2ff', '#D8BFD8']} // Purple and light pink gradient
@@ -271,7 +278,7 @@ export default function TabTwoScreen() {
           </View>
         </ScrollView>
       </ThemedView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 

@@ -9,6 +9,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -140,6 +141,11 @@ export default function OrderDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.centerContainer, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+        <StatusBar 
+          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent={true}
+        />
         <ActivityIndicator size="large" color="#2b5fe2" />
         <ThemedText style={styles.loadingText}>Loading order details...</ThemedText>
       </SafeAreaView>
@@ -149,6 +155,11 @@ export default function OrderDetailScreen() {
   if (error || !orderDetail) {
     return (
       <SafeAreaView style={[styles.centerContainer, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+        <StatusBar 
+          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+          backgroundColor="transparent"
+          translucent={true}
+        />
         <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
         <ThemedText style={styles.errorText}>{error || 'Order not found'}</ThemedText>
         <TouchableOpacity style={styles.retryButton} onPress={loadOrderDetail}>
@@ -163,6 +174,11 @@ export default function OrderDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+      <StatusBar 
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor="transparent"
+        translucent={true}
+      />
       <View style={[styles.header, { backgroundColor: themeColors.background }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
