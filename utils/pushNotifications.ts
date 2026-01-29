@@ -163,7 +163,6 @@ export const initializePushy = async (apiKey: string): Promise<string> => {
     // Set up expo notification response listener (for when user taps notification)
     Notifications.addNotificationResponseReceivedListener((response) => {
       try {
-        console.log('Notification response received:', response);
         const data = response.notification.request.content.data as PushNotificationData;
         
         if (notificationClickHandler && data) {

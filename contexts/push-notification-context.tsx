@@ -79,6 +79,7 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
   // Handle notification navigation based on data
   const handleNotificationNavigation = (notification: PushNotificationData) => {
     try {
+      console.log('Handling navigation for notification:');
       // Check if notification has screen data
       if (notification.screen) {
         const screen = notification.screen;
@@ -94,6 +95,13 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
           case 'ProductDetails':
             if (notification.productId) {
               router.push(`/ProductDetail?productId=${notification.productId}`);
+            }
+            break;
+          case 'ProductList':
+            if (notification.productId) {
+              router.push(`/ProductList?name=${notification.productId}`);
+            } else {
+              router.push('/ProductList');
             }
             break;
           case 'Cart':
@@ -125,14 +133,11 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
     try {
       // Set up notification received handler (just update state, no navigation)
       setNotificationHandler((data) => {
-        console.log('Notification received in context:', data);
-        setLastNotification(data);
-        // DO NOT navigate here
+        console.log('notification received handler');
       });
 
       // Set up notification click handler (handle navigation)
       setNotificationClickHandler((data) => {
-        console.log('Notification clicked in context:', data);
         setLastNotification(data);
         
         // Handle navigation ONLY when notification is clicked
@@ -146,6 +151,14 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
 
       // Save token to AsyncStorage
       await AsyncStorage.setItem(PUSHY_DEVICE_TOKEN_KEY, token);
+
+      // Subscribe to General_Channel topic
+      try {
+        await subscribeToTopic('General_Channel');
+        console.log('Subscribed to General_Channel topic');
+      } catch (err) {
+        console.error('Failed to subscribe to General_Channel:', err);
+      }
 
       console.log('Push notifications initialized successfully');
     } catch (err) {
