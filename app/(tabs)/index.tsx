@@ -1,3 +1,4 @@
+import ProductCustomSections from '@/components/ProductCustomSections';
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -481,37 +482,35 @@ export default function HomeScreen() {
         </View>
 
         {/* Hot Sales Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>Hot Sales</Text>
-            <TouchableOpacity onPress={() => handleViewAll('hot_sales')}>
-              <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
-            </TouchableOpacity>
+        {(isLoadingHotSales || hotSalesError || hotSalesData.length > 0) && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>Hot Sales</Text>
+              <TouchableOpacity onPress={() => handleViewAll('hot_sales')}>
+                <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
+              </TouchableOpacity>
+            </View>
+            {isLoadingHotSales ? (
+              <View style={styles.loadingProductsContainer}>
+                <Text style={{ color: Colors[colorScheme].text }}>Loading products...</Text>
+              </View>
+            ) : hotSalesError ? (
+              <View style={styles.errorProductsContainer}>
+                <Ionicons name="alert-circle-outline" size={24} color={Colors[colorScheme].text} />
+                <Text style={{ color: Colors[colorScheme].text, marginTop: 8, fontSize: 12 }}>{hotSalesError}</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={hotSalesData}
+                renderItem={renderProductItem}
+                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.productList}
+              />
+            )}
           </View>
-          {isLoadingHotSales ? (
-            <View style={styles.loadingProductsContainer}>
-              <Text style={{ color: Colors[colorScheme].text }}>Loading products...</Text>
-            </View>
-          ) : hotSalesError ? (
-            <View style={styles.errorProductsContainer}>
-              <Ionicons name="alert-circle-outline" size={24} color={Colors[colorScheme].text} />
-              <Text style={{ color: Colors[colorScheme].text, marginTop: 8, fontSize: 12 }}>{hotSalesError}</Text>
-            </View>
-          ) : hotSalesData.length > 0 ? (
-            <FlatList
-              data={hotSalesData}
-              renderItem={renderProductItem}
-              keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.productList}
-            />
-          ) : (
-            <View style={styles.emptyProductsContainer}>
-              <Text style={{ color: Colors[colorScheme].text, fontSize: 14 }}>No hot sales available</Text>
-            </View>
-          )}
-        </View>
+        )}
 
         {/* New Arrival Section */}
         <View style={styles.sectionContainer}>
@@ -545,6 +544,9 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+
+        {/* Products Custom Section(s) */}
+        <ProductCustomSections />
 
         {/* Featured Brands Section */}
         <View style={styles.sectionContainer}>

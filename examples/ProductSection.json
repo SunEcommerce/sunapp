@@ -1,0 +1,139 @@
+[GET] {{base_url}}/frontend/product-section
+
+{
+    "data": [
+        {
+            "id": 1,
+            "name": "Section 1",
+            "slug": "section-1",
+            "status": 5,
+            "products": [
+                {
+                    "id": 9,
+                    "name": "iPhone 17 Pro Max 256GB (MFYM4X/A)",
+                    "slug": "iphone-17-pro-max-256gb-mfym4xa",
+                    "currency_price": "$6079000.00",
+                    "cover": "http://150.95.80.92/storage/242/conversions/s-l1200-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": true,
+                    "discounted_price": "$5471100.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 10,
+                    "name": "Galaxy S25 Ultra SM-S938B/DS (RAM 12/256GB)",
+                    "slug": "galaxy-s25-ultra-sm-s938bds-ram-12256gb",
+                    "currency_price": "$4125000.00",
+                    "cover": "http://150.95.80.92/storage/273/conversions/Samsung-Galaxy-S25-Ultra-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$4125000.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 14,
+                    "name": "VIVO Y29 V2434 (RAM 6/128GB)",
+                    "slug": "vivo-y29-v2434-ram-6128gb",
+                    "currency_price": "$849800.00",
+                    "cover": "http://150.95.80.92/storage/267/conversions/y29-ksp-img1-lg-x2-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$849800.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 15,
+                    "name": "REMAX RB-980HB ANC Noise Cancelling Metal Wireless Headphone (Black/Khaki)",
+                    "slug": "remax-rb-980hb-anc-noise-cancelling-metal-wireless-headphone-blackkhaki",
+                    "currency_price": "$175500.00",
+                    "cover": "http://150.95.80.92/storage/265/conversions/2-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$175500.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "Section 2",
+            "slug": "section-2",
+            "status": 5,
+            "products": [
+                {
+                    "id": 8,
+                    "name": "Xiaomi 17",
+                    "slug": "xiaomi-17",
+                    "currency_price": "$2320000.00",
+                    "cover": "http://150.95.80.92/storage/276/conversions/images-(6)-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$2320000.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 9,
+                    "name": "iPhone 17 Pro Max 256GB (MFYM4X/A)",
+                    "slug": "iphone-17-pro-max-256gb-mfym4xa",
+                    "currency_price": "$6079000.00",
+                    "cover": "http://150.95.80.92/storage/242/conversions/s-l1200-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": true,
+                    "discounted_price": "$5471100.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 11,
+                    "name": "iPhone 16 128GB (MYE73X/A)",
+                    "slug": "iphone-16-128gb-mye73xa",
+                    "currency_price": "$3149000.00",
+                    "cover": "http://150.95.80.92/storage/272/conversions/images-(5)-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$3149000.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 12,
+                    "name": "Redmi K80 (RAM 12/256GB)",
+                    "slug": "redmi-k80-ram-12256gb",
+                    "currency_price": "$1143000.00",
+                    "cover": "http://150.95.80.92/storage/270/conversions/images-(4)-cover.jpg",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$1143000.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                },
+                {
+                    "id": 30,
+                    "name": "REMAX Watch 8 Ultra IP68 Sports GoldSmart Watch (+Black/Gold+Orange)",
+                    "slug": "remax-watch-8-ultra-ip68-sports-goldsmart-watch-blackgoldorange",
+                    "currency_price": "$85000.00",
+                    "cover": "http://150.95.80.92/storage/268/conversions/Screenshot-2026-01-22-143247-cover.png",
+                    "flash_sale": false,
+                    "is_offer": false,
+                    "discounted_price": "$85000.00",
+                    "rating_star": null,
+                    "rating_star_count": 0,
+                    "wishlist": false
+                }
+            ]
+        }
+    ]
+}
