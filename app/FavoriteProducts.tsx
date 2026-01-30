@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
-import { fetchWishlistProducts } from '@/utils/api';
+import { fetchWishlistProducts, postWishlistToggle } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -88,6 +88,25 @@ export default function FavoriteProducts() {
     router.push(`/ProductDetail?slug=${slug}`);
   };
 
+  const handleRemoveFromWishlist = async (productId: number) => {
+    try {
+      // Call API to remove from wishlist on server
+      await postWishlistToggle(productId, false);
+      
+      // Remove from local state
+      const updatedProducts = products.filter(p => p.id !== productId);
+      setProducts(updatedProducts);
+      
+      // Update cache
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedProducts));
+      
+      Alert.alert('Success', 'Product removed from favorites');
+    } catch (error) {
+      console.error('Failed to remove from wishlist:', error);
+      Alert.alert('Error', 'Failed to remove product. Please try again.');
+    }
+  };
+
   const renderProduct = ({ item }: { item: WishlistProduct }) => (
     <TouchableOpacity
       style={[styles.productCard, { backgroundColor: themeColors.background }]}
@@ -105,9 +124,12 @@ export default function FavoriteProducts() {
             <ThemedText style={styles.offerText}>Offer</ThemedText>
           </View>
         )}
-        <View style={styles.wishlistBadge}>
+        <TouchableOpacity 
+          style={styles.wishlistBadge}
+          onPress={() => handleRemoveFromWishlist(item.id)}
+        >
           <Ionicons name="heart" size={20} color="#E95757" />
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.productInfo}>

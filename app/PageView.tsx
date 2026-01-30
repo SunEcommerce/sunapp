@@ -110,12 +110,10 @@ export default function PageView() {
     const prepareHtml = (str: string) => {
         if (!str) return "";
 
-        var a = decode(str)
+        return decode(str)
             .replace(/\\"/g, '"')
             .replace(/\\\//g, '/')
             .replace(/\\n/g, '');
-        console.log(a);
-        return a;
     };
 
     return (
