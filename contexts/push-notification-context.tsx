@@ -154,10 +154,10 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
 
       // Subscribe to General_Channel topic
       try {
-        await subscribeToTopic('General_Channel');
-        console.log('Subscribed to General_Channel topic');
+        await subscribeToTopic('default');
+        console.log('Subscribed to default topic');
       } catch (err) {
-        console.error('Failed to subscribe to General_Channel:', err);
+        console.error('Failed to subscribe to default:', err);
       }
 
       console.log('Push notifications initialized successfully');

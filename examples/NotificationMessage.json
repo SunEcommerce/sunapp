@@ -1,15 +1,20 @@
 {
+  "to": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]", 
   "title": "SunStore မှာ Order အသစ်ရှိပါတယ်",
   "body": "သင်မှာထားတဲ့ ပစ္စည်းလေး လမ်းကြောင်းပေါ်ရောက်နေပါပြီ။",
-  "data": {
+  "data": { 
     "screen": "OrderDetails",
-    "orderId": "12345"
+    "orderId": "12345" 
   },
   "sound": "default",
   "priority": "high",
   "badge": 1,
+  "channelId": "default", 
   "android": {
-    "priority": "high"
+    "priority": "high",
+    "sound": true,
+    "vibrate": true
   },
-  "content_available": true
+  "_displayInForeground": true,
+  "content-available": 1 
 }

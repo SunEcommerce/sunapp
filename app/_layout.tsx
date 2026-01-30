@@ -75,7 +75,12 @@ function RootLayoutNav() {
     // Initialize with your Pushy API key
     const initPushNotifications = async () => {
       try {
-        await initialize('f623a9888636195ff0a9186b33b237541f37295d28b8bec76c2e5910a1d1734a');
+        const apiKey = process.env.EXPO_PUBLIC_PUSHY_API_KEY;
+        if (!apiKey) {
+          console.warn('EXPO_PUBLIC_PUSHY_API_KEY not found in environment variables');
+          return;
+        }
+        await initialize(apiKey);
         console.log('Push notifications initialized');
       } catch (err) {
         console.error('Failed to initialize push notifications:', err);
