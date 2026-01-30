@@ -126,9 +126,9 @@ export default function TabTwoScreen() {
       action: () => console.log('Loyalty Program pressed'),
     },
     {
-      label: 'Call Center',
+      label: 'Contact Us',
       icon: 'call-outline',
-      action: () => console.log('Call Center pressed'),
+      action: () => router.push({ pathname: '/PageView' as any, params: { slug: 'contact-us' } }),
     },
     {
       label: 'Privacy Policy',
@@ -138,7 +138,7 @@ export default function TabTwoScreen() {
     {
       label: 'Terms & Condition',
       icon: 'document-text',
-      action: () => console.log('Clear history pressed'),
+      action: () => router.push({ pathname: '/PageView' as any, params: { slug: 'terms-and-conditions' } }),
     },
   ];
 

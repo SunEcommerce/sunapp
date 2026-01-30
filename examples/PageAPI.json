@@ -1,0 +1,25 @@
+[GET] {{base_url}}/frontend/page/show/contact-us
+{
+    "data": {
+        "id": 9,
+        "title": "Contact Us",
+        "slug": "contact-us",
+        "description": "<p>Questions, Concerns, Comments? You talk, we listen.</p><p>If you have any additional questions or comments, we would love to hear from you!</p><p>Submit your query using any of the methods below.</p><p><br></p><p>Email: info@sun.com.mm</p><p>Toll-free number: +9513333846282, 7 days a week</p>",
+        "menu_section_id": 2,
+        "menu_template_id": 1,
+        "status": 5,
+        "image": ""
+    }
+}
+
+[GET] {{base_url}}/frontend/page/show/terms-and-conditions
+{
+    "data": {"id": 6,
+    "title": "Terms & Conditions",
+    "slug": "terms-and-conditions",
+    "description": "<p>PLEASE READ THESE TERMS OF USE (“TERMS”) CAREFULLY BEFORE USING ANY Sun Electronics PLATFORM.</p><p><br></p><p>If you live in any of the following countries or regions, additional terms may apply to you and are viewable at the bottom of these Terms. We display the country/region within the Terms when applicable. These additional terms override the Terms below to the extent of any inconsistency.</p><p><br></p><p>Argentina, Australia, Brazil, Canada, Colombia, Hong Kong, Japan, Korea, Philippines, all European countries (including specific terms for Austria, Belgium, France, Germany, Hungary, Italy, Poland and Switzerland.</p><p><br></p><p>Welcome to the Sun Electronics community! You are reading these Terms because you are using a Sun Electronics website, digital experience, social media platform, mobile app, wearable technology, or one of our other products or services, all of which are part of Sun Electronics’s Platform (“Platform”). You may access the Platform through a computer, mobile phone, tablet, console or other technology, which we refer to here as a “Device”. Your service provider’s normal rates and fees apply to your Device.</p><p><br></p><p>These Terms create a legally binding agreement between you and Sun Electronics and its affiliates regarding your use of the Platform. Please review our List of Local Entities for the name of the Sun Electronics entity responsible for providing the Platform to you and the appropriate contact information. A few important points:</p><p><br></p><p>Our Terms May Change. Some jurisdictions do not permit unilateral updates or changes to consumer terms, so this paragraph may not apply to you.  We may update these Terms from time to time. If a material change is made, we will post a notice on the Platform or send you a notification. Read through any changes, and if you don’t agree to them, please stop using the Platform. If you continue to use our Platform after we notify you of changes, you will be deemed to have accepted the updated Terms, except to the extent prohibited by applicable law.</p><p>Terms of Sale. By making any purchase with us, you also agree to the Terms of Sale that apply in your country or region.</p><p>Privacy Policy. Our Privacy Policy describes the collection and use of personal information on the Platform and applies to your use of the Platform.</p><p>Important Notice for Amateur Athletes. You are responsible for ensuring that your participation on the Platform does not affect your eligibility as an amateur athlete. Please check with your amateur athletic association for the rules that apply to you. Shopprz is not responsible or liable for your use of the Platform resulting in your ineligibility as an amateur athlete.</p>",
+    "menu_section_id": 2,
+    "menu_template_id": "",
+    "status": 5,
+    "image": ""}
+}

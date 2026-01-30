@@ -598,6 +598,13 @@ export async function fetchSettings(): Promise<any> {
   return await apiRequest('/api/frontend/setting', 'GET', undefined, false);
 }
 
+/**
+ * Fetch page content by slug
+ */
+export async function fetchPage(slug: string): Promise<any> {
+  return await apiRequest(`/api/frontend/page/show/${slug}`, 'GET', undefined, false);
+}
+
 // ==================== Profile API Endpoints ====================
 
 /**
