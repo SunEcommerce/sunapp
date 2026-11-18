@@ -1,3 +1,4 @@
+import type { CouponCartItem } from './coupon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration - Update these with your actual values
@@ -389,17 +390,12 @@ export async function fetchCoupons(page: number = 1, perPage: number = 15): Prom
 /**
  * Validate coupon code
  */
-export async function validateCoupon(couponCode: string, subtotal: number, userId?: number): Promise<any> {
-  return await apiRequest(
-    '/api/frontend/coupon/coupon-checking',
-    'POST',
-    {
-      coupon_code: couponCode,
-      subtotal,
-      user_id: userId,
-    },
-    false
-  );
+export async function validateCoupon(couponCode: string, subtotal: number, items: CouponCartItem[]): Promise<any> {
+  return await apiRequest('/api/frontend/coupon/coupon-checking', 'POST', {
+    code: couponCode,
+    total: subtotal,
+    items,
+  });
 }
 
 /**
@@ -424,7 +420,7 @@ export async function createOrder(orderData: {
   delivery_type: number;
   order_type: number;
   payment_method: number;
-  coupon_code?: string;
+  coupon_id?: number;
   subtotal: number;
   discount: number;
   shipping_charge: number;

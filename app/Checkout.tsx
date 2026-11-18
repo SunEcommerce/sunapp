@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
+import { buildCouponCart } from '../utils/coupon';
 import {
   ActivityIndicator,
   Alert,
@@ -60,6 +61,7 @@ type OrderArea = {
 };
 
 type CouponValidation = {
+  id: number;
   discount: number;
   message?: string;
 };
@@ -90,6 +92,8 @@ export default function CheckoutScreen() {
   // Coupon states
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string>('');
+  const [appliedCouponId, setAppliedCouponId] = useState<number | undefined>();
+  const couponRequest = React.useRef(0);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
   const [couponError, setCouponError] = useState<string>('');
 
@@ -102,6 +106,19 @@ export default function CheckoutScreen() {
   const deliveryFee = selectedAreaData?.shipping_charge || 0;
   const tax = 0; // You can calculate tax based on your business logic
   const total = subtotal - couponDiscount + deliveryFee + tax;
+
+  const { items: couponItems, signature: cartSignature } = buildCouponCart(items);
+  const latestCartSignature = React.useRef(cartSignature);
+  latestCartSignature.current = cartSignature;
+  React.useEffect(() => {
+    couponRequest.current++;
+    setAppliedCoupon('');
+    setAppliedCouponId(undefined);
+    setCouponDiscount(0);
+    setCouponError('');
+    setIsValidatingCoupon(false);
+  }, [cartSignature]);
+  React.useEffect(() => () => { couponRequest.current++; }, []);
 
   const loadCheckoutData = async () => {
 
@@ -169,32 +186,40 @@ export default function CheckoutScreen() {
       return;
     }
 
+    const request = ++couponRequest.current;
+    const signature = cartSignature;
     setIsValidatingCoupon(true);
     setCouponError('');
 
     try {
-      const response = await validateCoupon(promoCode, subtotal);
+      const response = await validateCoupon(promoCode.trim(), subtotal, couponItems);
+      if (request !== couponRequest.current || signature !== latestCartSignature.current) return;
       
       if (response?.data) {
         const validationData: CouponValidation = response.data;
         setCouponDiscount(validationData.discount || 0);
-        setAppliedCoupon(promoCode);
+        setAppliedCoupon(promoCode.trim());
+        setAppliedCouponId(validationData.id);
         Alert.alert('Success', validationData.message || 'Coupon applied successfully!');
       } else {
         setCouponError('Invalid coupon code');
       }
     } catch (error: any) {
+      if (request !== couponRequest.current) return;
       const errorMessage = error.message || 'Failed to validate coupon';
       setCouponError(errorMessage);
       Alert.alert('Error', errorMessage);
     } finally {
-      setIsValidatingCoupon(false);
+      if (request === couponRequest.current) setIsValidatingCoupon(false);
     }
   };
 
   const handleRemoveCoupon = () => {
     setPromoCode('');
+    couponRequest.current++;
+    setIsValidatingCoupon(false);
     setAppliedCoupon('');
+    setAppliedCouponId(undefined);
     setCouponDiscount(0);
     setCouponError('');
   };
@@ -226,14 +251,14 @@ export default function CheckoutScreen() {
         order_type: 5, // DELIVERY order type
         source: 5, // DELIVERY source
         payment_method: selectedPayment,
-        coupon_code: appliedCoupon || undefined,
+        coupon_id: appliedCouponId,
         subtotal: subtotal,
         discount: couponDiscount,
         shipping_charge: deliveryFee,
         tax: tax,
         total: total,
         note: orderNote || undefined,
-        products: items.map(item => ({
+        products: items.map((item, index) => ({
           product_id: parseInt(item.productId) || 0,
           item_type: item.item_type,
           item_id: item.item_id,
@@ -243,10 +268,10 @@ export default function CheckoutScreen() {
           quantity: item.quantity,
           discount: item.discount,
           total_tax: item.tax,
-          subtotal: item.subtotal,
-          total: item.total,
+          subtotal: item.price * item.quantity,
+          total: item.price * item.quantity - item.discount + item.tax,
           taxes: [],
-          variation_id: item.item_id ? parseInt(item.item_id.toString()): 0,
+          variation_id: couponItems[index].variation_id,
         })),
       };
 
