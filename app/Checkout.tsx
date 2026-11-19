@@ -1,3 +1,4 @@
+import { SlideToConfirm } from '@/components/slide-to-confirm';
 import { TextInput } from '@/components/ui/text-input';
 import { IconButton } from '@/components/ui/icon-button';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,13 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
@@ -75,12 +77,20 @@ export default function CheckoutScreen() {
   const themeContext = React.useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const surface = dark ? '#1b252c' : '#ffffff';
+  const border = dark ? '#30414c' : '#e2e8ed';
+  const accent = dark ? '#8bd8ed' : '#086b83';
+  const softAccent = dark ? '#253b46' : '#eaf4f8';
+  const onAccent = dark ? '#10232b' : '#ffffff';
+  const insets = useSafeAreaInsets();
   
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   
   // Data states
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -249,7 +259,7 @@ export default function CheckoutScreen() {
   };
 
   const handlePlaceOrder = async () => {
-    if (isPlacingOrder) return;
+    if (!confirmationOpen || isPlacingOrder || !currentQuote) return;
     // Validation
     if (!selectedAddress) {
       Alert.alert('Error', 'Please select a delivery address');
@@ -294,6 +304,7 @@ export default function CheckoutScreen() {
       const response = await createOrder(orderData);
 
       if (response?.data) {
+        setConfirmationOpen(false);
         
         // Show thank you page
         setShowThankYou(true);
@@ -315,6 +326,16 @@ export default function CheckoutScreen() {
     }
   };
 
+  const canPlaceOrder = Boolean(selectedAddress && selectedPayment && currentQuote && !isValidatingCoupon && !isPlacingOrder);
+  const itemCount = items.reduce((count, item) => count + item.quantity, 0);
+  const totalLabel = currentQuote ? `$${total.toFixed(2)}` : 'Calculating…';
+  const openConfirmation = () => { if (canPlaceOrder) setConfirmationOpen(true); };
+  const closeConfirmation = () => { if (!isPlacingOrder) setConfirmationOpen(false); };
+  const openPolicy = (slug: 'terms-and-conditions' | 'privacy-policy') => {
+    setConfirmationOpen(false);
+    router.push({ pathname: '/PageView', params: { slug } });
+  };
+  React.useEffect(() => { if (!canPlaceOrder && !isPlacingOrder) setConfirmationOpen(false); }, [canPlaceOrder, isPlacingOrder]);
   const handleSelectAddress = async (addressId: number) => {
     setSelectedAddress(addressId);
     // Save to storage
@@ -765,8 +786,8 @@ export default function CheckoutScreen() {
       <View style={[styles.placeOrderContainer, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
         <TouchableOpacity
           style={[styles.placeOrderButton, isPlacingOrder && styles.placeOrderButtonDisabled]}
-          onPress={handlePlaceOrder}
-          disabled={isPlacingOrder}
+          onPress={openConfirmation}
+          disabled={!canPlaceOrder}
         >
           {isPlacingOrder ? (
             <>
@@ -781,6 +802,38 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
+    <Modal visible={confirmationOpen} transparent animationType="slide" onRequestClose={closeConfirmation}>
+      <View style={styles.modalRoot}>
+        <TouchableOpacity accessibilityLabel="Close order confirmation" style={styles.modalBackdrop} activeOpacity={1} onPress={closeConfirmation} disabled={isPlacingOrder} />
+        <View style={[styles.confirmSheet, { backgroundColor: surface, paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: border }]} />
+          <View style={styles.confirmHeading}>
+            <View style={[styles.confirmIcon, { backgroundColor: softAccent }]}><Ionicons name="bag-check-outline" size={20} color={accent} /></View>
+            <View style={styles.confirmTitleGroup}>
+              <ThemedText style={styles.confirmTitle}>Confirm order</ThemedText>
+              <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>{itemCount} {itemCount === 1 ? 'item' : 'items'} · {paymentMethods.find(method => method.id === selectedPayment)?.name}</ThemedText>
+            </View>
+            <IconButton label="Close confirmation" disabled={isPlacingOrder} onPress={closeConfirmation}><Ionicons name="close" size={22} color={themeColors.icon} /></IconButton>
+          </View>
+          <View style={[styles.confirmTotalRow, { borderColor: border }]}>
+            <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Total to pay</ThemedText>
+            <ThemedText style={styles.totalValue}>{totalLabel}</ThemedText>
+          </View>
+          <ThemedText style={[styles.transferNote, { color: themeColors.textSecondary }]}>
+            * Online transfers are accepted only to accounts under our company profile name.
+          </ThemedText>
+          <View style={styles.policyRow}>
+            <ThemedText style={[styles.policyText, { color: themeColors.textSecondary }]}>By confirming, you acknowledge our </ThemedText>
+            <TouchableOpacity accessibilityRole="link" accessibilityLabel="Terms and Conditions" onPress={() => openPolicy('terms-and-conditions')}><ThemedText style={[styles.policyLink, { color: accent }]}>T&C</ThemedText></TouchableOpacity>
+            <ThemedText style={[styles.policyText, { color: themeColors.textSecondary }]}> and </ThemedText>
+            <TouchableOpacity accessibilityRole="link" accessibilityLabel="Privacy Policy" onPress={() => openPolicy('privacy-policy')}><ThemedText style={[styles.policyLink, { color: accent }]}>Privacy Policy</ThemedText></TouchableOpacity>
+            <ThemedText style={[styles.policyText, { color: themeColors.textSecondary }]}>.</ThemedText>
+          </View>
+          <SlideToConfirm disabled={isPlacingOrder || !canPlaceOrder} onConfirm={handlePlaceOrder} accent={accent} onAccent={onAccent} trackColor={softAccent} textColor={accent} />
+          {isPlacingOrder && <View style={styles.placingStatus}><ActivityIndicator size="small" color={accent} /><ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>Placing your order…</ThemedText></View>}
+        </View>
+      </View>
+    </Modal>
     </SafeAreaView>
   );
 }
@@ -1205,4 +1258,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  caption: { fontSize: 12, lineHeight: 18 },
+  totalValue: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10, 24, 32, 0.54)' },
+  confirmSheet: { width: '100%', maxWidth: 680, alignSelf: 'center', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 10, gap: 14 },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 2 },
+  confirmHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  confirmIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  confirmTitleGroup: { flex: 1, gap: 2 },
+  confirmTitle: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
+  confirmTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12 },
+  transferNote: { fontSize: 12, lineHeight: 18 },
+  policyRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 2 },
+  policyText: { fontSize: 12, lineHeight: 19 },
+  policyLink: { fontSize: 12, lineHeight: 19, fontWeight: '700', textDecorationLine: 'underline' },
+  placingStatus: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
 });
