@@ -50,6 +50,19 @@ npm start
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.100:8000  # Use IP for local dev
 ```
 
+### Issue: Browser requests show "CORS error"
+Allow the Expo web origin in the backend's `sunapi/.env`:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=http://localhost:8000,http://localhost:8081,http://127.0.0.1:8081
+```
+
+Use the exact origin shown in your browser's address bar, including its port. If Expo starts on another port or you use a LAN address, add that origin to the comma-separated list. For production, use your deployed frontend origins.
+
+Origins contain only the scheme, host, and port (no path or trailing slash). Leaving `CORS_ALLOWED_ORIGINS` empty allows no cross-origin callers; remove the key to fall back to the backend's `APP_URL`.
+
+From `sunapi`, run `php artisan config:clear`, then reload the browser. Keep `EXPO_PUBLIC_API_BASE_URL` pointed at the API server (`http://localhost:8000` for local web development).
+
 ### Issue: "Invalid Credentials"
 **Solution**: Verify user exists in backend or create test account
 
