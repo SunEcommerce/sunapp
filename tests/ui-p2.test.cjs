@@ -104,6 +104,7 @@ function nodes(element) {
 
 function renderProfile(signedIn = false) {
   const navigations = [];
+  let logoutCalls = 0;
   let stateIndex = 0;
   const react = require('react');
   const native = Object.fromEntries(['View', 'Text', 'TouchableOpacity', 'ScrollView', 'StatusBar'].map(name => [name, name]));
@@ -115,7 +116,7 @@ function renderProfile(signedIn = false) {
     '@/components/themed-text': { ThemedText: 'Text' }, '@/components/themed-view': { ThemedView: 'View' },
     '@/constants/theme': { Colors: { dark: { text: '#fff', card: '#222' } } },
     '@/components/HomeSkeleton': { HomeSkeleton: 'HomeSkeleton' },
-    '@/contexts/theme-context': { ThemeContext: {} }, '@/utils/api': {},
+    '@/contexts/theme-context': { ThemeContext: {} }, '@/utils/api': { logout: async () => { logoutCalls += 1; } },
     '@/hooks/use-tab-content-inset': { useTabContentInset: () => 0 },
     '@expo/vector-icons': { Ionicons: 'Icon' }, '@react-native-async-storage/async-storage': {},
     '@react-navigation/native': { useNavigation: () => ({}) }, 'expo-image': { Image: 'Image' },
@@ -123,7 +124,7 @@ function renderProfile(signedIn = false) {
     'expo-router': { useFocusEffect: () => {}, useRouter: () => ({ push: route => navigations.push(route) }) },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
   });
-  return { profileTree: Profile(), navigations };
+  return { profileTree: Profile(), navigations, getLogoutCalls: () => logoutCalls };
 }
 
 test('Profile marks unsupported menus unavailable and opens privacy and authentication routes', () => {
@@ -153,6 +154,17 @@ test('signed-in profile shows real customer identity and working account shortcu
   }
   assert.deepEqual(navigations, ['/OrderList', '/FavoriteProducts', '/Address', '/EditProfile']);
   assert.ok(nodes(profileTree).some(node => node.props?.accessibilityLabel === 'Sign out'));
+});
+
+test('Profile confirms sign out in a bottom sheet before clearing the session', async () => {
+  const { profileTree, navigations, getLogoutCalls } = renderProfile(true);
+  nodes(profileTree).find(node => node.props?.accessibilityLabel === 'Sign out').props.onPress();
+  assert.equal(getLogoutCalls(), 0);
+  assert.ok(nodes(profileTree).some(node => node.props?.animationType === 'slide'));
+
+  await nodes(profileTree).find(node => node.props?.accessibilityLabel === 'Confirm sign out').props.onPress();
+  assert.equal(getLogoutCalls(), 1);
+  assert.equal(navigations.at(-1), '/Auth');
 });
 
 test('secondary text and price colors meet 4.5:1 contrast in both themes', () => {

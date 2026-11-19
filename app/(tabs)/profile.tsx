@@ -8,7 +8,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { ComponentProps, useCallback, useContext, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type MenuEntry = {
@@ -50,10 +59,18 @@ export default function TabTwoScreen() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
+  const [signOutVisible, setSignOutVisible] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const router = useRouter();
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(value => {
+      if (active) setReduceMotion(value);
+    }).catch(() => {});
+    const motionSubscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
     const checkLogin = async () => {
       try {
         const token = await getAccessToken();
@@ -67,7 +84,10 @@ export default function TabTwoScreen() {
       }
     };
     checkLogin();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      motionSubscription.remove();
+    };
   }, []));
 
   const menuGroups: { title: string; items: MenuEntry[] }[] = [
@@ -93,13 +113,32 @@ export default function TabTwoScreen() {
     { label: 'Edit profile', icon: 'person-outline', action: () => router.push('/EditProfile') },
   ];
 
+  const openSignOutConfirmation = () => {
+    setSignOutError(null);
+    setSignOutVisible(true);
+  };
+
+  const closeSignOutConfirmation = () => {
+    if (isSigningOut) return;
+    setSignOutVisible(false);
+    setSignOutError(null);
+  };
+
   async function handleLogout() {
+    setIsSigningOut(true);
+    setSignOutError(null);
     try {
       await logout();
+      setSignOutVisible(false);
       setUserProfile(null);
       setIsLoggedIn(false);
       router.push('/Auth');
-    } catch (error) { console.error('Logout failed:', error); }
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setSignOutError('Couldn’t sign out. Please try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   const name = userProfile?.name?.trim() || 'Your account';
@@ -151,11 +190,76 @@ export default function TabTwoScreen() {
               borderColor={border} last={index === group.items.length - 1} onPress={item.action} unavailable={item.unavailable} />)}
           </View>
         </View>)}
-        {isLoggedIn && <TouchableOpacity onPress={handleLogout} accessibilityRole="button" accessibilityLabel="Sign out"
+        {isLoggedIn && <TouchableOpacity onPress={openSignOutConfirmation} accessibilityRole="button" accessibilityLabel="Sign out"
           style={[styles.signOut, { borderColor: border, backgroundColor: surface }]}>
           <Ionicons name="log-out-outline" size={19} color={dark ? '#ffb3b3' : '#b52b38'} /><ThemedText style={[styles.signOutText, { color: dark ? '#ffb3b3' : '#b52b38' }]}>Sign out</ThemedText>
         </TouchableOpacity>}
       </ScrollView>
+
+      <Modal
+        visible={signOutVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        statusBarTranslucent
+        navigationBarTranslucent
+        hardwareAccelerated
+        presentationStyle="overFullScreen"
+        onRequestClose={closeSignOutConfirmation}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close sign out confirmation"
+          disabled={isSigningOut}
+          onPress={closeSignOutConfirmation}
+          style={styles.modalBackdrop}
+        >
+          <Pressable
+            accessibilityViewIsModal
+            accessibilityLabel="Sign out confirmation"
+            onPress={event => event.stopPropagation()}
+            style={[styles.signOutSheet, { backgroundColor: surface, borderColor: border }]}
+          >
+            <SafeAreaView edges={['bottom']} style={styles.sheetSafeArea}>
+              <View style={[styles.sheetHandle, { backgroundColor: border }]} />
+              <View style={[styles.sheetIcon, { backgroundColor: dark ? '#492525' : '#fff0f0' }]}>
+                <Ionicons name="log-out-outline" size={25} color={dark ? '#ffb3b3' : '#b52b38'} />
+              </View>
+              <ThemedText accessibilityRole="header" style={styles.sheetTitle}>Sign out of your account?</ThemedText>
+              <ThemedText style={[styles.sheetDescription, { color: theme.textSecondary }]}>You’ll need to sign in again to access your orders, favorites and saved addresses.</ThemedText>
+
+              {signOutError && (
+                <View accessibilityRole="alert" style={[styles.sheetError, { backgroundColor: dark ? '#492525' : '#fff0f0' }]}>
+                  <Ionicons name="alert-circle-outline" size={18} color={dark ? '#ffb3b3' : '#b52b38'} />
+                  <ThemedText style={[styles.sheetErrorText, { color: dark ? '#ffb3b3' : '#b52b38' }]}>{signOutError}</ThemedText>
+                </View>
+              )}
+
+              <View style={styles.sheetActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel sign out"
+                  disabled={isSigningOut}
+                  onPress={closeSignOutConfirmation}
+                  style={({ pressed }) => [styles.sheetButton, { backgroundColor: soft, borderColor: border }, pressed && styles.sheetButtonPressed]}
+                >
+                  <ThemedText style={[styles.sheetButtonText, { color: theme.text }]}>Cancel</ThemedText>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirm sign out"
+                  accessibilityState={{ disabled: isSigningOut, busy: isSigningOut }}
+                  disabled={isSigningOut}
+                  onPress={handleLogout}
+                  style={({ pressed }) => [styles.sheetButton, styles.destructiveButton, { backgroundColor: dark ? '#d95f62' : '#b52b38' }, pressed && styles.sheetButtonPressed, isSigningOut && styles.sheetButtonDisabled]}
+                >
+                  {isSigningOut ? <ActivityIndicator size="small" color="#ffffff" /> : <Ionicons name="log-out-outline" size={18} color="#ffffff" />}
+                  <ThemedText style={[styles.sheetButtonText, { color: '#ffffff' }]}>{isSigningOut ? 'Signing out…' : 'Sign out'}</ThemedText>
+                </Pressable>
+              </View>
+            </SafeAreaView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -189,4 +293,19 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 10, lineHeight: 16 },
   signOut: { marginTop: 20, borderWidth: 1, borderRadius: 14, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12 },
   signOutText: { fontSize: 14, lineHeight: 22, fontWeight: '600' },
+  modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(5, 15, 20, 0.55)' },
+  signOutSheet: { width: '100%', maxWidth: 640, alignSelf: 'center', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: 20, paddingTop: 10, shadowColor: '#000000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.16, shadowRadius: 20, elevation: 12 },
+  sheetSafeArea: { alignItems: 'center', paddingBottom: 12 },
+  sheetHandle: { width: 42, height: 5, borderRadius: 3, marginBottom: 20 },
+  sheetIcon: { width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
+  sheetTitle: { fontSize: 21, lineHeight: 28, fontWeight: '700', textAlign: 'center' },
+  sheetDescription: { maxWidth: 430, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 7 },
+  sheetError: { width: '100%', borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sheetErrorText: { minWidth: 0, flex: 1, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  sheetActions: { width: '100%', flexDirection: 'row', gap: 10, marginTop: 22 },
+  sheetButton: { minHeight: 52, flex: 1, borderRadius: 15, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  destructiveButton: { borderWidth: 0 },
+  sheetButtonText: { fontSize: 14, lineHeight: 20, fontWeight: '700', textAlign: 'center' },
+  sheetButtonPressed: { opacity: 0.76 },
+  sheetButtonDisabled: { opacity: 0.7 },
 });
