@@ -4,92 +4,159 @@ import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useContext } from 'react';
-import { StatusBar, StyleSheet, Switch, View } from 'react-native';
+import { useContext, useState } from 'react';
+import { ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+type Appearance = 'light' | 'dark' | 'system';
+const options: { value: Appearance; label: string; hint: string }[] = [
+  { value: 'light', label: 'Light', hint: 'Use a light appearance throughout the app' },
+  { value: 'dark', label: 'Dark', hint: 'Use a dark appearance throughout the app' },
+  { value: 'system', label: 'System', hint: 'Follow your device appearance automatically' },
+];
+
+function ThemePreview({ mode }: { mode: Appearance }) {
+  const renderPanel = (dark: boolean) => <View style={[styles.previewPanel, { backgroundColor: dark ? '#1b252c' : '#ffffff' }]}>
+    <View style={styles.previewNav}>
+      <View style={[styles.previewLogo, { backgroundColor: dark ? '#8bd8ed' : '#086b83' }]} />
+      <View style={[styles.previewDot, { backgroundColor: dark ? '#728a98' : '#bccbd2' }]} />
+    </View>
+    <View style={[styles.previewBanner, { backgroundColor: dark ? '#315362' : '#d8edf3' }]} />
+    <View style={styles.previewProducts}>{[1, 2].map(key => <View key={key} style={styles.previewProduct}>
+      <View style={[styles.previewImage, { backgroundColor: dark ? '#344650' : '#edf1f4' }]} />
+      <View style={[styles.previewLine, { backgroundColor: dark ? '#9db2bd' : '#8b9fa9' }]} />
+      <View style={[styles.previewPrice, { backgroundColor: dark ? '#8bd8ed' : '#086b83' }]} />
+    </View>)}</View>
+  </View>;
+  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.preview}>
+    {mode === 'system' ? <>{renderPanel(false)}{renderPanel(true)}</> : renderPanel(mode === 'dark')}
+  </View>;
+}
 
 export default function SettingsScreen() {
   const router = useRouter();
   const themeContext = useContext(ThemeContext);
+  const [saving, setSaving] = useState(false);
+  if (!themeContext) return null;
 
-  if (!themeContext) {
-    // This should not happen as it's wrapped in the provider
-    return null;
-  }
+  const { colorScheme, isSystemMode, setSystemMode, setTheme } = themeContext;
+  const dark = colorScheme === 'dark';
+  const theme = Colors[colorScheme];
+  const surface = dark ? '#1b252c' : '#ffffff';
+  const border = dark ? '#30414c' : '#e2e8ed';
+  const accent = dark ? '#8bd8ed' : '#086b83';
+  const softAccent = dark ? '#253b46' : '#eaf4f8';
+  const selected: Appearance = isSystemMode ? 'system' : colorScheme;
 
-  const { colorScheme, isDarkMode, isSystemMode, setSystemMode, toggleTheme } = themeContext;
-  const themeColors = Colors[colorScheme ?? 'light'];
+  const chooseAppearance = async (mode: Appearance) => {
+    if (saving || mode === selected) return;
+    setSaving(true);
+    try {
+      if (mode === 'system') await setSystemMode(true);
+      else {
+        await setSystemMode(false);
+        await setTheme(mode);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
-      <StatusBar 
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <View style={styles.header}>
-        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+  return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right', 'bottom']}>
+    <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+    <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
+      <View style={styles.headerContent}>
+        <IconButton label="Go back" onPress={() => router.back()} style={styles.headerButton}>
+          <Ionicons name="chevron-back" size={23} color={theme.text} />
         </IconButton>
-        <ThemedText style={styles.headerTitle}>App Setting</ThemedText>
-        <View style={styles.headerRight} />
+        <ThemedText style={styles.headerTitle}>Settings</ThemedText>
+        <View style={styles.headerButton} />
       </View>
-      <View style={styles.section}>
-        <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Display</ThemedText>
-        <View style={styles.item}>
-          <ThemedText style={{ color: themeColors.text }}>Use System Setting</ThemedText>
-          <Switch accessibilityLabel="Use system theme" value={isSystemMode} onValueChange={setSystemMode} />
+    </View>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.intro}>
+        <View style={[styles.introIcon, { backgroundColor: softAccent }]}>
+          <Ionicons name="color-palette-outline" size={25} color={accent} />
         </View>
-        <View style={styles.item}>
-          <ThemedText style={{ color: themeColors.text }}>Dark Mode</ThemedText>
-          <Switch
-            accessibilityLabel="Dark mode"
-            value={isDarkMode}
-            onValueChange={toggleTheme}
-            disabled={isSystemMode}
-          />
-        </View>
+        <ThemedText accessibilityRole="header" style={styles.title}>Appearance</ThemedText>
+        <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>A look that feels right for you.</ThemedText>
       </View>
-    </SafeAreaView>
-  );
+
+      <View style={[styles.currentCard, { backgroundColor: surface, borderColor: border }]}>
+        <View style={[styles.currentIcon, { backgroundColor: softAccent }]}>
+          <Ionicons name={isSystemMode ? 'phone-portrait-outline' : dark ? 'moon-outline' : 'sunny-outline'} size={21} color={accent} />
+        </View>
+        <View style={styles.currentCopy}>
+          <ThemedText style={styles.currentTitle}>{isSystemMode ? 'Matches your device' : dark ? 'Dark appearance' : 'Light appearance'}</ThemedText>
+          <ThemedText accessibilityLiveRegion="polite" style={[styles.caption, { color: theme.textSecondary }]}>
+            {isSystemMode ? `Currently using ${colorScheme} mode` : 'Applied across the app'}
+          </ThemedText>
+        </View>
+        <Ionicons name="checkmark-circle" size={20} color={accent} />
+      </View>
+
+      <View style={styles.themeSection}>
+        <ThemedText accessibilityRole="header" style={styles.sectionTitle}>Choose a theme</ThemedText>
+        <View accessibilityRole="radiogroup" accessibilityLabel="App appearance" style={styles.options}>
+          {options.map(option => {
+            const active = selected === option.value;
+            return <TouchableOpacity key={option.value} accessibilityRole="radio" accessibilityLabel={option.label}
+              accessibilityHint={option.hint} accessibilityState={{ checked: active, disabled: saving }} disabled={saving}
+              activeOpacity={0.75} onPress={() => chooseAppearance(option.value)}
+              style={[styles.option, { backgroundColor: active ? softAccent : surface, borderColor: active ? accent : border }]}>
+              <ThemePreview mode={option.value} />
+              <View style={styles.optionLabelRow}>
+                <ThemedText style={[styles.optionLabel, { color: active ? accent : theme.text }]}>{option.label}</ThemedText>
+                <Ionicons name={active ? 'radio-button-on' : 'radio-button-off'} size={16} color={active ? accent : theme.icon} />
+              </View>
+            </TouchableOpacity>;
+          })}
+        </View>
+        <ThemedText style={[styles.hint, { color: theme.textSecondary }]}>
+          {isSystemMode ? 'System automatically follows your device’s light or dark appearance.' : 'Your chosen theme stays the same when your device changes appearance.'}
+        </ThemedText>
+      </View>
+      <View style={[styles.savedHint, { borderTopColor: border }]}>
+        <Ionicons name="checkmark-done-outline" size={17} color={theme.icon} />
+        <ThemedText style={[styles.caption, { color: theme.textSecondary }]}>Your preference is saved automatically.</ThemedText>
+      </View>
+    </ScrollView>
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerRight: {
-    width: 32,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
+  container: { flex: 1 },
+  header: { borderBottomWidth: StyleSheet.hairlineWidth },
+  headerContent: { width: '100%', maxWidth: 620, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, minHeight: 48 },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '600', textAlign: 'center' },
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 24, paddingBottom: 28 },
+  intro: { alignItems: 'flex-start', marginBottom: 24 },
+  introIcon: { width: 52, height: 52, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  title: { fontSize: 26, lineHeight: 34, fontWeight: '700', letterSpacing: -0.6 },
+  subtitle: { fontSize: 14, lineHeight: 22, marginTop: 4 },
+  currentCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderRadius: 18 },
+  currentIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  currentCopy: { flex: 1, gap: 3 },
+  currentTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  caption: { fontSize: 12, lineHeight: 19, flexShrink: 1 },
+  themeSection: { marginTop: 24 },
+  sectionTitle: { fontSize: 14, lineHeight: 22, fontWeight: '600', marginBottom: 12 },
+  options: { flexDirection: 'row', gap: 8 },
+  option: { flex: 1, minWidth: 0, borderWidth: 1.5, borderRadius: 16, padding: 8, minHeight: 146 },
+  optionLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, minHeight: 36, paddingTop: 4 },
+  optionLabel: { fontSize: 12, lineHeight: 18, fontWeight: '600', flexShrink: 1 },
+  preview: { flexDirection: 'row', height: 92, borderRadius: 9, overflow: 'hidden' },
+  previewPanel: { flex: 1, padding: 6, gap: 7 },
+  previewNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  previewLogo: { width: 11, height: 8, borderRadius: 2 },
+  previewDot: { width: 4, height: 4, borderRadius: 2 },
+  previewBanner: { height: 21, borderRadius: 4 },
+  previewProducts: { flexDirection: 'row', gap: 4 },
+  previewProduct: { flex: 1, gap: 4 },
+  previewImage: { height: 17, borderRadius: 3 },
+  previewLine: { width: '90%', height: 3, borderRadius: 2 },
+  previewPrice: { width: '60%', height: 3, borderRadius: 2 },
+  hint: { fontSize: 12, lineHeight: 20, marginTop: 12 },
+  savedHint: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 18, marginTop: 24 },
 });
