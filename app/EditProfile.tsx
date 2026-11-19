@@ -1,7 +1,6 @@
-import { TextInput } from '@/components/ui/text-input';
-import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { IconButton } from '@/components/ui/icon-button';
+import { TextInput } from '@/components/ui/text-input';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchProfile, updateProfile } from '@/utils/api';
@@ -10,17 +9,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  StatusBar,
+  StyleProp,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  View
+  TextInputProps,
+  View,
+  ViewStyle,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface UserProfile {
   id: number;
@@ -38,81 +43,171 @@ interface UserProfile {
   update_date: string;
 }
 
+type ProfilePalette = {
+  background: string;
+  surface: string;
+  elevated: string;
+  text: string;
+  muted: string;
+  border: string;
+  accent: string;
+  accentSoft: string;
+  onAccent: string;
+  success: string;
+  successSoft: string;
+  danger: string;
+  dangerSoft: string;
+};
+
+const errorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
+
+function ProfileField({
+  label,
+  icon,
+  palette,
+  required,
+  containerStyle,
+  ...props
+}: TextInputProps & {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  palette: ProfilePalette;
+  required?: boolean;
+  containerStyle?: StyleProp<ViewStyle>;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <View style={[styles.fieldGroup, containerStyle]}>
+      <ThemedText style={styles.fieldLabel}>
+        {label}{required ? <Text style={{ color: palette.danger }}> *</Text> : null}
+      </ThemedText>
+      <View style={[styles.fieldShell, {
+        backgroundColor: palette.surface,
+        borderColor: focused ? palette.accent : palette.border,
+      }]}>
+        <Ionicons name={icon} size={19} color={focused ? palette.accent : palette.muted} />
+        <TextInput
+          {...props}
+          accessibilityLabel={props.accessibilityLabel ?? label}
+          placeholderTextColor={palette.muted}
+          onFocus={(event) => {
+            setFocused(true);
+            props.onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            props.onBlur?.(event);
+          }}
+          style={[styles.fieldInput, { color: palette.text }, props.style]}
+        />
+      </View>
+    </View>
+  );
+}
+
 export default function EditProfile() {
   const themeContext = useContext(ThemeContext);
   const router = useRouter();
-
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const palette = useMemo<ProfilePalette>(() => ({
+    background: themeColors.background,
+    surface: dark ? '#1d252a' : '#ffffff',
+    elevated: dark ? '#252f35' : '#f3f6f7',
+    text: themeColors.text,
+    muted: themeColors.textSecondary,
+    border: dark ? '#34434b' : '#dfe7eb',
+    accent: dark ? '#77cee6' : '#086b83',
+    accentSoft: dark ? '#193842' : '#e4f3f7',
+    onAccent: dark ? '#10232b' : '#ffffff',
+    success: dark ? '#7de0ad' : '#087443',
+    successSoft: dark ? '#163b2b' : '#e4f7ed',
+    danger: dark ? '#ff9b98' : '#b42318',
+    dangerSoft: dark ? '#49211f' : '#ffebe9',
+  }), [dark, themeColors]);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  
-  // Form fields
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [usingCachedProfile, setUsingCachedProfile] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+95');
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [newImage, setNewImage] = useState<any>(null);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const [newImage, setNewImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
-  useEffect(() => {
-    loadProfile();
+  const applyProfile = useCallback((profileData: UserProfile) => {
+    setProfile(profileData);
+    setName(profileData.name || '');
+    setPhone(profileData.phone || '');
+    setEmail(profileData.email || '');
+    setCountryCode(profileData.country_code || '+95');
+    setImageUri(profileData.image || null);
+    setNewImage(null);
+    setFailedImage(null);
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    setUsingCachedProfile(false);
     try {
-      setLoading(true);
-      // Fetch profile from API
       const response = await fetchProfile();
-      
-      if (response?.data) {
-        const profileData = response.data;
-        setProfile(profileData);
-        setName(profileData.name || '');
-        setPhone(profileData.phone || '');
-        setEmail(profileData.email || '');
-        setCountryCode(profileData.country_code || '+95');
-        setImageUri(profileData.image || null);
-        
-        // Update AsyncStorage with latest data
-        await AsyncStorage.setItem('user_profile', JSON.stringify(profileData));
-      }
+      if (!response?.data) throw new Error('Profile data was unavailable');
+      applyProfile(response.data);
+      await AsyncStorage.setItem('user_profile', JSON.stringify(response.data));
     } catch (error) {
       console.error('Failed to load profile from API:', error);
-      
-      // Fallback to AsyncStorage if API fails
       try {
         const cachedProfile = await AsyncStorage.getItem('user_profile');
-        if (cachedProfile) {
-          const profileData = JSON.parse(cachedProfile);
-          setProfile(profileData);
-          setName(profileData.name || '');
-          setPhone(profileData.phone || '');
-          setEmail(profileData.email || '');
-          setCountryCode(profileData.country_code || '+95');
-          setImageUri(profileData.image || null);
-          
-          Alert.alert('Notice', 'Loaded profile from cache. Please check your internet connection.');
-        } else {
-          Alert.alert('Error', 'Failed to load profile data. Please try again.');
-        }
+        if (!cachedProfile) throw error;
+        applyProfile(JSON.parse(cachedProfile));
+        setUsingCachedProfile(true);
       } catch (cacheError) {
-        console.error('Failed to load from cache:', cacheError);
-        Alert.alert('Error', 'Failed to load profile data. Please try again.');
+        console.error('Failed to load cached profile:', cacheError);
+        setLoadError(errorMessage(error, 'Failed to load profile data'));
       }
     } finally {
       setLoading(false);
     }
+  }, [applyProfile]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const initials = useMemo(() => {
+    const source = name.trim() || profile?.username || 'User';
+    return source.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  }, [name, profile?.username]);
+
+  const isDirty = useMemo(() => {
+    if (!profile) return false;
+    return name.trim() !== (profile.name || '').trim()
+      || phone.trim() !== (profile.phone || '').trim()
+      || email.trim() !== (profile.email || '').trim()
+      || countryCode.trim() !== (profile.country_code || '+95').trim()
+      || Boolean(newImage);
+  }, [countryCode, email, name, newImage, phone, profile]);
+
+  const clearFeedback = () => {
+    setFormError(null);
+    setNotice(null);
   };
 
   const pickImage = async () => {
+    clearFeedback();
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      if (!permissionResult.granted) {
+        Alert.alert('Photo access needed', 'Allow photo access to choose a profile picture.');
         return;
       }
 
@@ -126,332 +221,257 @@ export default function EditProfile() {
       if (!result.canceled && result.assets[0]) {
         setImageUri(result.assets[0].uri);
         setNewImage(result.assets[0]);
+        setFailedImage(null);
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      setFormError('Couldn’t open your photo library. Please try again.');
     }
   };
 
+  const validateForm = () => {
+    if (!name.trim()) return 'Enter your full name';
+    if (!email.trim()) return 'Enter your email address';
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'Enter a valid email address';
+    if (!countryCode.trim()) return 'Enter your country code';
+    if (!phone.trim()) return 'Enter your phone number';
+    return null;
+  };
+
   const handleSave = async () => {
-    // Validation
-    if (!name.trim()) {
-      Alert.alert('Validation Error', 'Name is required');
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      setNotice(null);
       return;
     }
 
-    if (!phone.trim()) {
-      Alert.alert('Validation Error', 'Phone is required');
-      return;
-    }
-
-    if (!email.trim()) {
-      Alert.alert('Validation Error', 'Email is required');
-      return;
-    }
-
+    setSaving(true);
+    setFormError(null);
+    setNotice(null);
     try {
-      setSaving(true);
-
       const formData = new FormData();
       formData.append('name', name.trim());
       formData.append('phone', phone.trim());
       formData.append('email', email.trim());
-      formData.append('country_code', countryCode);
+      formData.append('country_code', countryCode.trim());
 
-      // Add image if a new one was selected
       if (newImage) {
         if (Platform.OS === 'web') {
           const imageResponse = await fetch(newImage.uri);
           formData.append('image', await imageResponse.blob(), 'profile.jpg');
         } else {
-          const imageFile = {
+          formData.append('image', {
             uri: newImage.uri,
-            type: 'image/jpeg',
-            name: 'profile.jpg',
-          } as any;
-          formData.append('image', imageFile);
+            type: newImage.mimeType || 'image/jpeg',
+            name: newImage.fileName || 'profile.jpg',
+          } as never);
         }
       }
 
       const response = await updateProfile(formData);
-
-      if (response?.data) {
-        // Update AsyncStorage with new profile data
-        await AsyncStorage.setItem('user_profile', JSON.stringify(response.data));
-        
-        Alert.alert('Success', 'Profile updated successfully', [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]);
-      }
-    } catch (error: any) {
+      if (!response?.data) throw new Error('Updated profile data was unavailable');
+      applyProfile(response.data);
+      await AsyncStorage.setItem('user_profile', JSON.stringify(response.data));
+      setUsingCachedProfile(false);
+      setNotice('Profile changes saved');
+    } catch (error) {
       console.error('Failed to update profile:', error);
-      Alert.alert('Error', error.message || 'Failed to update profile');
+      setFormError(errorMessage(error, 'Failed to update profile'));
     } finally {
       setSaving(false);
     }
   };
 
+  const header = (
+    <View style={[styles.header, { backgroundColor: palette.background, borderBottomColor: palette.border }]}>
+      <IconButton label="Go back" onPress={() => router.back()} disabled={saving} style={styles.headerButton}>
+        <Ionicons name="chevron-back" size={24} color={palette.text} />
+      </IconButton>
+      <ThemedText style={styles.headerTitle}>Edit Profile</ThemedText>
+      <View style={styles.headerButton} />
+    </View>
+  );
+
   if (loading) {
     return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={themeColors.tint} />
-      </ThemedView>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        {header}
+        <View style={styles.stateContainer} accessibilityLiveRegion="polite">
+          <View style={[styles.loadingIcon, { backgroundColor: palette.accentSoft }]}>
+            <ActivityIndicator size="small" color={palette.accent} />
+          </View>
+          <ThemedText style={styles.stateTitle}>Loading your profile</ThemedText>
+          <ThemedText style={[styles.stateDescription, { color: palette.muted }]}>Getting your latest account details.</ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError || !profile) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+        {header}
+        <View style={styles.stateContainer} accessibilityRole="alert">
+          <View style={[styles.stateIcon, { backgroundColor: palette.dangerSoft }]}>
+            <Ionicons name="cloud-offline-outline" size={34} color={palette.danger} />
+          </View>
+          <ThemedText style={styles.stateTitle}>Couldn&apos;t load your profile</ThemedText>
+          <ThemedText style={[styles.stateDescription, { color: palette.muted }]}>{loadError || 'Profile data was unavailable'}</ThemedText>
+          <Pressable accessibilityRole="button" onPress={loadProfile}
+            style={({ pressed }) => [styles.primaryButton, styles.retryButton, { backgroundColor: palette.accent }, pressed && styles.pressed]}>
+            <Ionicons name="refresh" size={19} color={palette.onAccent} />
+            <Text style={[styles.primaryButtonText, { color: palette.onAccent }]}>Try again</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-        <IconButton label="Go back"
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </IconButton>
-        <ThemedText style={styles.headerTitle}>Edit Profile</ThemedText>
-        <View style={styles.backButton} />
-      </View>
-
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Image */}
-        <View style={styles.imageSection}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Change profile picture" onPress={pickImage} style={styles.imageContainer}>
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.profileImage} />
-            ) : (
-              <View style={[styles.placeholderImage, { backgroundColor: themeColors.icon }]}>
-                <Ionicons name="person" size={60} color={themeColors.background} />
-              </View>
-            )}
-            <View style={styles.cameraButton}>
-              <Ionicons name="camera" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
-          <ThemedText style={[styles.imageHint, { color: themeColors.textSecondary }]}>Tap to change profile picture</ThemedText>
-        </View>
-
-        {/* Form Fields */}
-        <View style={styles.formSection}>
-          {/* Name Field */}
-          <View style={styles.fieldContainer}>
-            <ThemedText style={styles.label}>Full Name</ThemedText>
-            <View style={[styles.inputWrapper, { 
-              backgroundColor: themeColors.background,
-              borderColor: themeColors.icon 
-            }]}>
-              <Ionicons name="person-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput accessibilityLabel="Enter your name"
-                style={[styles.input, { color: themeColors.text }]}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your name"
-                placeholderTextColor={themeColors.icon}
-              />
-            </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+      {header}
+      <KeyboardAvoidingView style={styles.safeArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={styles.intro}>
+            <ThemedText style={styles.pageTitle}>Make it yours</ThemedText>
+            <ThemedText style={[styles.pageSubtitle, { color: palette.muted }]}>Keep your contact details and profile photo up to date.</ThemedText>
           </View>
 
-          {/* Email Field */}
-          <View style={styles.fieldContainer}>
-            <ThemedText style={styles.label}>Email</ThemedText>
-            <View style={[styles.inputWrapper, { 
-              backgroundColor: themeColors.background,
-              borderColor: themeColors.icon 
-            }]}>
-              <Ionicons name="mail-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput accessibilityLabel="Enter your email"
-                style={[styles.input, { color: themeColors.text }]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter your email"
-                placeholderTextColor={themeColors.icon}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+          {usingCachedProfile && (
+            <View accessibilityRole="alert" style={[styles.feedbackBanner, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <Ionicons name="cloud-offline-outline" size={19} color={palette.muted} />
+              <ThemedText style={[styles.feedbackText, { color: palette.muted }]}>Showing saved profile details. You may need a connection to save changes.</ThemedText>
             </View>
-          </View>
-
-          {/* Country Code Field */}
-          <View style={styles.fieldContainer}>
-            <ThemedText style={styles.label}>Country Code</ThemedText>
-            <View style={[styles.inputWrapper, { 
-              backgroundColor: themeColors.background,
-              borderColor: themeColors.icon 
-            }]}>
-              <Ionicons name="flag-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput accessibilityLabel="Country code (e.g., +95)"
-                style={[styles.input, { color: themeColors.text }]}
-                value={countryCode}
-                onChangeText={setCountryCode}
-                placeholder="Country code (e.g., +95)"
-                placeholderTextColor={themeColors.icon}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-
-          {/* Phone Field */}
-          <View style={styles.fieldContainer}>
-            <ThemedText style={styles.label}>Phone Number</ThemedText>
-            <View style={[styles.inputWrapper, { 
-              backgroundColor: themeColors.background,
-              borderColor: themeColors.icon 
-            }]}>
-              <Ionicons name="call-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput accessibilityLabel="Enter your phone number"
-                style={[styles.input, { color: themeColors.text }]}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter your phone number"
-                placeholderTextColor={themeColors.icon}
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Changes</Text>
           )}
-        </TouchableOpacity>
-      </ScrollView>
-    </ThemedView>
+
+          {formError && (
+            <View accessibilityRole="alert" style={[styles.feedbackBanner, { backgroundColor: palette.dangerSoft, borderColor: palette.danger }]}>
+              <Ionicons name="alert-circle-outline" size={19} color={palette.danger} />
+              <ThemedText style={[styles.feedbackText, { color: palette.danger }]}>{formError}</ThemedText>
+            </View>
+          )}
+
+          {notice && (
+            <Pressable accessibilityRole="button" accessibilityLabel={`${notice}. Dismiss`} accessibilityLiveRegion="polite"
+              onPress={() => setNotice(null)} style={[styles.feedbackBanner, { backgroundColor: palette.successSoft, borderColor: palette.success }]}>
+              <Ionicons name="checkmark-circle" size={19} color={palette.success} />
+              <ThemedText style={[styles.feedbackText, { color: palette.success }]}>{notice}</ThemedText>
+              <Ionicons name="close" size={17} color={palette.success} />
+            </Pressable>
+          )}
+
+          <View style={[styles.avatarCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <View style={styles.avatarCopy}>
+              <ThemedText style={styles.sectionTitle}>Profile photo</ThemedText>
+              <ThemedText style={[styles.sectionDescription, { color: palette.muted }]}>Choose a clear square photo so your account is easy to recognize.</ThemedText>
+              {newImage && (
+                <View style={[styles.pendingBadge, { backgroundColor: palette.accentSoft }]}>
+                  <Ionicons name="time-outline" size={14} color={palette.accent} />
+                  <ThemedText style={[styles.pendingText, { color: palette.accent }]}>Ready to save</ThemedText>
+                </View>
+              )}
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Change profile picture" onPress={pickImage}
+              style={({ pressed }) => [styles.avatarButton, { borderColor: palette.border, backgroundColor: palette.elevated }, pressed && styles.pressed]}>
+              {imageUri && imageUri !== failedImage ? (
+                <Image source={{ uri: imageUri }} style={styles.avatarImage} contentFit="cover" accessibilityLabel="Profile photo preview" onError={() => setFailedImage(imageUri)} />
+              ) : (
+                <ThemedText style={[styles.initials, { color: palette.accent }]}>{initials}</ThemedText>
+              )}
+              <View style={[styles.cameraBadge, { backgroundColor: palette.accent, borderColor: palette.surface }]}>
+                <Ionicons name="camera" size={17} color={palette.onAccent} />
+              </View>
+            </Pressable>
+          </View>
+
+          <View style={[styles.formCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <View style={styles.sectionHeading}>
+              <View style={[styles.sectionIcon, { backgroundColor: palette.accentSoft }]}>
+                <Ionicons name="person-outline" size={19} color={palette.accent} />
+              </View>
+              <View style={styles.sectionHeadingCopy}>
+                <ThemedText style={styles.sectionTitle}>Personal details</ThemedText>
+                <ThemedText style={[styles.sectionDescription, { color: palette.muted }]}>Used for your account and order updates.</ThemedText>
+              </View>
+            </View>
+
+            <ProfileField label="Full name" icon="person-outline" palette={palette} required value={name}
+              onChangeText={value => { clearFeedback(); setName(value); }} placeholder="Your full name"
+              autoCapitalize="words" autoComplete="name" textContentType="name" />
+            <ProfileField label="Email address" icon="mail-outline" palette={palette} required value={email}
+              onChangeText={value => { clearFeedback(); setEmail(value); }} placeholder="you@example.com"
+              keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" />
+
+            <View style={styles.phoneRow}>
+              <ProfileField containerStyle={styles.codeField} label="Country code" icon="flag-outline" palette={palette} required value={countryCode}
+                onChangeText={value => { clearFeedback(); setCountryCode(value.replace(/[^0-9+]/g, '')); }} placeholder="+95"
+                keyboardType="phone-pad" maxLength={6} />
+              <ProfileField containerStyle={styles.phoneField} label="Phone number" icon="call-outline" palette={palette} required value={phone}
+                onChangeText={value => { clearFeedback(); setPhone(value.replace(/[^0-9]/g, '')); }} placeholder="09 123 456 789"
+                keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
+            </View>
+          </View>
+
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: saving || !isDirty, busy: saving }}
+            disabled={saving || !isDirty} onPress={handleSave}
+            style={({ pressed }) => [styles.primaryButton, { backgroundColor: palette.accent }, (!isDirty || saving) && styles.disabled, pressed && !saving && isDirty && styles.pressed]}>
+            {saving ? <ActivityIndicator size="small" color={palette.onAccent} /> : <Ionicons name="checkmark-circle-outline" size={20} color={palette.onAccent} />}
+            <Text style={[styles.primaryButtonText, { color: palette.onAccent }]}>
+              {saving ? 'Saving…' : isDirty ? 'Save changes' : 'Everything is up to date'}
+            </Text>
+          </Pressable>
+          <ThemedText style={[styles.saveHint, { color: palette.muted }]}>Your account information is stored securely.</ThemedText>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  imageSection: {
-    alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 10,
-  },
-  imageContainer: {
-    position: 'relative',
-    marginBottom: 10,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: '#2b5fe2',
-  },
-  placeholderImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#2b5fe2',
-  },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#2b5fe2',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  imageHint: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-  },
-  formSection: {
-    gap: 20,
-  },
-  fieldContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 50,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    height: '100%',
-  },
-  saveButton: {
-    backgroundColor: '#2b5fe2',
-    paddingVertical: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 30,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-    elevation: 3,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  safeArea: { flex: 1 },
+  header: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 7, borderBottomWidth: StyleSheet.hairlineWidth },
+  headerButton: { width: 44, height: 44 },
+  headerTitle: { fontSize: 19, lineHeight: 26, fontWeight: '700' },
+  pressed: { opacity: 0.76 },
+  disabled: { opacity: 0.5 },
+  stateContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 58 },
+  loadingIcon: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  stateIcon: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  stateTitle: { fontSize: 21, lineHeight: 28, fontWeight: '700', textAlign: 'center' },
+  stateDescription: { maxWidth: 340, fontSize: 15, lineHeight: 23, textAlign: 'center', marginTop: 7 },
+  retryButton: { marginTop: 22 },
+  scrollContent: { width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 36 },
+  intro: { marginBottom: 18, paddingHorizontal: 2 },
+  pageTitle: { fontSize: 24, lineHeight: 31, fontWeight: '700', letterSpacing: -0.4 },
+  pageSubtitle: { fontSize: 14, lineHeight: 21, marginTop: 3 },
+  feedbackBanner: { minHeight: 46, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 11, marginBottom: 13, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  feedbackText: { minWidth: 0, flex: 1, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  avatarCard: { borderWidth: 1, borderRadius: 20, padding: 16, marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  avatarCopy: { minWidth: 0, flex: 1 },
+  sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700' },
+  sectionDescription: { fontSize: 12, lineHeight: 18, marginTop: 2 },
+  pendingBadge: { alignSelf: 'flex-start', minHeight: 26, borderRadius: 13, paddingHorizontal: 8, marginTop: 9, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  pendingText: { fontSize: 11, lineHeight: 15, fontWeight: '700' },
+  avatarButton: { width: 94, height: 94, borderRadius: 31, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
+  avatarImage: { ...StyleSheet.absoluteFillObject, borderRadius: 30 },
+  initials: { fontSize: 30, lineHeight: 38, fontWeight: '800' },
+  cameraBadge: { position: 'absolute', right: -4, bottom: -4, width: 36, height: 36, borderRadius: 18, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
+  formCard: { borderWidth: 1, borderRadius: 20, padding: 16, marginBottom: 16 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
+  sectionIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  sectionHeadingCopy: { minWidth: 0, flex: 1 },
+  fieldGroup: { minWidth: 0, marginBottom: 15 },
+  fieldLabel: { fontSize: 13, lineHeight: 18, fontWeight: '600', marginBottom: 7 },
+  fieldShell: { minHeight: 52, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  fieldInput: { minWidth: 0, flex: 1, minHeight: 50, paddingVertical: 11, paddingHorizontal: 0, fontSize: 16, lineHeight: 22 },
+  phoneRow: { flexDirection: 'row', gap: 10 },
+  codeField: { width: 150 },
+  phoneField: { flex: 1 },
+  primaryButton: { minHeight: 52, borderRadius: 15, paddingHorizontal: 20, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  primaryButtonText: { fontSize: 15, lineHeight: 21, fontWeight: '700', textAlign: 'center' },
+  saveHint: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 10 },
 });
