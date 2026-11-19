@@ -21,12 +21,12 @@ function load(file, mocks) {
 
 const product = { id: 7, name: 'Demo phone', sku: 'PHONE', price: 100, old_price: 120, stock: 3, maximum_purchase_quantity: 2, image: 'phone.webp', images: ['phone.webp'], details: 'Product description' };
 
-function screen({ preload, options = [], details = product, children = {}, reducedMotion = false } = {}) {
+function screen({ preload, options = [], details = product, children = {}, childrenRequest, reducedMotion = false, colorScheme = 'light' } = {}) {
   let cursor = 0, refCursor = 0, resolveDetails;
-  const state = [], effects = [], added = [], refs = [], scrolls = [];
+  const state = [], effects = [], added = [], refs = [], scrolls = [], variationScrolls = [];
   const react = require('react');
   const { default: Detail } = load('app/ProductDetail.tsx', {
-    react: { ...react, useContext: () => ({ colorScheme: 'light' }), useRef: initial => { const index = refCursor++; return refs[index] ??= { current: initial }; }, useMemo: fn => fn(),
+    react: { ...react, useContext: () => ({ colorScheme }), useRef: initial => { const index = refCursor++; return refs[index] ??= { current: initial }; }, useMemo: fn => fn(),
       useEffect: fn => effects.push(fn), useState: initial => { const index = cursor++; if (!(index in state)) state[index] = initial;
         return [state[index], next => { state[index] = typeof next === 'function' ? next(state[index]) : next; }]; } },
     'react-native': { ...Object.fromEntries(['Image', 'ScrollView', 'StatusBar', 'Text', 'TouchableOpacity', 'View'].map(name => [name, name])),
@@ -38,22 +38,25 @@ function screen({ preload, options = [], details = product, children = {}, reduc
     '@/components/ui/icon-button': { IconButton: 'IconButton' }, '@/components/themed-text': { ThemedText: 'Text' },
     'expo-blur': { BlurView: 'BlurView' },
     '@/components/product-header-title': { ProductHeaderTitle: 'ProductHeaderTitle' },
+    '@/components/HomeSkeleton': { HomeSkeleton: 'Skeleton' },
     '@/components/product-detail-skeleton': { ProductDetailSkeleton: 'Skeleton' },
     '@/utils/product-gallery': load('utils/product-gallery.ts', {}),
-    '@/constants/theme': { Colors: { light: { background: '#f3f3f3', text: '#1e2b33', textSecondary: '#3c4a52', success: '#087443' } } },
+    '@/constants/theme': { Colors: { light: { background: '#f3f3f3', text: '#1e2b33', textSecondary: '#3c4a52', success: '#087443' }, dark: { background: '#151718', text: '#ECEDEE', textSecondary: '#C1C6C9', success: '#66D9A6' } } },
     '@/contexts/theme-context': { ThemeContext: {} }, '@/contexts/cart-context': { useCart: () => ({ addToCart: item => added.push(item) }) },
     '@/utils/api': { fetchProductDetails: () => new Promise(resolve => { resolveDetails = resolve; }), fetchInitialVariations: async () => ({ data: options }),
-      fetchChildrenVariations: async (_, id) => ({ data: children[id] || [] }), postWishlistToggle: async () => {} },
+      fetchChildrenVariations: childrenRequest || (async (_, id) => ({ data: children[id] || [] })), postWishlistToggle: async () => {} },
   });
   const render = () => {
     cursor = 0; refCursor = 0; effects.length = 0;
     const tree = Detail();
     const gallery = nodes(tree).find(node => node.type === 'ScrollView' && node.props.horizontal && node.props.ref);
     if (gallery) gallery.props.ref.current = { scrollTo: options => scrolls.push(options) };
+    const rail = nodes(tree).find(node => node.props?.onContentSizeChange);
+    if (rail) rail.props.ref.current = { scrollTo: options => variationScrolls.push(options) };
     return tree;
   };
   const start = () => { render(); effects.slice().forEach(effect => effect()); };
-  return { render, added, start, scrolls, effects,
+  return { render, added, start, scrolls, effects, variationScrolls,
     async ready() { start(); resolveDetails({ data: details }); await new Promise(resolve => setImmediate(resolve)); },
   };
 }
@@ -164,6 +167,79 @@ test('out-of-stock products cannot be added from the compact purchase bar', asyn
   assert.equal(button.props.disabled, true);
   button.props.onPress();
   assert.equal(app.added.length, 0);
+});
+
+test('variation steps preview real names and advance only after options arrive, then reset after purchase', async () => {
+  const color = { id: 30, product_attribute_name: 'Color', product_attribute_option_name: 'Black', next_attributes: [{ id: 2, name: 'Storage' }] };
+  const storage = { id: 31, product_attribute_name: 'Storage', product_attribute_option_name: '128 GB', next_attributes: [{ id: 3, name: 'Modification' }] };
+  const modification = { id: 32, product_attribute_name: 'Modification', product_attribute_option_name: 'Standard', price: 150, stock: 2, next_attributes: [] };
+  const pending = [];
+  const app = screen({ options: [color], childrenRequest: (_, id) => new Promise(resolve => pending.push({ id, resolve })) });
+  await app.ready();
+  const hasText = text => nodes(app.render()).some(node => [node.props?.children].flat().join('') === text);
+  const option = name => nodes(app.render()).find(node => node.props?.accessibilityLabel === name);
+  const rail = () => nodes(app.render()).find(node => node.props?.onContentSizeChange);
+  assert.ok(hasText('2. Storage'));
+  assert.ok(!hasText('3. Modification'));
+  let request = option('Black').props.onPress();
+  assert.ok(nodes(app.render()).some(node => node.type === 'Skeleton' && node.props.label === 'Loading variation options'));
+  assert.equal(option('Add to cart').props.disabled, true);
+  pending.shift().resolve({ data: [storage] }); await request;
+  rail().props.onContentSizeChange();
+  assert.ok(Math.abs(app.variationScrolls.at(-1).x - (343 * 0.7 + 8)) < 0.01);
+  assert.ok(hasText('3. Modification'));
+  request = option('128 GB').props.onPress();
+  pending.shift().resolve({ data: [modification] }); await request;
+  rail().props.onContentSizeChange();
+  assert.ok(app.variationScrolls.at(-1).x > 500);
+  request = option('Standard').props.onPress();
+  pending.shift().resolve({ data: [] }); await request;
+  assert.equal(option('Add to cart').props.disabled, false);
+  option('Add to cart').props.onPress();
+  assert.equal(app.added[0].variation_names, 'Black | 128 GB | Standard');
+  assert.equal(app.variationScrolls.at(-1).x, 0);
+  assert.equal(option('128 GB'), undefined);
+});
+
+test('rapid variation changes ignore stale replies, clear descendants immediately and offer retry on failure', async () => {
+  const black = { id: 40, stock: 2, price: 100, product_attribute_name: 'Color', product_attribute_option_name: 'Black' };
+  const blue = { id: 41, product_attribute_name: 'Color', product_attribute_option_name: 'Blue' };
+  const storage = { id: 42, product_attribute_name: 'Storage', product_attribute_option_name: '256 GB' };
+  const pending = [];
+  const app = screen({ options: [black, blue], childrenRequest: (_, id) => new Promise((resolve, reject) => pending.push({ id, resolve, reject })) });
+  await app.ready();
+  const option = name => nodes(app.render()).find(node => node.props?.accessibilityLabel === name);
+  const first = option('Black').props.onPress();
+  const second = option('Blue').props.onPress();
+  pending[1].resolve({ data: [storage] }); await second;
+  pending[0].resolve({ data: [] }); await first;
+  assert.ok(option('256 GB'));
+  assert.equal(option('Add to cart').props.disabled, true);
+  const third = option('Black').props.onPress();
+  assert.equal(option('256 GB'), undefined);
+  pending[2].reject(new Error('offline')); await third;
+  assert.equal(option('Add to cart').props.disabled, true);
+  const retry = option('Retry variation options').props.onPress();
+  pending[3].resolve({ data: [] }); await retry;
+  assert.equal(option('Add to cart').props.disabled, false);
+  assert.equal(option('Retry variation options'), undefined);
+});
+
+test('dark variation steps respect Reduce Motion when advancing and reject malformed replies', async () => {
+  const color = { id: 60, product_attribute_name: 'Color', product_attribute_option_name: 'Black', next_attributes: [{ id: 2, name: 'Storage' }] };
+  const storage = { id: 61, product_attribute_name: 'Storage', product_attribute_option_name: '128 GB' };
+  const app = screen({ options: [color], children: { 60: [storage] }, colorScheme: 'dark', reducedMotion: true });
+  await app.ready();
+  await nodes(app.render()).find(node => node.props?.accessibilityLabel === 'Black').props.onPress();
+  const rail = nodes(app.render()).find(node => node.props?.onContentSizeChange);
+  rail.props.onContentSizeChange();
+  assert.ok(app.variationScrolls.at(-1).x > 0);
+  assert.equal(app.variationScrolls.at(-1).animated, false);
+  const malformed = screen({ options: [color], childrenRequest: async () => ({ data: null }) });
+  await malformed.ready();
+  await nodes(malformed.render()).find(node => node.props?.accessibilityLabel === 'Black').props.onPress();
+  assert.equal(nodes(malformed.render()).find(node => node.props?.accessibilityLabel === 'Add to cart').props.disabled, true);
+  assert.ok(nodes(malformed.render()).some(node => node.props?.accessibilityLabel === 'Retry variation options'));
 });
 
 test('detail skeleton pulses only when allowed and removes its animation and preference listener', async () => {

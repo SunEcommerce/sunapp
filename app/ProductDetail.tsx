@@ -1,3 +1,4 @@
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { ProductHeaderTitle } from '@/components/product-header-title';
 import { BlurView } from 'expo-blur';
 import { IconButton } from '@/components/ui/icon-button';
@@ -52,6 +53,7 @@ export default function ProductDetailScreen() {
   const [isLoading, setIsLoading] = useState(!initialData);
   const [isLoadingDetails, setIsLoadingDetails] = useState(!!initialData);
   const [error, setError] = useState<string | null>(null);
+  const [detailsRequestVersion, setDetailsRequestVersion] = useState(0);
   const [favorite, setFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const imageIndexRef = useRef(0);
@@ -76,6 +78,35 @@ export default function ProductDetailScreen() {
   const [variationNames, setVariationNames] = useState<string>('');
   const [initProduct, setInitProduct] = useState<any>(null);
   const [justAdded, setJustAdded] = useState(false);
+  const variationRequest = useRef({ version: 0 }).current;
+  const variationRail = useRef<ScrollView>(null);
+  const [variationWidth, setVariationWidth] = useState(Math.min(width, 760) - 32);
+  const [focusedVariation, setFocusedVariation] = useState(0);
+  const [loadingVariation, setLoadingVariation] = useState<number | null>(null);
+  const [variationError, setVariationError] = useState<{ index: number; variation: any } | null>(null);
+  const variationCardWidth = variationWidth * 0.8;
+  const scrollVariation = () => variationRail.current?.scrollTo({
+    x: Math.max(0, focusedVariation * (variationCardWidth + 8) - (focusedVariation ? variationWidth * 0.1 : 0)),
+    animated: !reducedMotion,
+  });
+  useEffect(() => {
+    variationRail.current?.scrollTo({ x: 0, animated: false });
+    setFocusedVariation(0);
+    setLoadingVariation(null);
+    setVariationError(null);
+    setAvailableOptions({});
+    setSelectedVariations({});
+    setCurrentVariation(null);
+    setEnableAddToCart(false);
+    return () => { variationRequest.version++; };
+  }, [slug, variationRequest]);
+  useEffect(() => {
+    variationRail.current?.scrollTo({
+      x: Math.max(0, focusedVariation * (variationCardWidth + 8) - (focusedVariation ? variationWidth * 0.1 : 0)),
+      animated: !reducedMotion,
+    });
+  }, [focusedVariation, variationCardWidth, variationWidth, reducedMotion]);
+
   useEffect(() => {
     if (!justAdded) return;
     const timer = setTimeout(() => setJustAdded(false), 2000);
@@ -84,6 +115,7 @@ export default function ProductDetailScreen() {
 
   // Fetch product details from API
   useEffect(() => {
+    let cancelled = false;
     const loadProduct = async () => {
       if (!slug) {
         setError('Product not found');
@@ -101,6 +133,7 @@ export default function ProductDetailScreen() {
         }
         setError(null);
         const response = await fetchProductDetails(slug);
+        if (cancelled) return;
         const productData = response?.data || response;
         
         if (productData) {
@@ -119,6 +152,7 @@ export default function ProductDetailScreen() {
           // Fetch initial variations if product has variations
           try {
             const variationsResponse = await fetchInitialVariations(productData.id);
+            if (cancelled) return;
             const variationsList = variationsResponse?.data || [];
             
             if (variationsList.length > 0) {
@@ -132,23 +166,27 @@ export default function ProductDetailScreen() {
               setEnableAddToCart(productData.stock > 0);
             }
           } catch (varError) {
+            if (cancelled) return;
             console.error('Failed to fetch variations:', varError);
-            // Continue without variations - enable if stock available
-            setEnableAddToCart(productData.stock > 0);
+            // A failed options request must not allow buying the parent product.
+            throw new Error('Could not load product options. Please try again.');
           }
         } else {
           setError('Product not found');
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('Failed to fetch product:', err);
         setError(err instanceof Error ? err.message : 'Failed to load product');
       } finally {
+        if (cancelled) return;
         setIsLoading(false);
         setIsLoadingDetails(false);
       }
     };
     loadProduct();
-  }, [slug, initialData, preloadData]);
+    return () => { cancelled = true; };
+  }, [slug, initialData, preloadData, detailsRequestVersion]);
 
   // Reserve the same gallery and purchase-bar geometry while details are fetched.
   if (isLoading) {
@@ -193,6 +231,11 @@ export default function ProductDetailScreen() {
           <ThemedText style={{ marginTop: 16, fontSize: 16, textAlign: 'center' }}>
             {error || 'Product not found'}
           </ThemedText>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry product details"
+            style={{ marginTop: 20, minHeight: 44, justifyContent: 'center', paddingHorizontal: 20 }}
+            onPress={() => setDetailsRequestVersion(version => version + 1)}>
+            <ThemedText style={{ color: accent, fontWeight: '600' }}>Retry</ThemedText>
+          </TouchableOpacity>
           <TouchableOpacity 
             accessibilityRole="button"
             style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, minHeight: 44, backgroundColor: accent, borderRadius: 12 }}
@@ -238,87 +281,40 @@ export default function ProductDetailScreen() {
       setCurrentImageIndex(imageIndex);
       carouselRef.current?.scrollTo({ x: imageIndex * carouselWidth, animated: !reducedMotion });
     }
-    const newSelected = { ...selectedVariations, [attributeIndex]: variation };
+    const request = ++variationRequest.version;
+    const newSelected = Object.fromEntries(Object.entries(selectedVariations).filter(([key]) => Number(key) < attributeIndex));
+    newSelected[attributeIndex] = variation;
+    const keptOptions = Object.fromEntries(Object.entries(availableOptions).filter(([key]) => Number(key) <= attributeIndex));
     setSelectedVariations(newSelected);
-    
-    // Clear current variation and disable add to cart temporarily
+    setAvailableOptions(keptOptions);
     setCurrentVariation(null);
     setEnableAddToCart(false);
+    setQuantity(1);
     setVariationNames('');
-    
-    // Always try to fetch children for this variation
-    try {
-        
-        // Build variation names from selected variations
-        const selectedNames: string[] = [];
-        Object.keys(newSelected).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
-          const selectedVar = newSelected[parseInt(key)];
-          if (selectedVar?.product_attribute_option_name) {
-            selectedNames.push(selectedVar.product_attribute_option_name);
-          }
-        });
-        const names = selectedNames.join(' | ');
-        setVariationNames(names);
+    setLoadingVariation(attributeIndex);
+    setVariationError(null);
+    setFocusedVariation(attributeIndex);
 
+    try {
       const childrenResponse = await fetchChildrenVariations(product.id, variation.id);
-      const children = childrenResponse?.data || [];
-      
+      if (request !== variationRequest.version) return;
+      const children = childrenResponse?.data;
+      if (!Array.isArray(children)) throw new Error('Invalid variation response');
       if (children.length > 0) {
-        // This variation has children - show them at next level
-        const newOptions = { ...availableOptions };
-        newOptions[attributeIndex + 1] = children;
-        
-        // Clear all options after this level
-        Object.keys(newOptions).forEach(key => {
-          const keyNum = parseInt(key);
-          if (keyNum > attributeIndex + 1) {
-            delete newOptions[keyNum];
-          }
-        });
-        setAvailableOptions(newOptions);
-        
-        // Clear selections after this level (but keep current selection)
-        const clearedSelections = { ...newSelected };
-        Object.keys(clearedSelections).forEach(key => {
-          const keyNum = parseInt(key);
-          if (keyNum > attributeIndex) {
-            delete clearedSelections[keyNum];
-          }
-        });
-        setSelectedVariations(clearedSelections);
+        setAvailableOptions({ ...keptOptions, [attributeIndex + 1]: children });
+        setFocusedVariation(attributeIndex + 1);
       } else {
-        // No children - this is the final variation (leaf node)
         setCurrentVariation(variation);
-        
-        // Build variation names from selected variations
-        const selectedNames: string[] = [];
-        Object.keys(newSelected).sort((a, b) => parseInt(a) - parseInt(b)).forEach(key => {
-          const selectedVar = newSelected[parseInt(key)];
-          if (selectedVar?.product_attribute_option_name) {
-            selectedNames.push(selectedVar.product_attribute_option_name);
-          }
-        });
-        const names = selectedNames.join(' | ');
-        setVariationNames(names);
-        
-        // Enable add to cart only if variation has stock
+        setVariationNames(Object.keys(newSelected).sort((a, b) => Number(a) - Number(b))
+          .map(key => newSelected[Number(key)].product_attribute_option_name).filter(Boolean).join(' | '));
         setEnableAddToCart(variation.stock > 0);
-        
-        // Clear options after this level since no more children
-        const newOptions = { ...availableOptions };
-        Object.keys(newOptions).forEach(key => {
-          const keyNum = parseInt(key);
-          if (keyNum > attributeIndex) {
-            delete newOptions[keyNum];
-          }
-        });
-        setAvailableOptions(newOptions);
       }
     } catch (err) {
+      if (request !== variationRequest.version) return;
       console.error('Failed to fetch children variations:', err);
-      // If fetch fails, treat as leaf node
-      setCurrentVariation(variation);
-      setEnableAddToCart(variation.stock > 0);
+      setVariationError({ index: attributeIndex, variation });
+    } finally {
+      if (request === variationRequest.version) setLoadingVariation(null);
     }
   };
 
@@ -349,6 +345,11 @@ export default function ProductDetailScreen() {
       variation_names: variationNames?? '',
     });
     setJustAdded(true);
+    variationRequest.version++;
+    setFocusedVariation(0);
+    setLoadingVariation(null);
+    setVariationError(null);
+    variationRail.current?.scrollTo({ x: 0, animated: !reducedMotion });
     
     // Reset after adding to cart
     if (currentVariation) {
@@ -408,6 +409,14 @@ export default function ProductDetailScreen() {
       // Optionally show error message to user
     }
   };
+
+  const variationLevels = Object.entries(availableOptions).sort(([a], [b]) => Number(a) - Number(b));
+  const lastLevel = variationLevels.at(-1);
+  const lastIndex = lastLevel ? Number(lastLevel[0]) : 0;
+  const previewOptions = lastLevel ? (selectedVariations[lastIndex] ? [selectedVariations[lastIndex]] : lastLevel[1]) : [];
+  const nextNames = [...new Set<string>(previewOptions.flatMap(option =>
+    (option.next_attributes || []).map((attribute: { name: string }) => attribute.name)).filter(Boolean))];
+  const showPreview = !currentVariation && nextNames.length > 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: surface }]} edges={['top', 'left', 'right']}>
@@ -487,43 +496,46 @@ export default function ProductDetailScreen() {
 
         {/* Product Variations */}
         {isLoadingDetails && <ProductDetailSkeleton variant="details" />}
-        {Object.entries(availableOptions).map(([index, options]) => {
-          const attributeIndex = parseInt(index);
-          const firstOption = options[0];
-          const attributeName = firstOption?.product_attribute?.name || firstOption.product_attribute_name;
-          
-          return (
-            <View key={index} style={[styles.variantSection, { backgroundColor: surface, borderColor: border }]}>
-              <ThemedText style={styles.variantLabel}>{attributeName}</ThemedText>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.variationRow}>
-                  {options.map((variation: any) => {
-                    const isSelected = selectedVariations[attributeIndex]?.id === variation.id;
-                    const optionName = variation.product_attribute_option_name;
-                    return (
-                      <TouchableOpacity
-                        key={variation.id}
-                        style={[
-                          styles.variationChip,
-                          { backgroundColor: themeColors.background, borderColor: border },
-                          isSelected && { backgroundColor: dark ? '#253b46' : '#eaf4f8', borderColor: accent }
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel={optionName}
-                        accessibilityState={{ selected: isSelected }}
+        {variationLevels.length > 0 && <View style={styles.variationRail} onLayout={event => setVariationWidth(event.nativeEvent.layout.width)}>
+          <ScrollView ref={variationRail} horizontal showsHorizontalScrollIndicator={false}
+            onContentSizeChange={scrollVariation} onLayout={scrollVariation}
+            decelerationRate="fast" snapToOffsets={variationLevels.map(([index]) => Math.max(0, Number(index) * (variationCardWidth + 8) - (Number(index) ? variationWidth * 0.1 : 0)))}
+            contentContainerStyle={{ gap: 8, paddingRight: variationWidth * 0.1 }}>
+            {variationLevels.map(([index, options]) => {
+              const attributeIndex = Number(index);
+              const attributeName = options[0]?.product_attribute?.name || options[0]?.product_attribute_name || 'Options';
+              return <View key={index} style={[styles.variantSection, { width: variationCardWidth, backgroundColor: surface, borderColor: border }]}>
+                <ThemedText style={styles.variantLabel}>{attributeIndex + 1}. {attributeName}</ThemedText>
+                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                  <View style={styles.variationRow}>
+                    {options.map((variation: any) => {
+                      const isSelected = selectedVariations[attributeIndex]?.id === variation.id;
+                      return <TouchableOpacity key={variation.id} accessibilityRole="button"
+                        accessibilityLabel={variation.product_attribute_option_name} accessibilityState={{ selected: isSelected }}
                         onPress={() => handleVariationSelect(attributeIndex, variation)}
-                      >
-                        <Text style={[styles.variationText, { color: isSelected ? accent : themeColors.textSecondary }]}>
-                          {optionName}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-          );
-        })}
+                        style={[styles.variationChip, { backgroundColor: isSelected ? (dark ? '#253b46' : '#eaf4f8') : themeColors.background, borderColor: isSelected ? accent : border }]}>
+                        <Text style={[styles.variationText, { color: isSelected ? accent : themeColors.textSecondary }]}>{variation.product_attribute_option_name}</Text>
+                        {isSelected && <Ionicons name="checkmark" size={14} color={accent} />}
+                      </TouchableOpacity>;
+                    })}
+                  </View>
+                </ScrollView>
+                {variationError?.index === attributeIndex && <View style={{ marginTop: 12 }}>
+                  <ThemedText accessibilityRole="alert" style={{ fontSize: 12, color: themeColors.textSecondary }}>Could not load the next options.</ThemedText>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry variation options" style={styles.variationRetry}
+                    onPress={() => handleVariationSelect(attributeIndex, variationError.variation)}>
+                    <ThemedText style={{ color: accent, fontWeight: '600' }}>Retry</ThemedText>
+                  </TouchableOpacity>
+                </View>}
+              </View>;
+            })}
+            {showPreview && <View style={[styles.variantSection, { width: variationCardWidth, backgroundColor: surface, borderColor: border }]}>
+              <ThemedText style={styles.variantLabel}>{lastIndex + 2}. {nextNames.join(' / ') || 'Next option'}</ThemedText>
+              {loadingVariation !== null ? <HomeSkeleton variant="banner" height={44} label="Loading variation options" /> :
+                <ThemedText style={{ color: themeColors.textSecondary, fontSize: 12 }}>Choose {lastLevel?.[1][0]?.product_attribute?.name || lastLevel?.[1][0]?.product_attribute_name || 'the previous option'} first</ThemedText>}
+            </View>}
+          </ScrollView>
+        </View>}
 
         {/* Description */}
         {product.details? (
@@ -658,10 +670,12 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 },
   priceValue: { fontSize: 23, lineHeight: 29, fontWeight: '700', letterSpacing: -0.6 },
   oldPriceValue: { fontSize: 13, lineHeight: 20, textDecorationLine: 'line-through' },
-  variantSection: { padding: 14, marginTop: 12, marginHorizontal: 16, borderRadius: 18, borderWidth: 1 },
+  variationRail: { marginHorizontal: 16, marginTop: 12 },
+  variationRetry: { minHeight: 44, justifyContent: 'center' },
+  variantSection: { minHeight: 102, padding: 14, borderRadius: 18, borderWidth: 1 },
   variantLabel: { fontSize: 13, lineHeight: 20, fontWeight: '600', marginBottom: 10 },
-  variationRow: { flexDirection: 'row', gap: 8 },
-  variationChip: { minHeight: 44, minWidth: 64, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  variationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  variationChip: { flexDirection: 'row', gap: 6, minHeight: 44, minWidth: 64, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   variationText: { fontSize: 12, lineHeight: 18, fontWeight: '600' },
   expandableSection: { marginTop: 12, marginHorizontal: 16, borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
   expandableHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, gap: 10 },

@@ -197,6 +197,7 @@ test('Home supports on-demand search, compact scrolling and native/web pull-to-r
   native.PanResponder = { create: config => { pullConfig = config; return { panHandlers: {} }; } };
   const mocks = {
     '@/assets/images/sun-logo.png': 1,
+    '@/components/home-header-glass': { HomeHeaderGlass: 'HomeHeaderGlass' },
     '@/components/ui/text-input': { TextInput: 'TextInput' },
     react: { ...react, useContext: () => ({ colorScheme: 'light' }),
       useRef: value => { const index = refCursor++; return refs[index] ||= { current: value }; },
@@ -213,7 +214,7 @@ test('Home supports on-demand search, compact scrolling and native/web pull-to-r
     '@/contexts/theme-context': { ThemeContext: {} }, '@/contexts/cart-context': { useCart: () => ({ itemCount: 0 }) },
     '@/store/categoriesSlice': { selectParentCategories: {}, setCategoriesTree: value => value, setLoading: value => value },
     'react-redux': { useDispatch: () => dispatch, useSelector: () => [] },
-    'expo-router': { useRouter: () => ({ push: route => routes.push(route) }) }, 'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
+    'expo-router': { useRouter: () => ({ push: route => routes.push(route) }) }, 'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView', useSafeAreaInsets: () => ({ top: 24 }) },
     '@/utils/api': {
       fetchCategoryTree: async () => { categoryCalls++; if (fail) throw new Error('offline'); return []; },
       fetchSlider: async () => { bannerCalls++; if (fail) throw new Error('offline'); return [{ id: 1, image: 'https://example.test/banner.webp' }]; },
@@ -243,7 +244,7 @@ test('Home supports on-demand search, compact scrolling and native/web pull-to-r
   }
   // Keep the complete desktop artwork at every container width, including after resizing.
   for (const width of [375, 1024, 1440]) {
-    nodes(render()).find(node => node.props?.onLayout).props.onLayout({ nativeEvent: { layout: { width } } });
+    nodes(render()).find(node => node.props?.onLayout && node.type === 'View' && !Array.isArray(node.props.style)).props.onLayout({ nativeEvent: { layout: { width } } });
     const slider = nodes(render()).find(node => node.type === 'FlatList');
     const slide = slider.props.renderItem({ item: { image: 'https://example.test/banner.webp' } });
     assert.equal(slide.props.style[1].width, width);
@@ -253,9 +254,12 @@ test('Home supports on-demand search, compact scrolling and native/web pull-to-r
     assert.equal(slide.props.children.props.style.height, '100%');
   }
   assert.ok(!nodes(render()).some(node => node.type === 'TextInput'));
+  assert.equal(nodes(render()).find(node => node.props?.onScroll).props.contentContainerStyle.paddingTop, 100);
+  assert.ok(nodes(render()).some(node => node.type === 'HomeHeaderGlass'));
   nodes(render()).find(node => node.props?.label === 'Open search').props.onPress();
   const input = nodes(render()).find(node => node.type === 'TextInput');
   assert.equal(input.props.autoFocus, true);
+  assert.equal(nodes(render()).find(node => node.props?.onScroll).props.contentContainerStyle.paddingTop, 152);
   input.props.onChangeText('Phone');
   nodes(render()).find(node => node.type === 'TextInput').props.onSubmitEditing();
   assert.equal(routes.at(-1).params.name, 'Phone');

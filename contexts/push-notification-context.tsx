@@ -12,6 +12,7 @@ import {
 } from '@/utils/pushNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 const PUSHY_DEVICE_TOKEN_KEY = '@pushy_device_token';
@@ -54,6 +55,7 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     // Load saved device token
     const loadDeviceToken = async () => {
       try {
@@ -124,7 +126,7 @@ export const PushNotificationProvider: React.FC<PushNotificationProviderProps> =
   };
 
   const initialize = async (key: string) => {
-    if (isInitializing) return;
+    if (Platform.OS === 'web' || isInitializing) return;
 
     setIsInitializing(true);
     setError(null);

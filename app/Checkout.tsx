@@ -1,3 +1,4 @@
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { SlideToConfirm } from '@/components/slide-to-confirm';
 import { TextInput } from '@/components/ui/text-input';
 import { IconButton } from '@/components/ui/icon-button';
@@ -9,7 +10,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -90,7 +93,6 @@ export default function CheckoutScreen() {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
-  const [confirmationOpen, setConfirmationOpen] = useState(false);
   
   // Data states
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -112,6 +114,10 @@ export default function CheckoutScreen() {
 
   // Order note
   const [orderNote, setOrderNote] = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
   const { items: couponItems, signature: cartSignature } = buildCouponCart(items);
   const orderProducts = React.useMemo(() => {
@@ -159,6 +165,7 @@ export default function CheckoutScreen() {
 
   const loadCheckoutData = useCallback(async () => {
     setIsLoading(true);
+    setCheckoutError('');
     try {
       // Load payment gateways, order areas, and addresses in parallel
       const [paymentResponse, areasResponse, addressResponse] = await Promise.all([
@@ -171,34 +178,18 @@ export default function CheckoutScreen() {
       const areas = areasResponse?.data || [];
       const addressList = addressResponse?.data || [];
 
-      setPaymentMethods(payments.filter((p: PaymentMethod) => p.status === 5));
+      const activePayments = payments.filter((p: PaymentMethod) => p.status === 5);
+      setPaymentMethods(activePayments);
       setOrderAreas(areas.filter((a: OrderArea) => a.activity === 1));
       setAddresses(addressList);
 
-      // Load selected address from storage
       const savedAddressId = await AsyncStorage.getItem('selected_address_id');
-      if (savedAddressId) {
-        const addressId = parseInt(savedAddressId);
-        // Verify address still exists
-        if (addressList.find((a: Address) => a.id === addressId)) {
-          setSelectedAddress(addressId);
-        }
-      } else {
-        // Auto-select default address if available
-        const defaultAddr = addressList.find((a: Address) => a.isDefault);
-        if (defaultAddr) {
-          setSelectedAddress(defaultAddr.id);
-          await AsyncStorage.setItem('selected_address_id', defaultAddr.id.toString());
-        }
-      }
-
-      // Set default selections
-      if (payments.length > 0) {
-        const defaultPayment = payments.find((p: PaymentMethod) => p.id === 1);
-        if (defaultPayment) {
-          setSelectedPayment(defaultPayment.id);
-        }
-      }
+      const address = addressList.find((a: Address) => a.id === Number(savedAddressId))
+        || addressList.find((a: Address) => a.isDefault);
+      setSelectedAddress(address?.id ?? null);
+      if (address) await AsyncStorage.setItem('selected_address_id', String(address.id));
+      setSelectedPayment(previous => activePayments.some((p: PaymentMethod) => p.id === previous)
+        ? previous : (activePayments.find((p: PaymentMethod) => p.id === 1) || activePayments[0])?.id || 0);
 
       if (areas.length > 0) {
         const defaultArea = areas.find((a: OrderArea) => a.activity === 1);
@@ -208,7 +199,7 @@ export default function CheckoutScreen() {
       }
     } catch (error) {
       console.error('Failed to load checkout data:', error);
-      Alert.alert('Error', 'Failed to load checkout data. Please try again.');
+      setCheckoutError('Could not load checkout. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -234,7 +225,7 @@ export default function CheckoutScreen() {
         setCouponDiscount(validationData.discount || 0);
         setAppliedCoupon(promoCode.trim());
         setAppliedCouponId(validationData.id);
-        Alert.alert('Success', validationData.message || 'Coupon applied successfully!');
+
       } else {
         setCouponError('Invalid coupon code');
       }
@@ -242,7 +233,7 @@ export default function CheckoutScreen() {
       if (request !== couponRequest.current) return;
       const errorMessage = error.message || 'Failed to validate coupon';
       setCouponError(errorMessage);
-      Alert.alert('Error', errorMessage);
+
     } finally {
       if (request === couponRequest.current) setIsValidatingCoupon(false);
     }
@@ -326,22 +317,6 @@ export default function CheckoutScreen() {
     }
   };
 
-  const canPlaceOrder = Boolean(selectedAddress && selectedPayment && currentQuote && !isValidatingCoupon && !isPlacingOrder);
-  const itemCount = items.reduce((count, item) => count + item.quantity, 0);
-  const totalLabel = currentQuote ? `$${total.toFixed(2)}` : 'Calculating…';
-  const openConfirmation = () => { if (canPlaceOrder) setConfirmationOpen(true); };
-  const closeConfirmation = () => { if (!isPlacingOrder) setConfirmationOpen(false); };
-  const openPolicy = (slug: 'terms-and-conditions' | 'privacy-policy') => {
-    setConfirmationOpen(false);
-    router.push({ pathname: '/PageView', params: { slug } });
-  };
-  React.useEffect(() => { if (!canPlaceOrder && !isPlacingOrder) setConfirmationOpen(false); }, [canPlaceOrder, isPlacingOrder]);
-  const handleSelectAddress = async (addressId: number) => {
-    setSelectedAddress(addressId);
-    // Save to storage
-    await AsyncStorage.setItem('selected_address_id', addressId.toString());
-  };
-
   const handleChooseAddress = () => {
     router.push('/Address?fromCheckout=true');
   };
@@ -364,444 +339,200 @@ export default function CheckoutScreen() {
     };
     
     const key = name.toLowerCase();
-    return iconMap[key] || 'card-outline';
+    return Object.entries(iconMap).find(([word]) => key.includes(word))?.[1] || 'card-outline';
   };
 
-  // Check if cart is empty
-  if (items.length === 0) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
-        <StatusBar 
-          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent={true}
-        />
-        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </IconButton>
-          <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
-          <View style={styles.headerRight} />
-        </View>
-        <View style={styles.emptyContainer}>
-          <ThemedText style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your cart is empty</ThemedText>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const address = addresses.find(item => item.id === selectedAddress);
+  const itemCount = items.reduce((count, item) => count + item.quantity, 0);
+  const canPlaceOrder = Boolean(address && selectedPayment && currentQuote && !isValidatingCoupon && !isPlacingOrder);
+  const openConfirmation = () => { if (canPlaceOrder) setConfirmationOpen(true); };
+  const closeConfirmation = () => { if (!isPlacingOrder) setConfirmationOpen(false); };
+  const openPolicy = (slug: 'terms-and-conditions' | 'privacy-policy') => {
+    setConfirmationOpen(false);
+    router.push({ pathname: '/PageView', params: { slug } });
+  };
+  React.useEffect(() => { if (!canPlaceOrder && !isPlacingOrder) setConfirmationOpen(false); }, [canPlaceOrder, isPlacingOrder]);
+  const totalLabel = currentQuote ? `$${total.toFixed(2)}` : quoteError ? 'Unavailable' : address ? 'Calculating…' : 'Select address';
+  const panelStyle = [styles.section, { backgroundColor: surface, borderColor: border }];
+  const header = <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
+    <View style={styles.headerContent}>
+      <IconButton label="Go back" disabled={isPlacingOrder} onPress={() => router.back()} style={styles.backButton}>
+        <Ionicons name="chevron-back" size={23} color={themeColors.text} />
+      </IconButton>
+      <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
+      <View style={styles.headerRight}><Ionicons name="bag-handle-outline" size={20} color={themeColors.icon} /></View>
+    </View>
+  </View>;
+  const heading = (icon: React.ComponentProps<typeof Ionicons>['name'], title: string) => <View style={styles.sectionHeader}>
+    <Ionicons name={icon} size={18} color={accent} />
+    <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
+  </View>;
+  const statusBar = <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />;
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right']}>
-        <StatusBar 
-          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent={true}
-        />
-        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </IconButton>
-          <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
-          <View style={styles.headerRight} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <ThemedText style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading checkout...</ThemedText>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (showThankYou) return <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    {statusBar}
+    <View style={styles.centerState}>
+      <View style={[styles.stateIcon, { backgroundColor: softAccent }]}><Ionicons name="checkmark" size={36} color={accent} /></View>
+      <ThemedText style={styles.stateTitle}>Thank you!</ThemedText>
+      <ThemedText style={[styles.stateMessage, { color: themeColors.textSecondary }]}>Your order has been placed successfully.</ThemedText>
+      <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>Returning to the store…</ThemedText>
+    </View>
+  </SafeAreaView>;
 
-  // Thank You page
-  if (showThankYou) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right', 'bottom']}>
-        <StatusBar 
-          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent={true}
-        />
-        <View style={[styles.thankYouContainer, { backgroundColor: themeColors.background }]}>
-          <View style={styles.thankYouIconContainer}>
-            <Ionicons name="checkmark-circle" size={120} color="#4CAF50" />
-          </View>
-          <ThemedText style={styles.thankYouTitle}>Thank You!</ThemedText>
-          <ThemedText style={[styles.thankYouMessage, { color: themeColors.textSecondary }]}>
-            Your order has been placed successfully
-          </ThemedText>
-          <View style={styles.thankYouSubtext}>
-            <ActivityIndicator size="small" color="#2196F3" style={{ marginRight: 8 }} />
-            <ThemedText style={styles.redirectText}>
-              Redirecting to home...
-            </ThemedText>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (!items.length) return <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+    {statusBar}{header}
+    <View style={styles.centerState}>
+      <View style={[styles.stateIcon, { backgroundColor: softAccent }]}><Ionicons name="bag-outline" size={32} color={accent} /></View>
+      <ThemedText style={styles.stateTitle}>Your cart is empty</ThemedText>
+      <ThemedText style={[styles.stateMessage, { color: themeColors.textSecondary }]}>Find something you love to get started.</ThemedText>
+      <TouchableOpacity accessibilityRole="button" style={[styles.stateButton, { backgroundColor: accent }]} onPress={() => router.push('/')}>
+        <ThemedText style={[styles.buttonText, { color: onAccent }]}>Continue shopping</ThemedText>
+      </TouchableOpacity>
+    </View>
+  </SafeAreaView>;
 
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
-      <StatusBar 
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </IconButton>
-        <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
-        <View style={styles.headerRight} />
-      </View>
+  if (isLoading || checkoutError) return <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+    {statusBar}{header}
+    {checkoutError ? <View style={styles.centerState}>
+      <Ionicons name="cloud-offline-outline" size={36} color={themeColors.icon} />
+      <ThemedText style={[styles.stateMessage, { color: themeColors.textSecondary }]}>{checkoutError}</ThemedText>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry checkout" style={[styles.stateButton, { backgroundColor: accent }]} onPress={loadCheckoutData}>
+        <ThemedText style={[styles.buttonText, { color: onAccent }]}>Try again</ThemedText>
+      </TouchableOpacity>
+    </View> : <View style={styles.loadingContent}>
+      {[108, 132, 220].map((height, index) => <View key={index} style={[styles.loadingCard, { backgroundColor: surface }]}>
+        <HomeSkeleton variant="banner" height={height} label="Loading checkout" />
+      </View>)}
+    </View>}
+  </SafeAreaView>;
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Delivery Address Section */}
-        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="location-outline" size={20} color="#2196F3" />
-              <ThemedText style={styles.sectionTitle}>Delivery Address</ThemedText>
-            </View>
-          </View>
-
-          {!selectedAddress ? (
-            <TouchableOpacity
-              style={[styles.chooseAddressCard, { backgroundColor: themeColors.background, borderColor: '#2196F3' }]}
-              onPress={handleChooseAddress}
-            >
-              <Ionicons name="location-outline" size={48} color="#2196F3" />
-              <ThemedText style={styles.chooseAddressText}>
-                Choose an Address
-              </ThemedText>
-              <ThemedText style={[styles.chooseAddressSubtext, { color: themeColors.textSecondary }]}>
-                Select or add a delivery address
-              </ThemedText>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.selectedAddressCard, { backgroundColor: themeColors.background, borderColor: '#2196F3' }]}
-              onPress={handleChooseAddress}
-            >
-              {(() => {
-                const addr = addresses.find(a => a.id === selectedAddress);
-                if (!addr) return null;
-                return (
-                  <>
-                    <View style={styles.selectedAddressHeader}>
-                      <View style={styles.addressHeaderLeft}>
-                        <ThemedText style={styles.addressName}>{addr.full_name}</ThemedText>
-                        {addr.isDefault && (
-                          <View style={styles.defaultBadge}>
-                            <ThemedText style={styles.defaultText}>Default</ThemedText>
-                          </View>
-                        )}
-                      </View>
-                      <Ionicons name="create-outline" size={20} color="#2196F3" />
-                    </View>
-                    <View style={styles.selectedAddressBody}>
-                      <ThemedText style={[styles.addressText, { fontWeight: '600' }]}>
-                        {addr.country_code} {addr.phone}
-                      </ThemedText>
-                      <ThemedText style={[styles.addressText, { color: themeColors.text }]}>
-                        {addr.address}
-                        {addr.apartment ? `, ${addr.apartment}` : ''}
-                        {addr.city}, {addr.state} {addr.zip_code} {addr.country}
-                      </ThemedText>
-                    </View>
-                  </>
-                );
-              })()}
-            </TouchableOpacity>
-          )}
+  return <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+    {statusBar}{header}
+    <KeyboardAvoidingView style={styles.body} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <View style={styles.intro}>
+          <ThemedText style={styles.introTitle}>Review your order</ThemedText>
+          <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>{itemCount} {itemCount === 1 ? 'item' : 'items'} · Confirm your delivery and payment</ThemedText>
         </View>
 
-        {/* Delivery Area Section */}
-        {orderAreas.length > 0 && (
-          <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleContainer}>
-                <Ionicons name="map-outline" size={20} color="#2196F3" />
-                <ThemedText style={styles.sectionTitle}>Delivery Area</ThemedText>
-              </View>
-            </View>
-
-            <ScrollView 
-              style={styles.paymentMethodsContainer} 
-              contentContainerStyle={styles.paymentMethodList}
-              nestedScrollEnabled={true} 
-              showsVerticalScrollIndicator={false}
-            >
-              {orderAreas.map((area) => (
-                <TouchableOpacity
-                  key={area.id}
-                  style={[
-                    styles.paymentMethod,
-                    { backgroundColor: themeColors.background, borderColor: themeColors.borderColor },
-                    selectedArea === area.id && styles.paymentMethodSelected,
-                  ]}
-                  onPress={() => setSelectedArea(area.id)}
-                >
-                  <View style={styles.paymentMethodContent}>
-                    <ThemedText
-                      style={[
-                        styles.paymentMethodText,
-                        selectedArea === area.id && styles.paymentMethodTextSelected,
-                      ]}
-                    >
-                      {area.name}
-                    </ThemedText>
-                    <ThemedText style={[styles.shippingCharge, { color: themeColors.textSecondary }]}>
-                      ${area.shipping_charge.toFixed(2)}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.radioButton}>
-                    {selectedArea === area.id && (
-                      <View style={styles.radioButtonInner} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Payment Method Section */}
-        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="card-outline" size={20} color="#2196F3" />
-              <ThemedText style={styles.sectionTitle}>Payment Method</ThemedText>
-            </View>
-          </View>
-
-          <ScrollView 
-            style={styles.paymentMethodsContainer} 
-            contentContainerStyle={styles.paymentMethodList}
-            nestedScrollEnabled={true} 
-            showsVerticalScrollIndicator={false}
-          >
-            {paymentMethods.map((method) => (
-              <TouchableOpacity
-                key={method.id}
-                style={[
-                  styles.paymentMethod,
-                  { backgroundColor: themeColors.background, borderColor: themeColors.borderColor },
-                  selectedPayment === method.id && styles.paymentMethodSelected,
-                ]}
-                onPress={() => setSelectedPayment(method.id)}
-              >
-                <View style={styles.paymentMethodContent}>
-                  <Ionicons
-                    name={getPaymentIcon(method.name)}
-                    size={24}
-                    color={selectedPayment === method.id ? '#2196F3' : themeColors.icon}
-                  />
-                  <ThemedText
-                    style={[
-                      styles.paymentMethodText,
-                      selectedPayment === method.id && styles.paymentMethodTextSelected,
-                    ]}
-                  >
-                    {method.name}
-                  </ThemedText>
+        <View style={panelStyle}>
+          {heading('location-outline', 'Delivery address')}
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={address ? 'Change delivery address' : 'Choose delivery address'}
+            onPress={handleChooseAddress} disabled={isPlacingOrder} style={styles.addressRow}>
+            <View style={styles.addressBody}>
+              {address ? <>
+                <View style={styles.addressNameRow}>
+                  <ThemedText style={styles.addressName}>{address.full_name}</ThemedText>
+                  {address.isDefault && <ThemedText style={[styles.defaultBadge, { backgroundColor: softAccent, color: accent }]}>Default</ThemedText>}
                 </View>
-                <View style={styles.radioButton}>
-                  {selectedPayment === method.id && (
-                    <View style={styles.radioButtonInner} />
-                  )}
-                </View>
+                <ThemedText style={[styles.addressText, { color: themeColors.textSecondary }]}>{address.country_code} {address.phone}</ThemedText>
+                <ThemedText style={[styles.addressText, { color: themeColors.textSecondary }]}>{[address.address, address.apartment, address.city, address.state, address.zip_code, address.country].filter(Boolean).join(', ')}</ThemedText>
+              </> : <>
+                <ThemedText style={[styles.addressName, { color: accent }]}>Choose a delivery address</ThemedText>
+                <ThemedText style={[styles.addressText, { color: themeColors.textSecondary }]}>Select a saved address or add a new one</ThemedText>
+              </>}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={accent} />
+          </TouchableOpacity>
+        </View>
+
+        {orderAreas.length > 0 && <View style={panelStyle}>
+          {heading('map-outline', 'Delivery area')}
+          <View style={styles.optionList}>{orderAreas.map(area => <TouchableOpacity key={area.id} accessibilityRole="radio" accessibilityState={{ checked: selectedArea === area.id }}
+            disabled={isPlacingOrder} onPress={() => setSelectedArea(area.id)}
+            style={[styles.optionRow, { borderColor: selectedArea === area.id ? accent : border, backgroundColor: selectedArea === area.id ? softAccent : surface }]}>
+            <ThemedText style={styles.optionText}>{area.name}</ThemedText>
+            <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>${area.shipping_charge.toFixed(2)}</ThemedText>
+            <Ionicons name={selectedArea === area.id ? 'radio-button-on' : 'radio-button-off'} size={20} color={selectedArea === area.id ? accent : themeColors.icon} />
+          </TouchableOpacity>)}</View>
+        </View>}
+
+        <View style={panelStyle}>
+          {heading('wallet-outline', 'Payment')}
+          {paymentMethods.length ? <View accessibilityRole="radiogroup" style={styles.optionList}>{paymentMethods.map(method => {
+            const selected = selectedPayment === method.id;
+            return <TouchableOpacity key={method.id} accessibilityRole="radio" accessibilityLabel={method.name} accessibilityState={{ checked: selected }}
+              disabled={isPlacingOrder} onPress={() => setSelectedPayment(method.id)}
+              style={[styles.optionRow, { borderColor: selected ? accent : border, backgroundColor: selected ? softAccent : surface }]}>
+              <Ionicons name={getPaymentIcon(method.name)} size={21} color={selected ? accent : themeColors.icon} />
+              <ThemedText style={[styles.optionText, { color: selected ? accent : themeColors.text }]}>{method.name}</ThemedText>
+              <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={20} color={selected ? accent : themeColors.icon} />
+            </TouchableOpacity>;
+          })}</View> : <ThemedText style={[styles.addressText, { color: themeColors.textSecondary }]}>No payment methods available. Please try again later.</ThemedText>}
+        </View>
+
+        <View style={panelStyle}>
+          {heading('receipt-outline', 'Order summary')}
+          <View style={styles.products}>{items.map(item => <View key={item.id} style={styles.productRow}>
+            <Image source={{ uri: item.image }} style={[styles.productImage, { backgroundColor: themeColors.background }]} resizeMode="contain" />
+            <View style={styles.productBody}>
+              <ThemedText style={styles.productName} numberOfLines={2}>{item.name}</ThemedText>
+              {!!item.variation_names && <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>{item.variation_names}</ThemedText>}
+              <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>{item.quantity} × ${item.price.toFixed(2)}</ThemedText>
+            </View>
+            <ThemedText style={styles.linePrice}>${(item.price * item.quantity).toFixed(2)}</ThemedText>
+          </View>)}</View>
+          <View style={[styles.breakdown, { borderTopColor: border }]}>
+            <View style={styles.priceRow}><ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Subtotal</ThemedText><ThemedText style={styles.priceValue}>${subtotal.toFixed(2)}</ThemedText></View>
+            {(currentQuote?.discount ?? couponDiscount) > 0 && <View style={styles.priceRow}><ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Coupon discount</ThemedText><ThemedText style={[styles.priceValue, { color: themeColors.success }]}>-${(currentQuote?.discount ?? couponDiscount).toFixed(2)}</ThemedText></View>}
+            <View style={styles.priceRow}><ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Delivery</ThemedText><ThemedText style={[styles.priceValue, { color: currentQuote && deliveryFee === 0 ? themeColors.success : themeColors.textSecondary }]}>{currentQuote ? deliveryFee === 0 ? 'Free' : `$${deliveryFee.toFixed(2)}` : '—'}</ThemedText></View>
+            {tax > 0 && <View style={styles.priceRow}><ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Tax</ThemedText><ThemedText style={styles.priceValue}>${tax.toFixed(2)}</ThemedText></View>}
+            <View style={[styles.priceRow, styles.totalRow, { borderTopColor: border }]}><ThemedText style={styles.totalLabel}>Total</ThemedText><ThemedText accessibilityLiveRegion="polite" style={styles.totalValue}>{totalLabel}</ThemedText></View>
+            {!!quoteError && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry order total" onPress={() => setQuoteAttempt(attempt => attempt + 1)} style={styles.retryRow}>
+              <Ionicons name="refresh-outline" size={16} color={accent} /><ThemedText style={[styles.caption, { color: accent }]}>{quoteError} · Retry</ThemedText>
+            </TouchableOpacity>}
+          </View>
+        </View>
+
+        <View style={panelStyle}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Promo code" accessibilityState={{ expanded: promoOpen }}
+            disabled={isPlacingOrder} style={styles.extraRow} onPress={() => setPromoOpen(open => !open)}>
+            <Ionicons name="pricetag-outline" size={18} color={accent} />
+            <ThemedText style={styles.extraLabel}>{appliedCoupon ? `Promo: ${appliedCoupon}` : 'Add promo code'}</ThemedText>
+            <Ionicons name={promoOpen ? 'chevron-up' : 'chevron-down'} size={17} color={themeColors.icon} />
+          </TouchableOpacity>
+          {promoOpen && <View style={styles.extraBody}>
+            {appliedCoupon ? <View style={[styles.appliedCoupon, { backgroundColor: softAccent }]}>
+              <View style={styles.productBody}><ThemedText style={[styles.optionText, { color: accent }]}>{appliedCoupon}</ThemedText><ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>${couponDiscount.toFixed(2)} saved</ThemedText></View>
+              <IconButton label="Remove coupon" disabled={isPlacingOrder} onPress={handleRemoveCoupon}><Ionicons name="close" size={20} color={themeColors.icon} /></IconButton>
+            </View> : <View style={styles.promoRow}>
+              <TextInput accessibilityLabel="Enter promo code" style={[styles.promoInput, { borderColor: border, backgroundColor: themeColors.background, color: themeColors.text }]}
+                placeholder="Enter code" placeholderTextColor={themeColors.icon} autoCapitalize="characters" autoCorrect={false}
+                value={promoCode} onChangeText={text => { setPromoCode(text); setCouponError(''); }} editable={!isValidatingCoupon && !isPlacingOrder} />
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Apply promo code" disabled={isValidatingCoupon || isPlacingOrder} onPress={handleApplyCoupon}
+                style={[styles.applyButton, { backgroundColor: softAccent }]}>
+                {isValidatingCoupon ? <ActivityIndicator size="small" color={accent} /> : <ThemedText style={[styles.buttonText, { color: accent }]}>Apply</ThemedText>}
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            </View>}
+            {!!couponError && <ThemedText accessibilityRole="alert" style={[styles.caption, { color: dark ? '#ffada5' : '#b42318', marginTop: 8 }]}>{couponError}</ThemedText>}
+          </View>}
+          <View style={[styles.extraDivider, { backgroundColor: border }]} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Order note" accessibilityState={{ expanded: noteOpen }} disabled={isPlacingOrder}
+            style={styles.extraRow} onPress={() => setNoteOpen(open => !open)}>
+            <Ionicons name="create-outline" size={18} color={accent} />
+            <ThemedText style={styles.extraLabel}>{orderNote ? 'Edit order note' : 'Add order note'}</ThemedText>
+            <ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>Optional</ThemedText>
+            <Ionicons name={noteOpen ? 'chevron-up' : 'chevron-down'} size={17} color={themeColors.icon} />
+          </TouchableOpacity>
+          {noteOpen && <View style={styles.extraBody}>
+            <TextInput accessibilityLabel="Order instructions" style={[styles.noteInput, { borderColor: border, backgroundColor: themeColors.background, color: themeColors.text }]}
+              placeholder="Anything we should know about your delivery?" placeholderTextColor={themeColors.icon}
+              value={orderNote} onChangeText={setOrderNote} editable={!isPlacingOrder} multiline numberOfLines={3} />
+          </View>}
         </View>
-
-        {/* Order Note Section */}
-        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="create-outline" size={20} color="#2196F3" />
-              <ThemedText style={styles.sectionTitle}>Order Note (Optional)</ThemedText>
-            </View>
-          </View>
-          <View style={styles.noteContainer}>
-            <TextInput accessibilityLabel="Add any special instructions for your order..."
-              style={[styles.noteInput, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
-              placeholder="Add any special instructions for your order..."
-              placeholderTextColor="#999"
-              value={orderNote}
-              onChangeText={setOrderNote}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        </View>
-
-        {/* Promo Code Section */}
-        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="pricetag-outline" size={20} color="#2196F3" />
-              <ThemedText style={styles.sectionTitle}>Promo Code</ThemedText>
-            </View>
-          </View>
-
-          {appliedCoupon ? (
-            <View style={styles.appliedCouponContainer}>
-              <View style={styles.appliedCouponContent}>
-                <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                <View style={styles.appliedCouponText}>
-                  <ThemedText style={[styles.appliedCouponCode, { color: themeColors.success }]}>{appliedCoupon}</ThemedText>
-                  <ThemedText style={styles.appliedCouponDiscount}>
-                    -${couponDiscount.toFixed(2)} discount applied
-                  </ThemedText>
-                </View>
-              </View>
-              <IconButton label="Remove coupon" onPress={handleRemoveCoupon}>
-                <Ionicons name="close-circle" size={24} color="#999" />
-              </IconButton>
-            </View>
-          ) : (
-            <View style={styles.promoContainer}>
-              <TextInput accessibilityLabel="Enter promo code"
-                style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
-                placeholder="Enter promo code"
-                placeholderTextColor="#999"
-                value={promoCode}
-                onChangeText={(text) => {
-                  setPromoCode(text);
-                  setCouponError('');
-                }}
-                editable={!isValidatingCoupon}
-              />
-              <TouchableOpacity
-                style={[styles.applyButton, isValidatingCoupon && styles.applyButtonDisabled]}
-                onPress={handleApplyCoupon}
-                disabled={isValidatingCoupon}
-              >
-                {isValidatingCoupon ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <ThemedText style={[styles.applyButtonText, { color: themeColors.text }]}>Apply</ThemedText>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-          {couponError ? (
-            <ThemedText style={styles.couponError}>{couponError}</ThemedText>
-          ) : null}
-        </View>
-
-        {/* Order Summary Section */}
-        <View style={[styles.section, { backgroundColor: themeColors.card }]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleContainer}>
-              <Ionicons name="receipt-outline" size={20} color="#2196F3" />
-              <ThemedText style={styles.sectionTitle}>Order Summary</ThemedText>
-            </View>
-          </View>
-
-          {/* Products */}
-          <View style={styles.productsContainer}>
-            {items.map((item) => (
-              <View key={item.id} style={[styles.productItem, { borderBottomColor: themeColors.borderColor }]}>
-                <Image source={{ uri: item.image }} style={styles.productImage} />
-                <View style={styles.productDetails}>
-                  <ThemedText style={styles.productName} numberOfLines={2}>
-                    {item.name}
-                  </ThemedText>
-                  {item.variation_names && (
-                    <ThemedText style={[styles.productVariant, { color: themeColors.textSecondary }]}>
-                      {item.variation_names}
-                    </ThemedText>
-                  )}
-                  <View style={styles.productPriceRow}>
-                    <ThemedText style={styles.productPrice}>
-                      ${item.price.toFixed(2)}
-                    </ThemedText>
-                    <ThemedText style={[styles.productQuantity, { color: themeColors.textSecondary }]}>
-                      x {item.quantity}
-                    </ThemedText>
-                  </View>
-                </View>
-                <ThemedText style={styles.productTotal}>
-                  ${(item.price * item.quantity).toFixed(2)}
-                </ThemedText>
-              </View>
-            ))}
-          </View>
-
-          {/* Price Breakdown */}
-          <View style={styles.priceBreakdown}>
-            <View style={styles.priceRow}>
-              <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Subtotal</ThemedText>
-              <ThemedText style={styles.priceValue}>${subtotal.toFixed(2)}</ThemedText>
-            </View>
-            
-            {couponDiscount > 0 && (
-              <View style={styles.priceRow}>
-                <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Coupon Discount</ThemedText>
-                <ThemedText style={[styles.discountValue, { color: themeColors.success }]}>
-                  -${couponDiscount.toFixed(2)}
-                </ThemedText>
-              </View>
-            )}
-            
-            <View style={styles.priceRow}>
-              <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Delivery Fee</ThemedText>
-              <ThemedText style={deliveryFee === 0 ? styles.freeValue : styles.priceValue}>
-                {deliveryFee === 0 ? 'Free' : `$${deliveryFee.toFixed(2)}`}
-              </ThemedText>
-            </View>
-
-            {tax > 0 && (
-              <View style={styles.priceRow}>
-                <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Tax</ThemedText>
-                <ThemedText style={styles.priceValue}>${tax.toFixed(2)}</ThemedText>
-              </View>
-            )}
-            
-            <View style={[styles.priceRow, styles.totalPriceRow, { borderTopColor: themeColors.borderColor }]}>
-              <ThemedText style={styles.totalPriceLabel}>Total</ThemedText>
-              <ThemedText style={styles.totalPriceValue}>
-                {currentQuote ? `$${total.toFixed(2)}` : selectedAddress ? 'Calculating…' : 'Select address'}
-              </ThemedText>
-            </View>
-            {quoteError ? (
-              <TouchableOpacity onPress={() => setQuoteAttempt(attempt => attempt + 1)}>
-                <ThemedText>{quoteError} — Tap to retry</ThemedText>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Bottom spacing for sticky button */}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Sticky Place Order Button */}
-      <View style={[styles.placeOrderContainer, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
-        <TouchableOpacity
-          style={[styles.placeOrderButton, isPlacingOrder && styles.placeOrderButtonDisabled]}
-          onPress={openConfirmation}
-          disabled={!canPlaceOrder}
-        >
-          {isPlacingOrder ? (
-            <>
-              <ActivityIndicator size="small" color="#fff" />
-              <ThemedText style={styles.placeOrderText}>Placing Order...</ThemedText>
-            </>
-          ) : (
-            <>
-              <ThemedText style={styles.placeOrderText}>Place Order</ThemedText>
-              <ThemedText style={styles.placeOrderAmount}>{currentQuote ? `$${total.toFixed(2)}` : 'Check total'}</ThemedText>
-            </>
-          )}
-        </TouchableOpacity>
+      <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.footerContent}>
+          <View style={styles.footerTotal}><ThemedText style={[styles.caption, { color: themeColors.textSecondary }]}>Total to pay</ThemedText><ThemedText style={styles.footerAmount}>{totalLabel}</ThemedText></View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Place order" accessibilityState={{ disabled: !canPlaceOrder, busy: isPlacingOrder }}
+            disabled={!canPlaceOrder} onPress={openConfirmation} style={[styles.placeOrderButton, { backgroundColor: canPlaceOrder || isPlacingOrder ? accent : (dark ? '#34434e' : '#e2e8ed') }]}>
+            {isPlacingOrder ? <ActivityIndicator size="small" color={onAccent} /> : <Ionicons name="bag-check-outline" size={18} color={canPlaceOrder ? onAccent : themeColors.textSecondary} />}
+            <ThemedText style={[styles.buttonText, { color: canPlaceOrder || isPlacingOrder ? onAccent : themeColors.textSecondary }]}>{isPlacingOrder ? 'Placing order…' : 'Place order'}</ThemedText>
+          </TouchableOpacity>
+        </View>
       </View>
+    </KeyboardAvoidingView>
     <Modal visible={confirmationOpen} transparent animationType="slide" onRequestClose={closeConfirmation}>
       <View style={styles.modalRoot}>
         <TouchableOpacity accessibilityLabel="Close order confirmation" style={styles.modalBackdrop} activeOpacity={1} onPress={closeConfirmation} disabled={isPlacingOrder} />
@@ -834,433 +565,71 @@ export default function CheckoutScreen() {
         </View>
       </View>
     </Modal>
-    </SafeAreaView>
-  );
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerRight: {
-    width: 32,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  thankYouContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  thankYouIconContainer: {
-    marginBottom: 24,
-  },
-  thankYouTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  thankYouMessage: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
-  },
-  thankYouSubtext: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  redirectText: {
-    fontSize: 14,
-    color: '#2196F3',
-  },
-  section: {
-    marginTop: 12,
-    paddingVertical: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  addButton: {
-    fontSize: 14,
-    color: '#2196F3',
-    fontWeight: '600',
-  },
-  // Address styles
-  chooseAddressCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    gap: 8,
-  },
-  chooseAddressText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2196F3',
-    marginTop: 8,
-  },
-  chooseAddressSubtext: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  selectedAddressCard: {
-    padding: 16,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  selectedAddressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  selectedAddressBody: {
-    gap: 4,
-  },
-  addressHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  addressName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  defaultBadge: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  defaultText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  addressText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#2196F3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2196F3',
-  },
-  // Payment method styles
-  paymentMethodsContainer: {
-    paddingHorizontal: 16,
-    maxHeight: 200,
-  },
-  paymentMethodList: {
-    gap: 8,
-  },
-  paymentMethod: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  paymentMethodSelected: {
-    borderColor: '#2196F3',
-    backgroundColor: '#E3F2FD',
-  },
-  paymentMethodContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  paymentMethodText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-  },
-  paymentMethodTextSelected: {
-    color: '#2196F3',
-    fontWeight: '600',
-  },
-  shippingCharge: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 8,
-  },
-  // Order note styles
-  noteContainer: {
-    paddingHorizontal: 16,
-  },
-  noteInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  // Promo code styles
-  promoContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  promoInput: {
-    flex: 1,
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 14,
-  },
-  applyButton: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minWidth: 80,
-  },
-  applyButtonDisabled: {
-    opacity: 0.6,
-  },
-  applyButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000',
-  },
-  appliedCouponContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    padding: 12,
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#4CAF50',
-  },
-  appliedCouponContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  appliedCouponText: {
-    flex: 1,
-  },
-  appliedCouponCode: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4CAF50',
-  },
-  appliedCouponDiscount: {
-    fontSize: 12,
-    color: '#2E7D32',
-  },
-  couponError: {
-    fontSize: 12,
-    color: '#FF3B30',
-    paddingHorizontal: 16,
-    marginTop: 4,
-  },
-  // Order summary styles
-  productsContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  productItem: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
-  productImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-  },
-  productDetails: {
-    flex: 1,
-    gap: 4,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  productVariant: {
-    fontSize: 12,
-    color: '#666',
-  },
-  productPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  productPrice: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2196F3',
-  },
-  productQuantity: {
-    fontSize: 12,
-    color: '#666',
-  },
-  productTotal: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  // Price breakdown styles
-  priceBreakdown: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 12,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  priceLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  priceValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  discountValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4CAF50',
-  },
-  freeValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4CAF50',
-  },
-  totalPriceRow: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    marginTop: 4,
-  },
-  totalPriceLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  totalPriceValue: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  bottomSpacer: {
-    height: 80,
-  },
-  // Sticky button styles
-  placeOrderContainer: {
-    padding: 16,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    boxShadow: '0px 0px 8px rgba(0, 0, 0, 0.1)',
-    elevation: 8,
-  },
-  placeOrderButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#2196F3',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 28,
-    gap: 12,
-  },
-  placeOrderButtonDisabled: {
-    opacity: 0.6,
-  },
-  placeOrderText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  placeOrderAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  // Empty state
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  safeArea: { flex: 1 },
+  body: { flex: 1 },
+  header: { borderBottomWidth: StyleSheet.hairlineWidth },
+  headerContent: { width: '100%', maxWidth: 680, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, minHeight: 48 },
+  headerTitle: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '600', textAlign: 'center' },
+  backButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  headerRight: { width: 44, alignItems: 'center' },
+  scrollView: { flex: 1 },
+  content: { width: '100%', maxWidth: 680, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 20, gap: 12 },
+  intro: { gap: 4, marginBottom: 4 },
+  introTitle: { fontSize: 22, lineHeight: 28, fontWeight: '700', letterSpacing: -0.5 },
   caption: { fontSize: 12, lineHeight: 18 },
+  section: { borderRadius: 18, borderWidth: 1, padding: 14 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  sectionTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
+  addressBody: { flex: 1, gap: 3 },
+  addressNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  addressName: { fontSize: 14, lineHeight: 21, fontWeight: '600', flexShrink: 1 },
+  addressText: { fontSize: 13, lineHeight: 19 },
+  defaultBadge: { fontSize: 10, lineHeight: 16, fontWeight: '600', paddingHorizontal: 6, borderRadius: 5 },
+  optionList: { gap: 8 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, minHeight: 48, paddingVertical: 10 },
+  optionText: { flex: 1, fontSize: 13, lineHeight: 20, fontWeight: '600' },
+  products: { gap: 12 },
+  productRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  productImage: { width: 44, height: 48, borderRadius: 8 },
+  productBody: { flex: 1, gap: 2 },
+  productName: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  linePrice: { fontSize: 13, lineHeight: 20, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
+  breakdown: { marginTop: 14, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 8 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  priceLabel: { fontSize: 13, lineHeight: 20 },
+  priceValue: { fontSize: 13, lineHeight: 20, fontWeight: '500' },
+  totalRow: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 2 },
+  totalLabel: { fontSize: 14, lineHeight: 22, fontWeight: '600' },
   totalValue: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
+  retryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  extraRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  extraLabel: { flex: 1, fontSize: 13, lineHeight: 20, fontWeight: '500' },
+  extraBody: { paddingTop: 8, paddingBottom: 4 },
+  extraDivider: { height: StyleSheet.hairlineWidth, marginVertical: 4 },
+  promoRow: { flexDirection: 'row', gap: 8 },
+  promoInput: { flex: 1, minWidth: 0, height: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14 },
+  applyButton: { minHeight: 44, paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  appliedCoupon: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 10 },
+  noteInput: { minHeight: 84, borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, lineHeight: 20, textAlignVertical: 'top' },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, paddingHorizontal: 16 },
+  footerContent: { width: '100%', maxWidth: 648, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  footerTotal: { flex: 1 },
+  footerAmount: { fontSize: 20, lineHeight: 27, fontWeight: '700', letterSpacing: -0.4 },
+  placeOrderButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48, paddingHorizontal: 20, borderRadius: 12 },
+  buttonText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  centerState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28, gap: 16 },
+  stateIcon: { width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center' },
+  stateTitle: { fontSize: 24, lineHeight: 30, fontWeight: '700', textAlign: 'center' },
+  stateMessage: { fontSize: 14, lineHeight: 22, textAlign: 'center', maxWidth: 340 },
+  stateButton: { minHeight: 48, paddingHorizontal: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  loadingContent: { width: '100%', maxWidth: 680, alignSelf: 'center', padding: 16, gap: 12 },
+  loadingCard: { padding: 14, borderRadius: 18, overflow: 'hidden' },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10, 24, 32, 0.54)' },
   confirmSheet: { width: '100%', maxWidth: 680, alignSelf: 'center', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 10, gap: 14 },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 2 },

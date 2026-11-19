@@ -1,3 +1,4 @@
+import { HomeHeaderGlass } from '@/components/home-header-glass';
 import { TextInput } from '@/components/ui/text-input';
 import { IconButton } from '@/components/ui/icon-button';
 import CategoriesSection from '@/components/CategoriesSection';
@@ -37,7 +38,7 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
 // Match the desktop slider conversion in sunapi/app/Models/Slider.php.
@@ -45,6 +46,7 @@ const BANNER_ASPECT_RATIO = 1689 / 600;
 
 export default function HomeScreen() {
   const tabContentInset = useTabContentInset();
+  const insets = useSafeAreaInsets();
   const { colorScheme } = useContext(ThemeContext)!;
   const { itemCount } = useCart();
   const router = useRouter();
@@ -77,6 +79,8 @@ export default function HomeScreen() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [searchVisible, setSearchVisible] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
+  const [searchHeight, setSearchHeight] = useState(52);
+  const searchSpace = searchVisible ? searchHeight : 0;
   const scrollTop = useRef(0);
   const headerScroll = useRef(new Animated.Value(0)).current;
   const refreshing = refreshKey > 0 && isLoadingSlider;
@@ -197,69 +201,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
-      {/* Header */}
-      <Animated.View style={[styles.header, { backgroundColor: Colors[colorScheme].background,
-        height: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [76, 48], extrapolate: 'clamp' }) }]}>
-        <Animated.Image source={require('@/assets/images/sun-logo.png')} style={[styles.logo, {
-          width: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [90, 54], extrapolate: 'clamp' }),
-          height: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [60, 36], extrapolate: 'clamp' }),
-        }]}
-          resizeMode="contain" accessible accessibilityRole="image" accessibilityLabel="Sun Mobile" />
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <IconButton label={searchVisible ? 'Close search' : 'Open search'} onPress={toggleSearch}
-            accessibilityState={{ expanded: searchVisible }}>
-            <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={24} color={Colors[colorScheme].text} />
-          </IconButton>
-          <TouchableOpacity style={styles.cartButton} onPress={handleCartPress} accessibilityRole="button" accessibilityLabel={`Cart, ${itemCount} items`}>
-            <Ionicons name="cart-outline" size={24} color={Colors[colorScheme].text} />
-            {itemCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{itemCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-
-      {/* Search Bar */}
-      {searchVisible && <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, { backgroundColor: Colors[colorScheme].card, borderColor: Colors[colorScheme].icon + '40' }]}>
-          <TouchableOpacity 
-            accessibilityRole="button"
-            accessibilityLabel={`Choose search category, ${SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All categories'}`}
-            accessibilityState={{ expanded: showCategoryDropdown }}
-            style={styles.categoryDropdown}
-            onPress={() => setShowCategoryDropdown(true)}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={1}>
-                {selectedCategory === 'all' ? 'All' : SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          <TextInput accessibilityLabel="Search products..."
-            autoFocus
-            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
-            placeholder="Search products..."
-            placeholderTextColor={Colors[colorScheme].text + '80'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-
-          <IconButton label="Search products" style={styles.searchButton} onPress={handleSearch}>
-            <Ionicons name="search" size={20} color={Colors[colorScheme].tint} />
-          </IconButton>
-        </View>
-      </View>}
-
+    <SafeAreaView edges={['left', 'right']} style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       {/* Category Selection Modal */}
       <Modal
         visible={showCategoryDropdown}
@@ -301,12 +243,6 @@ export default function HomeScreen() {
 
       {/* Main Content */}
       <View style={styles.mainContent} {...(Platform.OS === 'web' ? pullResponder.panHandlers : {})}>
-      {Platform.OS === 'web' && (pullDistance > 0 || refreshing) && (
-        <View accessibilityRole="progressbar" accessibilityLabel={refreshing ? 'Refreshing home' : 'Pull down to refresh'}
-          accessibilityState={{ busy: refreshing }} style={{ height: refreshing ? 48 : pullDistance, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={Colors[colorScheme].tint} />
-        </View>
-      )}
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
@@ -315,9 +251,10 @@ export default function HomeScreen() {
           scrollTop.current = offset;
           headerScroll.setValue(Math.min(offset, 80));
         }}
-        contentContainerStyle={{ paddingBottom: tabContentInset }}
-        scrollIndicatorInsets={{ bottom: tabContentInset }}
-        refreshControl={Platform.OS === 'web' ? undefined : <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors[colorScheme].tint} />}>
+        contentContainerStyle={{ paddingTop: insets.top + 76 + searchSpace, paddingBottom: tabContentInset }}
+        contentInsetAdjustmentBehavior="never"
+        scrollIndicatorInsets={{ top: insets.top + 76 + searchSpace, bottom: tabContentInset }}
+        refreshControl={Platform.OS === 'web' ? undefined : <RefreshControl refreshing={refreshing} onRefresh={refresh} progressViewOffset={insets.top + 76 + searchSpace} tintColor={Colors[colorScheme].tint} />}>
         {/* Banner Slider */}
         <View style={styles.bannerContainer} onLayout={e => setBannerWidth(e.nativeEvent.layout.width)}>
           {isLoadingSlider ? (
@@ -364,6 +301,81 @@ export default function HomeScreen() {
         <FeaturedBrandsSection refreshKey={refreshKey} />
       </ScrollView>
       </View>
+      {/* The glass stays above the scroll view while content travels underneath it. */}
+      <View pointerEvents="box-none" style={[styles.headerOverlay, { paddingTop: insets.top }]}>
+      <HomeHeaderGlass dark={colorScheme === 'dark'} />
+      <Animated.View style={[styles.header, {
+        height: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [76, 48], extrapolate: 'clamp' }) }]}>
+        <Animated.Image source={require('@/assets/images/sun-logo.png')} style={[styles.logo, {
+          width: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [90, 54], extrapolate: 'clamp' }),
+          height: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [60, 36], extrapolate: 'clamp' }),
+        }]}
+          resizeMode="contain" accessible accessibilityRole="image" accessibilityLabel="Sun Mobile" />
+
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <IconButton label={searchVisible ? 'Close search' : 'Open search'} onPress={toggleSearch}
+            accessibilityState={{ expanded: searchVisible }}>
+            <Ionicons name={searchVisible ? 'close' : 'search-outline'} size={24} color={Colors[colorScheme].text} />
+          </IconButton>
+          <TouchableOpacity style={styles.cartButton} onPress={handleCartPress} accessibilityRole="button" accessibilityLabel={`Cart, ${itemCount} items`}>
+            <Ionicons name="cart-outline" size={24} color={Colors[colorScheme].text} />
+            {itemCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{itemCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
+      {/* Search Bar */}
+      {searchVisible && <View style={styles.searchContainer} onLayout={event => setSearchHeight(event.nativeEvent.layout.height)}>
+        <View style={[styles.searchBar, { backgroundColor: Colors[colorScheme].card, borderColor: Colors[colorScheme].icon + '40' }]}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Choose search category, ${SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All categories'}`}
+            accessibilityState={{ expanded: showCategoryDropdown }}
+            style={styles.categoryDropdown}
+            onPress={() => setShowCategoryDropdown(true)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Text style={[styles.categoryText, { color: Colors[colorScheme].text }]} numberOfLines={1}>
+                {selectedCategory === 'all' ? 'All' : SEARCH_CATEGORIES.find(cat => cat.value === selectedCategory)?.label || 'All'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={16} color={Colors[colorScheme].text} style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TextInput accessibilityLabel="Search products..."
+            autoFocus
+            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
+            placeholder="Search products..."
+            placeholderTextColor={Colors[colorScheme].text + '80'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+
+          <IconButton label="Search products" style={styles.searchButton} onPress={handleSearch}>
+            <Ionicons name="search" size={20} color={Colors[colorScheme].tint} />
+          </IconButton>
+        </View>
+      </View>}
+
+      </View>
+
+      {Platform.OS === 'web' && (pullDistance > 0 || refreshing) && (
+        <Animated.View pointerEvents="none" accessibilityRole="progressbar" accessibilityLabel={refreshing ? 'Refreshing home' : 'Pull down to refresh'}
+          accessibilityState={{ busy: refreshing }} style={[styles.refreshIndicator, {
+            top: headerScroll.interpolate({ inputRange: [0, 80], outputRange: [insets.top + 76 + searchSpace, insets.top + 48 + searchSpace], extrapolate: 'clamp' }),
+            height: refreshing ? 48 : pullDistance,
+          }]}>
+          <ActivityIndicator color={Colors[colorScheme].tint} />
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -372,6 +384,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, overflow: 'hidden' },
+  refreshIndicator: { position: 'absolute', left: 0, right: 0, zIndex: 21, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
