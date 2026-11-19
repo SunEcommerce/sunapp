@@ -23,8 +23,10 @@ import {
   createOrder,
   fetchAddresses,
   fetchOrderAreas,
+  fetchOrderQuote,
   fetchPaymentGateways,
   validateCoupon,
+  type OrderQuote,
 } from '@/utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -100,14 +102,38 @@ export default function CheckoutScreen() {
   // Order note
   const [orderNote, setOrderNote] = useState('');
 
-  // Calculate totals
-  const subtotal = totalAmount;
-  const selectedAreaData = orderAreas.find(area => area.id === selectedArea);
-  const deliveryFee = selectedAreaData?.shipping_charge || 0;
-  const tax = 0; // You can calculate tax based on your business logic
-  const total = subtotal - couponDiscount + deliveryFee + tax;
-
   const { items: couponItems, signature: cartSignature } = buildCouponCart(items);
+  const orderProducts = React.useMemo(() => {
+    const snapshot = buildCouponCart(items).items;
+    return items.map((item, index) => ({
+      product_id: parseInt(item.productId) || 0,
+      variation_id: snapshot[index].variation_id,
+      variation_names: item.variation_names || '', sku: item.sku || '',
+      price: item.price, quantity: item.quantity, discount: item.discount || 0,
+      total_tax: item.tax || 0, subtotal: item.price * item.quantity,
+      total: item.price * item.quantity, taxes: [],
+    }));
+  }, [items]);
+  const quoteKey = JSON.stringify([cartSignature, selectedAddress, appliedCouponId]);
+  const [quote, setQuote] = useState<{ key: string; data: OrderQuote } | null>(null);
+  const [quoteError, setQuoteError] = useState('');
+  const [quoteAttempt, setQuoteAttempt] = useState(0);
+  const currentQuote = quote?.key === quoteKey ? quote.data : null;
+  React.useEffect(() => {
+    let active = true;
+    setQuoteError('');
+    if (selectedAddress && orderProducts.length) {
+      fetchOrderQuote({ order_type: 5, shipping_id: selectedAddress, billing_id: selectedAddress,
+        coupon_id: appliedCouponId, products: orderProducts })
+        .then(response => { if (active) setQuote({ key: quoteKey, data: response.data }); })
+        .catch(error => { if (active) setQuoteError(error.message || 'Unable to calculate order total'); });
+    }
+    return () => { active = false; };
+  }, [quoteKey, selectedAddress, appliedCouponId, orderProducts, quoteAttempt]);
+  const subtotal = currentQuote?.subtotal ?? totalAmount;
+  const deliveryFee = currentQuote?.shipping_charge ?? 0;
+  const tax = currentQuote?.tax ?? 0;
+  const total = currentQuote?.total ?? subtotal - couponDiscount;
   const latestCartSignature = React.useRef(cartSignature);
   latestCartSignature.current = cartSignature;
   React.useEffect(() => {
@@ -120,10 +146,7 @@ export default function CheckoutScreen() {
   }, [cartSignature]);
   React.useEffect(() => () => { couponRequest.current++; }, []);
 
-  const loadCheckoutData = async () => {
-
-  // Calculate totals
-  const subtotal = totalAmount;
+  const loadCheckoutData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Load payment gateways, order areas, and addresses in parallel
@@ -178,7 +201,7 @@ export default function CheckoutScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const handleApplyCoupon = async () => {
     if (!promoCode.trim()) {
@@ -225,6 +248,7 @@ export default function CheckoutScreen() {
   };
 
   const handlePlaceOrder = async () => {
+    if (isPlacingOrder) return;
     // Validation
     if (!selectedAddress) {
       Alert.alert('Error', 'Please select a delivery address');
@@ -232,6 +256,11 @@ export default function CheckoutScreen() {
     }
     if (!selectedPayment) {
       Alert.alert('Error', 'Please select a payment method');
+      return;
+    }
+    if (!currentQuote) {
+      Alert.alert('Order total', quoteError || 'Please wait for the order total to finish calculating.');
+      if (quoteError) setQuoteAttempt(attempt => attempt + 1);
       return;
     }
     // if (!selectedArea) {
@@ -253,26 +282,12 @@ export default function CheckoutScreen() {
         payment_method: selectedPayment,
         coupon_id: appliedCouponId,
         subtotal: subtotal,
-        discount: couponDiscount,
+        discount: currentQuote.discount,
         shipping_charge: deliveryFee,
         tax: tax,
         total: total,
         note: orderNote || undefined,
-        products: items.map((item, index) => ({
-          product_id: parseInt(item.productId) || 0,
-          item_type: item.item_type,
-          item_id: item.item_id,
-          variation_names: item.variation_names || '',
-          sku: item.sku,
-          price: item.price,
-          quantity: item.quantity,
-          discount: item.discount,
-          total_tax: item.tax,
-          subtotal: item.price * item.quantity,
-          total: item.price * item.quantity - item.discount + item.tax,
-          taxes: [],
-          variation_id: couponItems[index].variation_id,
-        })),
+        products: currentQuote.products,
       };
 
       const response = await createOrder(orderData);
@@ -291,6 +306,8 @@ export default function CheckoutScreen() {
       }
     } catch (error: any) {
       console.error('Failed to place order:', error);
+      setQuote(null);
+      setQuoteAttempt(attempt => attempt + 1);
       Alert.alert('Error', error.message || 'Failed to place order. Please try again.');
     } finally {
       setIsPlacingOrder(false);
@@ -311,7 +328,7 @@ export default function CheckoutScreen() {
   useFocusEffect(
     useCallback(() => {
       loadCheckoutData();
-    }, [])
+    }, [loadCheckoutData])
   );
 
   const getPaymentIcon = (name: string): any => {
@@ -728,9 +745,14 @@ export default function CheckoutScreen() {
             <View style={[styles.priceRow, styles.totalPriceRow, { borderTopColor: themeColors.borderColor }]}>
               <ThemedText style={styles.totalPriceLabel}>Total</ThemedText>
               <ThemedText style={styles.totalPriceValue}>
-                ${total.toFixed(2)}
+                {currentQuote ? `$${total.toFixed(2)}` : selectedAddress ? 'Calculating…' : 'Select address'}
               </ThemedText>
             </View>
+            {quoteError ? (
+              <TouchableOpacity onPress={() => setQuoteAttempt(attempt => attempt + 1)}>
+                <ThemedText>{quoteError} — Tap to retry</ThemedText>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -753,7 +775,7 @@ export default function CheckoutScreen() {
           ) : (
             <>
               <ThemedText style={styles.placeOrderText}>Place Order</ThemedText>
-              <ThemedText style={styles.placeOrderAmount}>${total.toFixed(2)}</ThemedText>
+              <ThemedText style={styles.placeOrderAmount}>{currentQuote ? `$${total.toFixed(2)}` : 'Check total'}</ThemedText>
             </>
           )}
         </TouchableOpacity>

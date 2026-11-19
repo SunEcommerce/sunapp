@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useState } from 'react';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -7,8 +7,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { getAccessToken } from '@/utils/api';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 function InlineCartIllustration() {
@@ -43,17 +43,19 @@ export default function CartScreen() {
 
   const uniqueItemCount = items.length;
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
     const checkLogin = async () => {
       try {
-        const token = await AsyncStorage.getItem('access_token'); // adjust key to your auth token key
-        setIsLoggedIn(!!token);
-      } catch (e) {
-        setIsLoggedIn(false);
+        const token = await getAccessToken();
+        if (active) setIsLoggedIn(!!token);
+      } catch {
+        if (active) setIsLoggedIn(false);
       }
     };
     checkLogin();
-  }, []);
+    return () => { active = false; };
+  }, []));
 
   const handleRemoveItem = (id: string, name: string) => {
     if (Platform.OS === 'web') {

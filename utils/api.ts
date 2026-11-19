@@ -1,5 +1,37 @@
 import type { CouponCartItem } from './coupon';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+// [SECURITY: L2] Store auth tokens in the OS secure keystore (Keychain/Keystore) on
+// native; expo-secure-store isn't available on web, so fall back to AsyncStorage there.
+async function secureSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.setItem(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+  await AsyncStorage.removeItem(key);
+}
+async function secureGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return AsyncStorage.getItem(key);
+  }
+  const stored = await SecureStore.getItemAsync(key);
+  if (stored) return stored;
+  // Upgrade installations that previously stored native tokens in AsyncStorage.
+  const legacy = await AsyncStorage.getItem(key);
+  if (legacy) await secureSet(key, legacy);
+  return legacy;
+}
+async function secureDelete(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+  await AsyncStorage.removeItem(key);
+}
 
 // API Configuration - Update these with your actual values
 export const API_CONFIG = {
@@ -17,7 +49,8 @@ export async function apiRequest(
   path: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   body?: Json,
-  includeAuth: boolean = true
+  includeAuth: boolean = true,
+  retryAuth: boolean = true
 ): Promise<any> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -59,11 +92,11 @@ export async function apiRequest(
   if (!response.ok) {
     // If unauthorized, try to refresh token
     if (response.status === 401 && includeAuth) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
+      if (retryAuth && await refreshAccessToken()) {
         // Retry the request with new token
-        return apiRequest(path, method, body, includeAuth);
+        return apiRequest(path, method, body, includeAuth, false);
       }
+      await clearTokens();
     }
 
     const msg = data?.message || data?.error || `Request failed (${response.status})`;
@@ -77,9 +110,11 @@ export async function apiRequest(
  * Store authentication tokens
  */
 export async function storeTokens(accessToken: string, refreshToken?: string): Promise<void> {
-  await AsyncStorage.setItem('access_token', accessToken);
+  await secureSet('access_token', accessToken);
   if (refreshToken) {
-    await AsyncStorage.setItem('refresh_token', refreshToken);
+    await secureSet('refresh_token', refreshToken);
+  } else {
+    await secureDelete('refresh_token');
   }
 }
 
@@ -87,51 +122,49 @@ export async function storeTokens(accessToken: string, refreshToken?: string): P
  * Get access token from storage
  */
 export async function getAccessToken(): Promise<string | null> {
-  return await AsyncStorage.getItem('access_token');
+  return await secureGet('access_token');
 }
 
 /**
  * Get refresh token from storage
  */
 export async function getRefreshToken(): Promise<string | null> {
-  return await AsyncStorage.getItem('refresh_token');
+  return await secureGet('refresh_token');
 }
 
 /**
  * Clear all authentication tokens
  */
 export async function clearTokens(): Promise<void> {
-  await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
+  await secureDelete('access_token');
+  await secureDelete('refresh_token');
 }
 
 /**
  * Refresh the access token using the refresh token
  */
+let refreshInFlight: Promise<boolean> | null = null;
+
 export async function refreshAccessToken(): Promise<boolean> {
-  try {
-    const refreshToken = await getRefreshToken();
-    if (!refreshToken) {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) return false;
+        const data = await apiRequest('/api/auth/refresh-token', 'POST', { token }, false);
+        // Rotation renews a valid access token. Expired sessions must log in again.
+        if (typeof data?.token === 'string' && data.token) {
+          await storeTokens(data.token);
+          return true;
+        }
+      } catch {
+        // A rejected rotation must not leave stale credentials behind.
+      }
+      await clearTokens();
       return false;
-    }
-
-    const data = await apiRequest(
-      '/api/auth/refresh-token',
-      'POST',
-      { refresh_token: refreshToken },
-      false // Don't include auth header for refresh
-    );
-
-    if (data?.access_token) {
-      await storeTokens(data.access_token, data.refresh_token);
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    console.error('Token refresh failed:', error);
-    await clearTokens();
-    return false;
+    })().finally(() => { refreshInFlight = null; });
   }
+  return refreshInFlight;
 }
 
 /**
@@ -148,8 +181,8 @@ export async function isAuthenticated(): Promise<boolean> {
 export async function login(email: string, password: string): Promise<any> {
   const data = await apiRequest('/api/auth/login', 'POST', { email, password }, false);
   
-  if (data?.access_token) {
-    await storeTokens(data.access_token, data.refresh_token);
+  if (data?.token) {
+    await storeTokens(data.token);
   }
   
   return data;
@@ -180,8 +213,8 @@ export async function register(
     false
   );
   
-  if (data?.access_token) {
-    await storeTokens(data.access_token, data.refresh_token);
+  if (data?.token) {
+    await storeTokens(data.token);
   }
   
   return data;
@@ -255,8 +288,6 @@ export async function resetPassword(
     payload.phone = phone;
     payload.country_code = countryCode || '+95';
   }
-  console.log(payload);
-  
   return await apiRequest('/api/auth/forgot-password/reset-password', 'POST', payload, false);
 }
 
@@ -264,7 +295,15 @@ export async function resetPassword(
  * Logout user
  */
 export async function logout(): Promise<void> {
-  await clearTokens();
+  try {
+    if (await getAccessToken()) await apiRequest('/api/auth/logout', 'POST', undefined, true, false);
+  } catch {
+    // Local logout must still work when the API cannot be reached.
+  } finally {
+    await clearTokens();
+    await Promise.all(['user_profile', 'wishlist_products', 'selected_address_id', 'default_address_id']
+      .map(key => AsyncStorage.removeItem(key)));
+  }
 }
 
 // ==================== Frontend API Endpoints ====================
@@ -412,6 +451,25 @@ export async function fetchOrderAreas(): Promise<any> {
   return await apiRequest('/api/frontend/order-area', 'GET', undefined, false);
 }
 
+export type OrderQuote = {
+  subtotal: number;
+  discount: number;
+  tax: number;
+  shipping_charge: number;
+  total: number;
+  products: (Json & { product_id: number; quantity: number; price: number; subtotal: number })[];
+};
+
+export async function fetchOrderQuote(data: {
+  order_type: number;
+  shipping_id: number;
+  billing_id: number;
+  coupon_id?: number;
+  products: Json[];
+}): Promise<{ data: OrderQuote }> {
+  return apiRequest('/api/frontend/order/quote', 'POST', { ...data, products: JSON.stringify(data.products) });
+}
+
 /**
  * Create order (checkout)
  */
@@ -519,9 +577,8 @@ export async function createAddress(addressData: {
   country_code?: string;
   phone?: string;
 }): Promise<any> {
-  addressData.full_name = 'John Doe';
-  addressData.country_code = '+95';
-  addressData.phone = '1234567890';
+  // [SECURITY: L3] Send the real user-entered values (the form already collects
+  // full_name / country_code / phone) instead of hardcoded placeholders.
   return await apiRequest('/api/frontend/address', 'POST', addressData, true);
 }
 
@@ -611,7 +668,7 @@ export async function fetchPage(slug: string): Promise<any> {
  * Fetch user profile
  */
 export async function fetchProfile(): Promise<any> {
-  return await apiRequest('/profile', 'GET', undefined, true);
+  return await apiRequest('/api/profile', 'GET', undefined, true);
 }
 
 /**
@@ -636,8 +693,8 @@ export async function updateProfile(profileData: FormData): Promise<any> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_CONFIG.BASE_URL}/profile`, {
-    method: 'PUT',
+  const response = await fetch(`${API_CONFIG.BASE_URL}/api/profile`, {
+    method: 'POST',
     headers,
     body: profileData,
   });

@@ -12,6 +12,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -40,11 +41,7 @@ export default function EditProfile() {
   const themeContext = useContext(ThemeContext);
   const router = useRouter();
 
-  if (!themeContext) {
-    return null;
-  }
-
-  const { colorScheme } = themeContext;
+  const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
 
   const [loading, setLoading] = useState(false);
@@ -163,12 +160,17 @@ export default function EditProfile() {
 
       // Add image if a new one was selected
       if (newImage) {
-        const imageFile = {
-          uri: newImage.uri,
-          type: 'image/jpeg',
-          name: 'profile.jpg',
-        } as any;
-        formData.append('image', imageFile);
+        if (Platform.OS === 'web') {
+          const imageResponse = await fetch(newImage.uri);
+          formData.append('image', await imageResponse.blob(), 'profile.jpg');
+        } else {
+          const imageFile = {
+            uri: newImage.uri,
+            type: 'image/jpeg',
+            name: 'profile.jpg',
+          } as any;
+          formData.append('image', imageFile);
+        }
       }
 
       const response = await updateProfile(formData);

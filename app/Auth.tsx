@@ -65,7 +65,6 @@ export default function AuthScreen() {
       setLoading(true);
       const data = await login(loginEmail, loginPassword);
       if (data?.user) {
-        await AsyncStorage.setItem('access_token', data.token);
         await AsyncStorage.setItem('user_profile', JSON.stringify(data.user));
       }
       

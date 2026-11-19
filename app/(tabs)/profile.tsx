@@ -2,13 +2,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
+import { getAccessToken, logout } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useContext, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useContext, useState } from 'react';
 import {
   ScrollView,
   StatusBar,
@@ -53,10 +54,7 @@ const MenuItem: React.FC<{
 export default function TabTwoScreen() {
   const themeContext = useContext(ThemeContext);
 
-  if (!themeContext) {
-    return null; // Or a loading indicator
-  }
-  const { colorScheme } = themeContext;
+  const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
 
   const separatorColor = themeColors.icon; // Use theme's icon color for separator
@@ -65,34 +63,23 @@ export default function TabTwoScreen() {
   const [userProfile, setUserProfile] = useState<any>(null);
 
   const router = useRouter();
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
     const checkLogin = async () => {
       try {
-        const token = await AsyncStorage.getItem('access_token'); // adjust key to your auth token key
-        setIsLoggedIn(!!token);
-      } catch (e) {
-        setIsLoggedIn(false);
+        const token = await getAccessToken();
+        const profile = token ? await AsyncStorage.getItem('user_profile') : null;
+        if (active) {
+          setIsLoggedIn(!!token);
+          setUserProfile(profile ? JSON.parse(profile) : null);
+        }
+      } catch {
+        if (active) { setIsLoggedIn(false); setUserProfile(null); }
       }
     };
     checkLogin();
-  }, []);
-
-  if (isLoggedIn !== null || !isLoggedIn) {
-    useEffect(() => {
-      const fetchUserProfile = async () => {
-        try {
-          const profileString = await AsyncStorage.getItem('user_profile');
-          if (profileString) {
-            const profile = JSON.parse(profileString);
-            setUserProfile(profile);
-          }
-        } catch (e) {
-          console.error('Failed to load user profile:', e);
-        }
-      };
-      fetchUserProfile();
-    }, []);
-  }
+    return () => { active = false; };
+  }, []));
 
   const menuItems: Array<{
     label: string;
@@ -155,9 +142,8 @@ export default function TabTwoScreen() {
 
   async function handleLogout() {
     try {
-      await AsyncStorage.removeItem('access_token');
-      await AsyncStorage.removeItem('refresh_token');
-      await AsyncStorage.removeItem('user_profile');
+      await logout();
+      setUserProfile(null);
       setIsLoggedIn(false);
       router.push('/Auth');
     } catch (error) {
