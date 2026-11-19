@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useContext, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   Image,
   Modal,
@@ -26,16 +25,18 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const { colorScheme } = useContext(ThemeContext)!;
   const { itemCount } = useCart();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const [bannerWidth, setBannerWidth] = useState(width);
   const dispatch = useDispatch();
   
   // Redux selectors
@@ -51,7 +52,7 @@ export default function HomeScreen() {
   ];
   
   const flatListRef = useRef<FlatList>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const currentIndex = useRef(0);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -105,18 +106,19 @@ export default function HomeScreen() {
     if (sliderData.length === 0) return;
     
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % sliderData.length;
-        flatListRef.current?.scrollToOffset({
-          offset: nextIndex * SCREEN_WIDTH,
-          animated: true,
-        });
-        return nextIndex;
+      currentIndex.current = (currentIndex.current + 1) % sliderData.length;
+      flatListRef.current?.scrollToOffset({
+        offset: currentIndex.current * bannerWidth,
+        animated: true,
       });
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [sliderData]);
+  }, [sliderData, bannerWidth]);
+
+  useEffect(() => {
+    flatListRef.current?.scrollToOffset({ offset: currentIndex.current * bannerWidth, animated: false });
+  }, [bannerWidth]);
 
   const handleCartPress = () => {
     router.push('/(tabs)/cart');
@@ -140,7 +142,7 @@ export default function HomeScreen() {
   };
 
   const renderBannerItem = ({ item }: { item: any }) => (
-    <View style={styles.bannerItem}>
+    <View style={[styles.bannerItem, { width: bannerWidth }]}>
       <Image 
         source={{ uri: item.image || item.image_url || item.url }} 
         style={styles.bannerImage}
@@ -242,7 +244,7 @@ export default function HomeScreen() {
       {/* Main Content */}
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
         {/* Banner Slider */}
-        <View style={styles.bannerContainer}>
+        <View style={styles.bannerContainer} onLayout={e => setBannerWidth(e.nativeEvent.layout.width)}>
           {isLoadingSlider ? (
             <View style={[styles.bannerItem, styles.loadingContainer]}>
               <Text style={{ color: Colors[colorScheme].text }}>Loading banners...</Text>
@@ -420,7 +422,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   bannerItem: {
-    width: SCREEN_WIDTH,
+    width: '100%',
   },
   bannerImage: {
     width: '100%',

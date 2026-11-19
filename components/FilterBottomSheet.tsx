@@ -3,6 +3,7 @@ import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { selectParentCategories } from '@/store/categoriesSlice';
 import { fetchBrands } from '@/utils/api';
+import type { ProductFilters } from '@/utils/product-listing';
 import { Ionicons } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
@@ -17,14 +18,7 @@ import Modal from 'react-native-modal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 
-export type Filters = {
-  category: string;
-  priceRange: [number, number];
-  brands: string[];
-  sortBy: 'newest' | 'price_low_high';
-  minPrice?: number;
-  maxPrice?: number;
-};
+export type Filters = ProductFilters;
 
 type Props = {
   visible: boolean;
@@ -35,10 +29,10 @@ type Props = {
 };
 
 const DEFAULTS: Filters = {
-  category: 'All',
-  priceRange: [100, 2000],
-  brands: ['Apple'],
-  sortBy: 'newest',
+  category: 'all',
+  priceRange: [0, 5000],
+  brands: [],
+  sortBy: 'best',
 };
 
 export default function FilterBottomSheet({ visible, onClose, onApply, onReset, initial }: Props) {
@@ -50,19 +44,18 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
   // Get categories from Redux
   const parentCategories = useSelector(selectParentCategories);
   const categoryChips = useMemo(() => [
-    'All',
-    ...parentCategories.map(cat => cat.name || cat.name_mm || 'Category')
+    { value: 'all', label: 'All' },
+    ...parentCategories.map(cat => ({ value: cat.slug, label: cat.name || cat.name_mm || 'Category' }))
   ], [parentCategories]);
 
   // Fetch brands from API
-  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [availableBrands, setAvailableBrands] = useState<{ id: number; name: string; slug: string }[]>([]);
   useEffect(() => {
     const loadBrands = async () => {
       try {
         const response = await fetchBrands();
         const brandsList = response?.data || response?.brands || response || [];
-        const brandNames = brandsList.map((b: any) => b.name || 'Brand').filter(Boolean);
-        setAvailableBrands(brandNames);
+        setAvailableBrands(brandsList);
       } catch (error) {
         console.error('Failed to fetch brands:', error);
         setAvailableBrands([]);
@@ -72,24 +65,41 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
   }, []);
 
   const [category, setCategory] = useState<string>(mergedDefaults.category);
-  const [priceRange, setPriceRange] = useState<[number, number]>(mergedDefaults.priceRange);
+  const [priceRange, setPriceRange] = useState<[number, number]>(mergedDefaults.priceRange || [0, 5000]);
+  const [priceChanged, setPriceChanged] = useState(Boolean(mergedDefaults.priceRange));
   const [brands, setBrands] = useState<string[]>(mergedDefaults.brands);
   const [sortBy, setSortBy] = useState<Filters['sortBy']>(mergedDefaults.sortBy);
 
+  useEffect(() => {
+    if (!visible) return;
+    setCategory(mergedDefaults.category);
+    setPriceRange(mergedDefaults.priceRange || [0, 5000]);
+    setPriceChanged(Boolean(mergedDefaults.priceRange));
+    setBrands(mergedDefaults.brands);
+    setSortBy(mergedDefaults.sortBy);
+  }, [visible, mergedDefaults]);
+
+  const validPriceRange = Number.isFinite(priceRange[0]) && Number.isFinite(priceRange[1]) && priceRange[0] >= 0 && priceRange[1] >= priceRange[0];
+
   const clearAll = () => {
-    setCategory('All');
-    setPriceRange([100, 2000]);
+    setCategory('all');
+    setPriceRange([0, 5000]);
+    setPriceChanged(false);
     setBrands([]);
-    setSortBy('newest');
+    setSortBy('best');
     onReset?.();
   };
 
-  const toggleBrand = (b: string) => {
-    setBrands((prev) => (prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b]));
+  const toggleBrand = (brand: { id: number; slug: string }) => {
+    const id = String(brand.id);
+    setBrands(prev => prev.includes(id) || prev.includes(brand.slug)
+      ? prev.filter(value => value !== id && value !== brand.slug)
+      : [...prev, id]);
   };
 
   const apply = () => {
-    onApply({ category, priceRange, brands, sortBy });
+    if (!validPriceRange) return;
+    onApply({ category, priceRange: priceChanged ? priceRange : undefined, brands, sortBy });
     onClose();
   };
 
@@ -124,18 +134,18 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
           <ThemedText style={styles.sectionTitle}>Category</ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {categoryChips.map((chip) => {
-              const active = chip === category;
+              const active = chip.value === category;
               return (
                 <TouchableOpacity
-                  key={chip}
+                  key={chip.value}
                   style={[
                     styles.chip,
                     active ? styles.chipActive : { backgroundColor: themeColors.background, borderWidth: 1, borderColor: themeColors.borderColor }
                   ]}
-                  onPress={() => setCategory(chip)}
+                  onPress={() => setCategory(chip.value)}
                 >
                   <ThemedText style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
-                    {chip}
+                    {chip.label}
                   </ThemedText>
                 </TouchableOpacity>
               );
@@ -158,6 +168,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   value={priceRange[0].toString()}
                   keyboardType="numeric"
                   onChangeText={(text) => {
+                    setPriceChanged(true);
                     // စာသားကို နံပါတ်ပြောင်းပါ၊ အလွတ်ဖြစ်နေရင် 0 လို့သတ်မှတ်ပါ
                     const val = text === '' ? 0 : parseInt(text.replace(/[^0-9]/g, ''));
                     // Min value သည် Max ထက်မကျော်စေရန် check လုပ်နိုင်သည် (optional)
@@ -177,6 +188,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   value={priceRange[1].toString()}
                   keyboardType="numeric"
                   onChangeText={(text) => {
+                    setPriceChanged(true);
                     const val = text === '' ? 0 : parseInt(text.replace(/[^0-9]/g, ''));
                     setPriceRange([priceRange[0], val]);
                   }}
@@ -188,10 +200,10 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             {/* Dual-Thumb Slider */}
             <View style={styles.sliderContainer}>
               <MultiSlider
-                values={[priceRange[0], priceRange[1]]}
-                onValuesChange={(values) => setPriceRange([values[0], values[1]])}
+                values={validPriceRange ? priceRange : [0, 0]}
+                onValuesChange={(values) => { setPriceChanged(true); setPriceRange([values[0], values[1]]); }}
                 min={0}
-                max={5000}
+                max={Math.max(5000, ...priceRange.filter(Number.isFinite))}
                 step={1} // Step ကို သေးပေးထားရင် Input ရိုက်ရတာ ပိုမှန်ပါလိမ့်မယ်
                 sliderLength={280}
                 selectedStyle={styles.sliderSelected}
@@ -205,21 +217,23 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             </View>
           </View>
 
+          {!validPriceRange && <ThemedText style={{ paddingHorizontal: 16, color: '#E53935' }}>Enter a valid minimum and maximum price.</ThemedText>}
+
           <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
 
           {/* Brand Selection */}
           <ThemedText style={styles.sectionTitle}>Brand</ThemedText>
           <View style={styles.brandList}>
             {availableBrands.map((b) => {
-              const checked = brands.includes(b);
+              const checked = brands.includes(String(b.id)) || brands.includes(b.slug);
               return (
                 <TouchableOpacity
-                  key={b}
+                  key={b.id}
                   style={styles.brandRow}
                   onPress={() => toggleBrand(b)}
                   activeOpacity={0.8}
                 >
-                  <ThemedText style={styles.brandName}>{b}</ThemedText>
+                  <ThemedText style={styles.brandName}>{b.name}</ThemedText>
                   <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
                     {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
                   </View>
@@ -234,8 +248,10 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
           <ThemedText style={styles.sectionTitle}>Sort By</ThemedText>
           <View style={styles.sortList}>
             {[
+              { key: 'best', label: 'Best Match' },
               { key: 'newest', label: 'Newest' },
               { key: 'price_low_high', label: 'Price Low → High' },
+              { key: 'top_rated', label: 'Top Rated' },
             ].map((opt) => {
               const active = sortBy === (opt.key as Filters['sortBy']);
               return (
@@ -259,7 +275,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
           <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
             <ThemedText style={styles.resetText}>Reset</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.applyBtn} onPress={apply}>
+          <TouchableOpacity style={[styles.applyBtn, !validPriceRange && { opacity: 0.5 }]} onPress={apply} disabled={!validPriceRange}>
             <ThemedText style={styles.applyText}>Apply Filters</ThemedText>
           </TouchableOpacity>
         </View>

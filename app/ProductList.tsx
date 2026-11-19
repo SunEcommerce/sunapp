@@ -2,14 +2,13 @@ import FilterBottomSheet, { Filters } from '@/components/FilterBottomSheet';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
-import { fetchProducts } from '@/utils/api';
+import { fetchFilteredProducts, type ProductSort } from '@/utils/product-listing';
 import { navigateToProductDetail } from '@/utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Dimensions,
   FlatList,
   Image,
   StatusBar,
@@ -18,13 +17,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_GUTTER = 12;
 const NUM_COLUMNS = 2;
-const CARD_WIDTH = (SCREEN_WIDTH - CARD_GUTTER * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
 
 export default function ProductListScreen() {
@@ -33,10 +31,16 @@ export default function ProductListScreen() {
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const { width } = useWindowDimensions();
+  const [listWidth, setListWidth] = useState(width);
+  const cardWidth = Math.max(0, (listWidth - CARD_GUTTER * (NUM_COLUMNS + 1)) / NUM_COLUMNS);
   const [filterVisible, setFilterVisible] = useState(false);
-  const [filters, setFilters] = useState<Partial<Filters>>({});
+  const [filters, setFilters] = useState<Filters | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
-  const [selectedSort, setSelectedSort] = useState<'best' | 'sales' | 'price'>('best');
+  const [selectedSort, setSelectedSort] = useState<ProductSort>('best');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [requestVersion, setRequestVersion] = useState(0);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,61 +50,51 @@ export default function ProductListScreen() {
     : params.category || 'all';
   const searchQuery = Array.isArray(params.name) ? params.name[0] || '' : params.name || '';
   const brandSlug = Array.isArray(params.brand) ? params.brand[0] || '' : params.brand || '';
-  const source = Array.isArray(params.source) ? params.source[0] || '' : params.source || '';
+  useEffect(() => {
+    setFilters(null);
+    setSelectedSort('best');
+    setPage(1);
+  }, [selectedCategory, brandSlug]);
+  const appliedFilters = useMemo<Filters>(() => filters || {
+    category: selectedCategory,
+    brands: brandSlug ? [brandSlug] : [],
+    sortBy: selectedSort,
+  }, [filters, selectedCategory, brandSlug, selectedSort]);
 
   // Fetch products from API
   useEffect(() => {
     setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
     const loadProducts = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        const apiParams: any = {};
-        
-        if (selectedCategory && selectedCategory !== 'all') {
-          apiParams.category = selectedCategory;
-        }
-        
-        if (searchQuery.trim()) {
-          apiParams.name = searchQuery.trim();
-        }
-
-        if (brandSlug) {
-          apiParams.brand = brandSlug;
-        }
-
-        // Add sort parameter
-        if (selectedSort === 'sales') {
-          apiParams.sort = 'sales';
-        } else if (selectedSort === 'price') {
-          apiParams.sort = 'price';
-        }
-
-        // Add filters if any
-        if (filters.minPrice) {
-          apiParams.min_price = filters.minPrice;
-        }
-        if (filters.maxPrice) {
-          apiParams.max_price = filters.maxPrice;
-        }
-
-        const response = await fetchProducts(apiParams);
-        const productsData = response?.data || response?.products || response || [];
-        setProducts(productsData);
+        const response = await fetchFilteredProducts({ ...appliedFilters, name: searchQuery, page });
+        if (cancelled) return;
+        setProducts(previous => page === 1 ? response.products : [...previous, ...response.products]);
+        setHasMore(response.hasMore);
       } catch (error) {
+        if (cancelled) return;
         console.error('Failed to fetch products:', error);
         setError(error instanceof Error ? error.message : 'Failed to load products');
-        setProducts([]);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadProducts();
-  }, [selectedCategory, searchQuery, brandSlug, selectedSort, filters]);
+    return () => { cancelled = true; };
+  }, [appliedFilters, searchQuery, page, requestVersion]);
 
-  const totalResults = products.length;
+  const changeSort = (sort: ProductSort) => {
+    setPage(1);
+    setSelectedSort(sort);
+    setFilters({ ...appliedFilters, sortBy: sort });
+  };
 
   const renderCard = ({ item }: { item: any }) => {
     const imageUrl = item.cover || item.image || item.image_url || item.thumbnail || 'https://placehold.co/400x400/png?text=Product';
@@ -118,7 +112,7 @@ export default function ProductListScreen() {
 
     return (
       <TouchableOpacity 
-        style={[styles.card, { backgroundColor: themeColors.card }]} 
+        style={[styles.card, { backgroundColor: themeColors.card, width: cardWidth }]}
         onPress={() => navigateToProductDetail(router, slug, {
           name: title,
           price: discountedPrice,
@@ -130,7 +124,7 @@ export default function ProductListScreen() {
         activeOpacity={0.9}
       >
         <View style={styles.imageWrapper}>
-          <Image source={{ uri: imageUrl }} style={styles.image} />
+          <Image source={{ uri: imageUrl }} style={[styles.image, { height: cardWidth }]} />
         </View>
         <View style={styles.cardBody}>
           <ThemedText style={styles.title} numberOfLines={2}>
@@ -156,28 +150,28 @@ export default function ProductListScreen() {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, selectedSort === 'best' && styles.sortButtonActive]} 
-          onPress={() => setSelectedSort('best')}>
-          <ThemedText style={[styles.sortButtonText, selectedSort === 'best' && styles.sortButtonTextActive]}>Best Match</ThemedText>
+          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'best' && styles.sortButtonActive]}
+          onPress={() => changeSort('best')}>
+          <ThemedText style={[styles.sortButtonText, appliedFilters.sortBy === 'best' && styles.sortButtonTextActive]}>Best Match</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, selectedSort === 'sales' && styles.sortButtonActive]} 
-          onPress={() => setSelectedSort('sales')}>
-          <ThemedText style={[styles.sortButtonText, selectedSort === 'sales' && styles.sortButtonTextActive]}>Top Sales</ThemedText>
+          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'top_rated' && styles.sortButtonActive]}
+          onPress={() => changeSort('top_rated')}>
+          <ThemedText style={[styles.sortButtonText, appliedFilters.sortBy === 'top_rated' && styles.sortButtonTextActive]}>Top Rated</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, selectedSort === 'price' && styles.sortButtonActive]} 
-          onPress={() => setSelectedSort('price')}>
-          <ThemedText style={[styles.sortButtonText, selectedSort === 'price' && styles.sortButtonTextActive]}>Price ↕</ThemedText>
+          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonActive]}
+          onPress={() => changeSort('price_low_high')}>
+          <ThemedText style={[styles.sortButtonText, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonTextActive]}>Price ↑</ThemedText>
         </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']} onLayout={e => setListWidth(e.nativeEvent.layout.width)}>
       <StatusBar 
         barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
@@ -198,20 +192,19 @@ export default function ProductListScreen() {
             onChangeText={setLocalSearchQuery}
             returnKeyType="search"
             onSubmitEditing={() => {
-              if (localSearchQuery.trim()) {
-                router.setParams({ name: localSearchQuery.trim() });
-              }
+              setPage(1);
+              router.setParams({ name: localSearchQuery.trim() });
             }}
           />
           {localSearchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setLocalSearchQuery('')}>
+            <TouchableOpacity onPress={() => { setLocalSearchQuery(''); setPage(1); router.setParams({ name: '' }); }}>
               <Ionicons name="close-circle" size={20} color="#999" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {isLoading ? (
+      {isLoading && page === 1 ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#1E88E5" />
           <ThemedText style={styles.loadingText}>Loading products...</ThemedText>
@@ -223,8 +216,7 @@ export default function ProductListScreen() {
           <TouchableOpacity 
             style={styles.retryButton} 
             onPress={() => {
-              setIsLoading(true);
-              setError(null);
+              setRequestVersion(version => version + 1);
             }}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -239,6 +231,11 @@ export default function ProductListScreen() {
           columnWrapperStyle={products.length > 0 ? styles.columnWrapper : undefined}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={ListHeader}
+          ListFooterComponent={hasMore ? (
+            <TouchableOpacity style={styles.retryButton} disabled={isLoading} onPress={() => setPage(current => current + 1)}>
+              <Text style={styles.retryButtonText}>{isLoading ? 'Loading...' : 'Load More'}</Text>
+            </TouchableOpacity>
+          ) : null}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={64} color="#CCC" />
@@ -253,16 +250,15 @@ export default function ProductListScreen() {
       <FilterBottomSheet
         visible={filterVisible}
         onClose={() => setFilterVisible(false)}
-        onReset={() => setFilters({})}
+        onReset={() => { setPage(1); setSelectedSort('best'); setFilters({ category: 'all', brands: [], sortBy: 'best' }); }}
         onApply={(f) => {
           setFilters(f);
+          setPage(1);
           setFilterVisible(false);
           // Example: navigate with applied filters (optional)
           // router.setParams?.(f as any);
         }}
-        initial={{
-          category: selectedCategory === 'all' ? 'All' : selectedCategory,
-        }}
+        initial={appliedFilters}
       />
     </SafeAreaView>
   );
@@ -320,6 +316,7 @@ const styles = StyleSheet.create({
   },
   controlRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   controlButton: {
@@ -359,7 +356,6 @@ const styles = StyleSheet.create({
     marginBottom: CARD_GUTTER,
   },
   card: {
-    width: CARD_WIDTH,
     borderRadius: 10,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -373,7 +369,6 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: CARD_WIDTH,
     resizeMode: 'cover',
   },
   favButton: {

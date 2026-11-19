@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useContext, useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -31,7 +31,6 @@ function InlineCartIllustration() {
 export default function CartScreen() {
   const router = useRouter();
   const { items, itemCount, totalAmount, removeFromCart, updateQuantity } = useCart();
-  const [promoCode, setPromoCode] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const themeContext = useContext(ThemeContext);
@@ -41,9 +40,6 @@ export default function CartScreen() {
 
   // Calculate totals
   const subtotal = totalAmount;
-  const discount = 40.00; // You can make this dynamic based on promo code
-  const deliveryFee = 0; // Free delivery
-  const total = subtotal - discount + deliveryFee;
 
   const uniqueItemCount = items.length;
 
@@ -60,7 +56,10 @@ export default function CartScreen() {
   }, []);
 
   const handleRemoveItem = (id: string, name: string) => {
-    removeFromCart(id)
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remove ${name} from cart?`)) removeFromCart(id);
+      return;
+    }
     Alert.alert(
       'Remove Item',
       `Remove ${name} from cart?`,
@@ -120,7 +119,7 @@ export default function CartScreen() {
           </ThemedText>
 
           <ThemedText type="default" style={styles.subtitle}>
-            but it doesn't have to be.
+            but it doesn&apos;t have to be.
           </ThemedText>
 
           <Pressable
@@ -226,20 +225,6 @@ export default function CartScreen() {
             ))}
           </View>
 
-          {/* Promo Code */}
-          <View style={styles.promoSection}>
-            <TextInput
-              style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0', color: themeColors.text }]}
-              placeholder="Enter promo code"
-              placeholderTextColor="#999"
-              value={promoCode}
-              onChangeText={setPromoCode}
-            />
-            <TouchableOpacity style={styles.applyButton}>
-              <ThemedText style={styles.applyButtonText}>Apply</ThemedText>
-            </TouchableOpacity>
-          </View>
-
           {/* Order Summary */}
           <View style={styles.summarySection}>
             <View style={styles.summaryRow}>
@@ -247,20 +232,9 @@ export default function CartScreen() {
               <ThemedText style={styles.summaryValue}>${subtotal.toFixed(2)}</ThemedText>
             </View>
 
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>Discount</ThemedText>
-              <ThemedText style={styles.discountValue}>-${discount.toFixed(2)}</ThemedText>
-            </View>
-
-            <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>Delivery Fee</ThemedText>
-              <ThemedText style={styles.freeValue}>Free</ThemedText>
-            </View>
-
-            <View style={[styles.summaryRow, styles.totalRow, { borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-              <ThemedText style={styles.totalLabel}>Total</ThemedText>
-              <ThemedText style={styles.totalValue}>${total.toFixed(2)}</ThemedText>
-            </View>
+            <ThemedText style={{ color: themeColors.textSecondary, fontSize: 14 }}>
+              Coupons and delivery fees are calculated at checkout.
+            </ThemedText>
           </View>
         </ScrollView>
       </ThemedView>

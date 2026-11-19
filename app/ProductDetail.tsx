@@ -5,20 +5,19 @@ import { ThemeContext } from '@/contexts/theme-context';
 import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, postWishlistToggle } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
   Image,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -28,6 +27,9 @@ export default function ProductDetailScreen() {
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const [carouselWidth, setCarouselWidth] = useState(width);
+  const carouselRef = useRef<ScrollView>(null);
   
   // Parse preloaded data for instant display
   const initialData = preloadData ? JSON.parse(preloadData as string) : null;
@@ -38,6 +40,10 @@ export default function ProductDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const imageIndexRef = useRef(0);
+  useEffect(() => {
+    carouselRef.current?.scrollTo({ x: imageIndexRef.current * carouselWidth, animated: false });
+  }, [carouselWidth]);
   const [quantity, setQuantity] = useState(1);
   const [expandedSection, setExpandedSection] = useState<string>('description');
   const [variations, setVariations] = useState<any[]>([]);
@@ -422,21 +428,23 @@ export default function ProductDetailScreen() {
 
       <ScrollView style={[styles.scrollView, {paddingBottom: 20 }]} showsVerticalScrollIndicator={false}>
         {/* Image Carousel */}
-        <View style={styles.carouselContainer}>
+        <View style={styles.carouselContainer} onLayout={e => setCarouselWidth(e.nativeEvent.layout.width)}>
           {allImages.length > 0 ? (
             <>
               <ScrollView
+                ref={carouselRef}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onScroll={(e) => {
-                  const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                  const index = Math.round(e.nativeEvent.contentOffset.x / carouselWidth);
+                  imageIndexRef.current = index;
                   setCurrentImageIndex(index);
                 }}
                 scrollEventThrottle={16}
               >
                 {allImages.map((img:any, idx:number) => (
-                  <Image key={idx} source={{ uri: img }} style={styles.carouselImage} />
+                  <Image key={idx} source={{ uri: img }} style={[styles.carouselImage, { width: carouselWidth, height: carouselWidth }]} />
                 ))}
               </ScrollView>
               {/* Pagination Dots */}
@@ -710,8 +718,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   carouselImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,
+    width: '100%',
+    aspectRatio: 1,
     resizeMode: 'cover',
     backgroundColor: '#fff',
   },
