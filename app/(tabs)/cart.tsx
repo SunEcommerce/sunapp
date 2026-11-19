@@ -6,6 +6,7 @@ import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, TouchableOpa
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
 import { getAccessToken } from '@/utils/api';
@@ -30,6 +31,7 @@ function InlineCartIllustration() {
 }
 
 export default function CartScreen() {
+  const tabContentInset = useTabContentInset();
   const router = useRouter();
   const { items, itemCount, totalAmount, removeFromCart, updateQuantity } = useCart();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -113,7 +115,7 @@ export default function CartScreen() {
   // Empty cart state
   if (itemCount === 0) {
     return (
-      <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+      <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background, paddingBottom: tabContentInset }]}>
         <ThemedView style={[styles.container]}>
           <InlineCartIllustration />
 
@@ -139,7 +141,7 @@ export default function CartScreen() {
 
   // Cart with items
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: themeColors.background, paddingBottom: tabContentInset }]}>
       <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: (themeColors as any).borderColor || '#e0e0e0' }]}>

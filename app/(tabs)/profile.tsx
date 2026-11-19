@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { ThemeContext } from '@/contexts/theme-context';
 import { getAccessToken, logout } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,6 +58,7 @@ const MenuItem: React.FC<{
 );
 
 export default function TabTwoScreen() {
+  const tabContentInset = useTabContentInset();
   const themeContext = useContext(ThemeContext);
 
   const colorScheme = themeContext?.colorScheme ?? 'light';
@@ -233,7 +235,8 @@ export default function TabTwoScreen() {
       </ThemedView>
 
       <ThemedView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabContentInset }]}
+          scrollIndicatorInsets={{ bottom: tabContentInset }}>
           {/* 2. MENU LIST SECTION */}
           <View style={styles.menuList}>
             {menuItems.map((item, index) => (

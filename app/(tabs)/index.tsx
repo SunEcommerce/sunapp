@@ -5,6 +5,7 @@ import HotSalesSection from '@/components/HotSalesSection';
 import NewArrivalsSection from '@/components/NewArrivalsSection';
 import ProductCustomSections from '@/components/ProductCustomSections';
 import { Colors } from '@/constants/theme';
+import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
 import {
@@ -34,6 +35,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 
 export default function HomeScreen() {
+  const tabContentInset = useTabContentInset();
   const { colorScheme } = useContext(ThemeContext)!;
   const { itemCount } = useCart();
   const router = useRouter();
@@ -157,7 +159,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: Colors[colorScheme].background }]}>
         <View style={styles.logoPlaceholder}>
@@ -256,6 +258,8 @@ export default function HomeScreen() {
 
       {/* Main Content */}
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabContentInset }}
+        scrollIndicatorInsets={{ bottom: tabContentInset }}
         refreshControl={<RefreshControl refreshing={refreshKey > 0 && isLoadingSlider} onRefresh={refresh} tintColor={Colors[colorScheme].tint} />}>
         {/* Banner Slider */}
         <View style={styles.bannerContainer} onLayout={e => setBannerWidth(e.nativeEvent.layout.width)}>

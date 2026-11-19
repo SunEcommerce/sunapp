@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchCategoryTree } from '@/utils/api';
 
@@ -50,6 +51,7 @@ function getAllChildren(category: Category): Category[] {
 }
 
 export default function CategoryScreen() {
+  const tabContentInset = useTabContentInset();
   const router = useRouter();
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
@@ -133,7 +135,7 @@ export default function CategoryScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         {/* Header */}
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
@@ -144,6 +146,8 @@ export default function CategoryScreen() {
           <View style={[styles.leftColumn, { backgroundColor: themeColors.card }]}>
             <FlatList
               data={categories}
+              contentContainerStyle={{ paddingBottom: tabContentInset }}
+              scrollIndicatorInsets={{ bottom: tabContentInset }}
               renderItem={renderMainCategory}
               keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
@@ -160,7 +164,8 @@ export default function CategoryScreen() {
               numColumns={2}
               columnWrapperStyle={styles.subCategoryRow}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.subCategoryList}
+              contentContainerStyle={[styles.subCategoryList, { paddingBottom: tabContentInset }]}
+              scrollIndicatorInsets={{ bottom: tabContentInset }}
             />
           </View>
         </View>
