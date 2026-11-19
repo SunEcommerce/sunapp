@@ -76,23 +76,14 @@ export default function SettingsScreen() {
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.intro}>
         <View style={[styles.introIcon, { backgroundColor: softAccent }]}>
-          <Ionicons name="color-palette-outline" size={25} color={accent} />
-        </View>
-        <ThemedText accessibilityRole="header" style={styles.title}>Appearance</ThemedText>
-        <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>A look that feels right for you.</ThemedText>
-      </View>
-
-      <View style={[styles.currentCard, { backgroundColor: surface, borderColor: border }]}>
-        <View style={[styles.currentIcon, { backgroundColor: softAccent }]}>
-          <Ionicons name={isSystemMode ? 'phone-portrait-outline' : dark ? 'moon-outline' : 'sunny-outline'} size={21} color={accent} />
+          <Ionicons name={isSystemMode ? 'phone-portrait-outline' : dark ? 'moon-outline' : 'sunny-outline'} size={20} color={accent} />
         </View>
         <View style={styles.currentCopy}>
-          <ThemedText style={styles.currentTitle}>{isSystemMode ? 'Matches your device' : dark ? 'Dark appearance' : 'Light appearance'}</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.title}>Appearance</ThemedText>
           <ThemedText accessibilityLiveRegion="polite" style={[styles.caption, { color: theme.textSecondary }]}>
-            {isSystemMode ? `Currently using ${colorScheme} mode` : 'Applied across the app'}
+            {isSystemMode ? `Currently using ${colorScheme} mode` : dark ? 'Dark appearance' : 'Light appearance'}
           </ThemedText>
         </View>
-        <Ionicons name="checkmark-circle" size={20} color={accent} />
       </View>
 
       <View style={styles.themeSection}>
@@ -113,7 +104,7 @@ export default function SettingsScreen() {
           })}
         </View>
         <ThemedText style={[styles.hint, { color: theme.textSecondary }]}>
-          {isSystemMode ? 'System automatically follows your device’s light or dark appearance.' : 'Your chosen theme stays the same when your device changes appearance.'}
+          {isSystemMode ? 'Automatically follows your device’s appearance.' : 'Use your chosen theme across the app.'}
         </ThemedText>
       </View>
       <View style={[styles.savedHint, { borderTopColor: border }]}>
@@ -130,33 +121,29 @@ const styles = StyleSheet.create({
   headerContent: { width: '100%', maxWidth: 620, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, minHeight: 48 },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '600', textAlign: 'center' },
-  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 24, paddingBottom: 28 },
-  intro: { alignItems: 'flex-start', marginBottom: 24 },
-  introIcon: { width: 52, height: 52, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  title: { fontSize: 26, lineHeight: 34, fontWeight: '700', letterSpacing: -0.6 },
-  subtitle: { fontSize: 14, lineHeight: 22, marginTop: 4 },
-  currentCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderWidth: 1, borderRadius: 18 },
-  currentIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
+  intro: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  introIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 20, lineHeight: 26, fontWeight: '700', letterSpacing: -0.6 },
   currentCopy: { flex: 1, gap: 3 },
-  currentTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   caption: { fontSize: 12, lineHeight: 19, flexShrink: 1 },
-  themeSection: { marginTop: 24 },
-  sectionTitle: { fontSize: 14, lineHeight: 22, fontWeight: '600', marginBottom: 12 },
+  themeSection: { marginTop: 16 },
+  sectionTitle: { fontSize: 14, lineHeight: 22, fontWeight: '600', marginBottom: 8 },
   options: { flexDirection: 'row', gap: 8 },
-  option: { flex: 1, minWidth: 0, borderWidth: 1.5, borderRadius: 16, padding: 8, minHeight: 146 },
-  optionLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, minHeight: 36, paddingTop: 4 },
+  option: { flex: 1, minWidth: 0, borderWidth: 1.5, borderRadius: 14, padding: 8, minHeight: 114 },
+  optionLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, minHeight: 30, paddingTop: 4 },
   optionLabel: { fontSize: 12, lineHeight: 18, fontWeight: '600', flexShrink: 1 },
-  preview: { flexDirection: 'row', height: 92, borderRadius: 9, overflow: 'hidden' },
-  previewPanel: { flex: 1, padding: 6, gap: 7 },
+  preview: { flexDirection: 'row', height: 68, borderRadius: 7, overflow: 'hidden' },
+  previewPanel: { flex: 1, padding: 5, gap: 5 },
   previewNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   previewLogo: { width: 11, height: 8, borderRadius: 2 },
   previewDot: { width: 4, height: 4, borderRadius: 2 },
-  previewBanner: { height: 21, borderRadius: 4 },
+  previewBanner: { height: 14, borderRadius: 4 },
   previewProducts: { flexDirection: 'row', gap: 4 },
-  previewProduct: { flex: 1, gap: 4 },
-  previewImage: { height: 17, borderRadius: 3 },
+  previewProduct: { flex: 1, gap: 3 },
+  previewImage: { height: 12, borderRadius: 3 },
   previewLine: { width: '90%', height: 3, borderRadius: 2 },
   previewPrice: { width: '60%', height: 3, borderRadius: 2 },
-  hint: { fontSize: 12, lineHeight: 20, marginTop: 12 },
-  savedHint: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 18, marginTop: 24 },
+  hint: { fontSize: 12, lineHeight: 18, marginTop: 10 },
+  savedHint: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, marginTop: 14 },
 });
