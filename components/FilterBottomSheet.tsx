@@ -137,6 +137,8 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               const active = chip.value === category;
               return (
                 <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   key={chip.value}
                   style={[
                     styles.chip,
@@ -163,6 +165,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               <View style={[styles.priceInputContainer, { borderColor: themeColors.borderColor }]}>
                 <ThemedText style={styles.priceInputLabel}>$</ThemedText>
                 <TextInput
+                  accessibilityLabel="Minimum price"
                   style={[styles.priceInput, { color: themeColors.text }]}
                   // value ကို string အဖြစ်ပြပေးရုံတင်မကဘဲ user ရိုက်နေချိန်မှာ ပျောက်မသွားအောင် handle လုပ်ရပါမယ်
                   value={priceRange[0].toString()}
@@ -184,6 +187,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               <View style={[styles.priceInputContainer, { borderColor: themeColors.borderColor }]}>
                 <ThemedText style={styles.priceInputLabel}>$</ThemedText>
                 <TextInput
+                  accessibilityLabel="Maximum price"
                   style={[styles.priceInput, { color: themeColors.text }]}
                   value={priceRange[1].toString()}
                   keyboardType="numeric"
@@ -228,6 +232,9 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               const checked = brands.includes(String(b.id)) || brands.includes(b.slug);
               return (
                 <TouchableOpacity
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={b.name}
+                  accessibilityState={{ checked }}
                   key={b.id}
                   style={styles.brandRow}
                   onPress={() => toggleBrand(b)}
@@ -256,6 +263,8 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               const active = sortBy === (opt.key as Filters['sortBy']);
               return (
                 <TouchableOpacity
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
                   key={opt.key}
                   style={styles.sortRow}
                   onPress={() => setSortBy(opt.key as Filters['sortBy'])}

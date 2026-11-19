@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import FilterBottomSheet, { Filters } from '@/components/FilterBottomSheet';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
@@ -40,6 +41,7 @@ export default function ProductListScreen() {
   const [selectedSort, setSelectedSort] = useState<ProductSort>('best');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [nextPage, setNextPage] = useState(2);
   const [requestVersion, setRequestVersion] = useState(0);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,11 +52,14 @@ export default function ProductListScreen() {
     : params.category || 'all';
   const searchQuery = Array.isArray(params.name) ? params.name[0] || '' : params.name || '';
   const brandSlug = Array.isArray(params.brand) ? params.brand[0] || '' : params.brand || '';
+  const source = Array.isArray(params.source) ? params.source[0] : params.source;
+  const section = Array.isArray(params.section) ? params.section[0] : params.section;
+  const defaultSort = source === 'new_arrivals' ? 'newest' : 'best';
   useEffect(() => {
     setFilters(null);
-    setSelectedSort('best');
+    setSelectedSort(source === 'new_arrivals' ? 'newest' : 'best');
     setPage(1);
-  }, [selectedCategory, brandSlug]);
+  }, [selectedCategory, brandSlug, source, section]);
   const appliedFilters = useMemo<Filters>(() => filters || {
     category: selectedCategory,
     brands: brandSlug ? [brandSlug] : [],
@@ -73,10 +78,11 @@ export default function ProductListScreen() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetchFilteredProducts({ ...appliedFilters, name: searchQuery, page });
+        const response = await fetchFilteredProducts({ ...appliedFilters, name: searchQuery, page, source, section });
         if (cancelled) return;
         setProducts(previous => page === 1 ? response.products : [...previous, ...response.products]);
         setHasMore(response.hasMore);
+        setNextPage(response.nextPage);
       } catch (error) {
         if (cancelled) return;
         console.error('Failed to fetch products:', error);
@@ -88,7 +94,7 @@ export default function ProductListScreen() {
 
     loadProducts();
     return () => { cancelled = true; };
-  }, [appliedFilters, searchQuery, page, requestVersion]);
+  }, [appliedFilters, searchQuery, page, requestVersion, source, section]);
 
   const changeSort = (sort: ProductSort) => {
     setPage(1);
@@ -131,9 +137,9 @@ export default function ProductListScreen() {
             {title}
           </ThemedText>
           <View style={styles.priceContainer}>
-            <ThemedText style={styles.price}>${discountedPrice.toFixed(2)}</ThemedText>
+            <ThemedText style={[styles.price, { color: themeColors.success }]}>${discountedPrice.toFixed(2)}</ThemedText>
             {regularPrice > discountedPrice && (
-              <ThemedText style={styles.originalPrice}>${regularPrice.toFixed(2)}</ThemedText>
+              <ThemedText style={[styles.originalPrice, { color: themeColors.textSecondary }]}>${regularPrice.toFixed(2)}</ThemedText>
             )}
           </View>
         </View>
@@ -143,6 +149,11 @@ export default function ProductListScreen() {
 
   const ListHeader = (
     <View style={[styles.stickyHeaderContent, { backgroundColor: themeColors.background }]}>
+      {(source === 'hot_sales' || source === 'new_arrivals') && (
+        <ThemedText style={[styles.resultText, { color: themeColors.text }]}>
+          {source === 'hot_sales' ? 'Hot Sales' : 'New Arrivals'}
+        </ThemedText>
+      )}
       <View style={styles.controlRow}>
         <TouchableOpacity style={[styles.controlButton, { backgroundColor: themeColors.card, borderColor: '#1E88E5' }]} onPress={() => setFilterVisible(true)}>
           <Ionicons name="filter-outline" size={16} color="#1E88E5" />
@@ -152,19 +163,19 @@ export default function ProductListScreen() {
         <TouchableOpacity 
           style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'best' && styles.sortButtonActive]}
           onPress={() => changeSort('best')}>
-          <ThemedText style={[styles.sortButtonText, appliedFilters.sortBy === 'best' && styles.sortButtonTextActive]}>Best Match</ThemedText>
+          <ThemedText style={[styles.sortButtonText, { color: themeColors.textSecondary }, appliedFilters.sortBy === 'best' && styles.sortButtonTextActive]}>Best Match</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'top_rated' && styles.sortButtonActive]}
           onPress={() => changeSort('top_rated')}>
-          <ThemedText style={[styles.sortButtonText, appliedFilters.sortBy === 'top_rated' && styles.sortButtonTextActive]}>Top Rated</ThemedText>
+          <ThemedText style={[styles.sortButtonText, { color: themeColors.textSecondary }, appliedFilters.sortBy === 'top_rated' && styles.sortButtonTextActive]}>Top Rated</ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonActive]}
           onPress={() => changeSort('price_low_high')}>
-          <ThemedText style={[styles.sortButtonText, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonTextActive]}>Price ↑</ThemedText>
+          <ThemedText style={[styles.sortButtonText, { color: themeColors.textSecondary }, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonTextActive]}>Price ↑</ThemedText>
         </TouchableOpacity>
       </View>
     </View>
@@ -179,12 +190,12 @@ export default function ProductListScreen() {
       />
       {/* Header Navigation */}
       <View style={[styles.headerNav, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <IconButton label="Go back" style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <View style={[styles.searchContainer, { backgroundColor: themeColors.background }]}>
           <Ionicons name="search-outline" size={20} color={themeColors.icon} style={styles.searchIcon} />
-          <TextInput
+          <TextInput accessibilityLabel="Search products..."
             style={[styles.searchInput, { color: themeColors.text }]}
             placeholder="Search products..."
             placeholderTextColor={themeColors.icon}
@@ -197,9 +208,9 @@ export default function ProductListScreen() {
             }}
           />
           {localSearchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => { setLocalSearchQuery(''); setPage(1); router.setParams({ name: '' }); }}>
+            <IconButton label="Clear search" onPress={() => { setLocalSearchQuery(''); setPage(1); router.setParams({ name: '' }); }}>
               <Ionicons name="close-circle" size={20} color="#999" />
-            </TouchableOpacity>
+            </IconButton>
           )}
         </View>
       </View>
@@ -232,7 +243,7 @@ export default function ProductListScreen() {
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={ListHeader}
           ListFooterComponent={hasMore ? (
-            <TouchableOpacity style={styles.retryButton} disabled={isLoading} onPress={() => setPage(current => current + 1)}>
+            <TouchableOpacity style={styles.retryButton} disabled={isLoading} onPress={() => setPage(nextPage)}>
               <Text style={styles.retryButtonText}>{isLoading ? 'Loading...' : 'Load More'}</Text>
             </TouchableOpacity>
           ) : null}
@@ -250,7 +261,7 @@ export default function ProductListScreen() {
       <FilterBottomSheet
         visible={filterVisible}
         onClose={() => setFilterVisible(false)}
-        onReset={() => { setPage(1); setSelectedSort('best'); setFilters({ category: 'all', brands: [], sortBy: 'best' }); }}
+        onReset={() => { setPage(1); setSelectedSort(defaultSort); setFilters({ category: 'all', brands: [], sortBy: defaultSort }); }}
         onApply={(f) => {
           setFilters(f);
           setPage(1);

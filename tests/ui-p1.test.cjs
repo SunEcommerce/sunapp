@@ -97,7 +97,10 @@ function renderCart(totalAmount = 25, platform = 'android', confirm = () => fals
     '@expo/vector-icons': { Ionicons: 'Icon' },
     '@/components/themed-text': { ThemedText: 'ThemedText' },
     '@/components/themed-view': { ThemedView: 'ThemedView' },
+    '@/components/ui/icon-button': { IconButton: 'TouchableOpacity' },
+    '@/hooks/use-tab-content-inset': { useTabContentInset: () => 0 },
     '@/constants/theme': { Colors: { light: theme } },
+    '@/hooks/use-tab-content-inset': { useTabContentInset: () => 108 },
     '@/contexts/theme-context': { ThemeContext: {} },
     '@/utils/api': { getAccessToken: async () => null },
     '@/contexts/cart-context': { useCart: () => ({

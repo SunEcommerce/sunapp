@@ -1,4 +1,4 @@
-import { apiRequest, fetchBrands } from './api';
+import { apiRequest, fetchBrands, fetchHotSales } from './api';
 
 export type ProductSort = 'best' | 'newest' | 'price_low_high' | 'top_rated';
 
@@ -9,7 +9,24 @@ export type ProductFilters = {
   sortBy: ProductSort;
 };
 
-export async function fetchFilteredProducts(filters: ProductFilters & { name?: string; page?: number }) {
+export async function fetchFilteredProducts(filters: ProductFilters & { name?: string; page?: number; source?: string; section?: string }) {
+  // Keep section membership while letting the existing listing endpoint filter and sort.
+  let collectionIds: Set<number> | undefined;
+  if (filters.source === 'hot_sales' || (filters.source === 'section' && filters.section)) {
+    collectionIds = new Set<number>();
+    let collectionPage = 1;
+    let hasMoreCollection = false;
+    do {
+      const response = filters.source === 'hot_sales'
+        ? await fetchHotSales()
+        : await apiRequest(`/api/frontend/product-section/products/${encodeURIComponent(filters.section!)}?page=${collectionPage}`, 'GET', undefined, false);
+      const products = response?.data || response?.products || response || [];
+      products.forEach((product: { id: number }) => collectionIds!.add(product.id));
+      hasMoreCollection = filters.source === 'section' && response?.meta?.current_page < response?.meta?.last_page;
+      collectionPage++;
+    } while (hasMoreCollection);
+    if (!collectionIds.size) return { products: [], hasMore: false, nextPage: 1 };
+  }
   let brandIds = filters.brands;
   if (brandIds.some(id => !/^\d+$/.test(id))) {
     const response = await fetchBrands();
@@ -38,7 +55,15 @@ export async function fetchFilteredProducts(filters: ProductFilters & { name?: s
     body.max_price = max;
   }
 
-  const response = await apiRequest(`/api/frontend/product/category-wise-products?page=${filters.page || 1}`, 'POST', body, false);
-  const data = response?.data || response;
-  return { products: data.products || [], hasMore: data.current_page < data.last_page };
+  let page = filters.page || 1;
+  // Skip pages outside the selected collection instead of showing a false empty state.
+  while (true) {
+    const response = await apiRequest(`/api/frontend/product/category-wise-products?page=${page}`, 'POST', body, false);
+    const data = response?.data || response;
+    const products = (data.products || []).filter((product: { id: number }) => !collectionIds || collectionIds.has(product.id));
+    const hasMore = data.current_page < data.last_page;
+    const nextPage = Number(data.current_page) + 1;
+    if (products.length || !hasMore) return { products, hasMore, nextPage };
+    page = nextPage;
+  }
 }

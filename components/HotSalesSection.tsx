@@ -14,7 +14,7 @@ import {
     View,
 } from 'react-native';
 
-export default function HotSalesSection() {
+export default function HotSalesSection({ refreshKey = 0 }: { refreshKey?: number }) {
   const { colorScheme } = useContext(ThemeContext)!;
   const router = useRouter();
   const [hotSalesData, setHotSalesData] = useState<any[]>([]);
@@ -23,7 +23,7 @@ export default function HotSalesSection() {
 
   useEffect(() => {
     loadHotSales();
-  }, []);
+  }, [refreshKey]);
 
   const loadHotSales = async () => {
     try {
@@ -87,7 +87,7 @@ export default function HotSalesSection() {
           <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
           {hasDiscount && discountPercent > 0 && (
             <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>{discountPercent}% OFF</Text>
+              <Text style={[styles.discountText, { color: Colors[colorScheme].text }]}>{discountPercent}% OFF</Text>
             </View>
           )}
         </View>
@@ -127,6 +127,9 @@ export default function HotSalesSection() {
         <View style={styles.errorProductsContainer}>
           <Ionicons name="alert-circle-outline" size={24} color={Colors[colorScheme].text} />
           <Text style={{ color: Colors[colorScheme].text, marginTop: 8, fontSize: 12 }}>{hotSalesError}</Text>
+          <TouchableOpacity onPress={loadHotSales} accessibilityRole="button" style={{ padding: 12 }}>
+            <Text style={{ color: Colors[colorScheme].tint }}>Retry hot sales</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList

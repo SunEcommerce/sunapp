@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import {
   login,
   register,
@@ -241,7 +242,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter your email"
                   style={styles.input}
                   placeholder="Enter your email"
                   placeholderTextColor="#999"
@@ -257,7 +258,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter your password"
                   style={styles.input}
                   placeholder="Enter your password"
                   placeholderTextColor="#999"
@@ -266,13 +267,13 @@ export default function AuthScreen() {
                   secureTextEntry={!showLoginPassword}
                   autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowLoginPassword(!showLoginPassword)}>
+                <IconButton label={showLoginPassword ? "Hide password" : "Show password"} onPress={() => setShowLoginPassword(!showLoginPassword)}>
                   <Ionicons 
                     name={showLoginPassword ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
                     color="#999" 
                   />
-                </TouchableOpacity>
+                </IconButton>
               </View>
             </View>
 
@@ -297,7 +298,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Full Name</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="person-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter your full name"
                   style={styles.input}
                   placeholder="Enter your full name"
                   placeholderTextColor="#999"
@@ -311,7 +312,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter your email"
                   style={styles.input}
                   placeholder="Enter your email"
                   placeholderTextColor="#999"
@@ -327,7 +328,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Phone Number</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="call-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter your phone number"
                   style={styles.input}
                   placeholder="Enter your phone number"
                   placeholderTextColor="#999"
@@ -342,7 +343,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter your password"
                   style={styles.input}
                   placeholder="Enter your password"
                   placeholderTextColor="#999"
@@ -351,13 +352,13 @@ export default function AuthScreen() {
                   secureTextEntry={!showRegisterPassword}
                   autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowRegisterPassword(!showRegisterPassword)}>
+                <IconButton label={showRegisterPassword ? "Hide password" : "Show password"} onPress={() => setShowRegisterPassword(!showRegisterPassword)}>
                   <Ionicons 
                     name={showRegisterPassword ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
                     color="#999" 
                   />
-                </TouchableOpacity>
+                </IconButton>
               </View>
             </View>
 
@@ -365,7 +366,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>Confirm Password</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Confirm your password"
                   style={styles.input}
                   placeholder="Confirm your password"
                   placeholderTextColor="#999"
@@ -374,13 +375,13 @@ export default function AuthScreen() {
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <IconButton label={showConfirmPassword ? "Hide password" : "Show password"} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
                   <Ionicons 
                     name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
                     color="#999" 
                   />
-                </TouchableOpacity>
+                </IconButton>
               </View>
             </View>
 
@@ -388,7 +389,7 @@ export default function AuthScreen() {
               <Text style={styles.label}>OTP</Text>
               <View style={styles.inputWrapper}>
                 <Ionicons name="key-outline" size={20} color="#999" style={styles.inputIcon} />
-                <TextInput
+                <TextInput accessibilityLabel="Enter the OTP"
                   style={styles.input}
                   placeholder="Enter the OTP"
                   placeholderTextColor="#999"
@@ -469,7 +470,7 @@ export default function AuthScreen() {
                     <Text style={styles.label}>Email</Text>
                     <View style={styles.inputWrapper}>
                       <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
-                      <TextInput
+                      <TextInput accessibilityLabel="Enter your email"
                         style={styles.input}
                         placeholder="Enter your email"
                         placeholderTextColor="#999"
@@ -489,7 +490,7 @@ export default function AuthScreen() {
                       </View>
                       <View style={[styles.inputWrapper, styles.phoneInput]}>
                         <Ionicons name="call-outline" size={20} color="#999" style={styles.inputIcon} />
-                        <TextInput
+                        <TextInput accessibilityLabel="Enter your phone number"
                           style={styles.input}
                           placeholder="Enter your phone number"
                           placeholderTextColor="#999"
@@ -523,7 +524,7 @@ export default function AuthScreen() {
                   <Text style={styles.label}>OTP Code</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="key-outline" size={20} color="#999" style={styles.inputIcon} />
-                    <TextInput
+                    <TextInput accessibilityLabel="Enter the OTP"
                       style={styles.input}
                       placeholder="Enter the OTP"
                       placeholderTextColor="#999"
@@ -561,7 +562,7 @@ export default function AuthScreen() {
                   <Text style={styles.label}>New Password</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                    <TextInput
+                    <TextInput accessibilityLabel="Enter new password"
                       style={styles.input}
                       placeholder="Enter new password"
                       placeholderTextColor="#999"
@@ -570,13 +571,13 @@ export default function AuthScreen() {
                       secureTextEntry={!showForgotPassword}
                       autoCapitalize="none"
                     />
-                    <TouchableOpacity onPress={() => setShowForgotPassword(!showForgotPassword)}>
+                    <IconButton label={showForgotPassword ? "Hide password" : "Show password"} onPress={() => setShowForgotPassword(!showForgotPassword)}>
                       <Ionicons 
                         name={showForgotPassword ? "eye-outline" : "eye-off-outline"} 
                         size={20} 
                         color="#999" 
                       />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
                 </View>
 
@@ -584,7 +585,7 @@ export default function AuthScreen() {
                   <Text style={styles.label}>Confirm New Password</Text>
                   <View style={styles.inputWrapper}>
                     <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
-                    <TextInput
+                    <TextInput accessibilityLabel="Confirm new password"
                       style={styles.input}
                       placeholder="Confirm new password"
                       placeholderTextColor="#999"
@@ -593,13 +594,13 @@ export default function AuthScreen() {
                       secureTextEntry={!showForgotConfirmPassword}
                       autoCapitalize="none"
                     />
-                    <TouchableOpacity onPress={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}>
+                    <IconButton label={showForgotConfirmPassword ? "Hide password" : "Show password"} onPress={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}>
                       <Ionicons 
                         name={showForgotConfirmPassword ? "eye-outline" : "eye-off-outline"} 
                         size={20} 
                         color="#999" 
                       />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
                 </View>
 

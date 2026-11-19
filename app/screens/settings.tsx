@@ -1,10 +1,11 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useContext } from 'react';
-import { StatusBar, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { StatusBar, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
@@ -27,9 +28,9 @@ export default function SettingsScreen() {
         translucent={true}
       />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>App Setting</ThemedText>
         <View style={styles.headerRight} />
       </View>
@@ -37,11 +38,12 @@ export default function SettingsScreen() {
         <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Display</ThemedText>
         <View style={styles.item}>
           <ThemedText style={{ color: themeColors.text }}>Use System Setting</ThemedText>
-          <Switch value={isSystemMode} onValueChange={setSystemMode} />
+          <Switch accessibilityLabel="Use system theme" value={isSystemMode} onValueChange={setSystemMode} />
         </View>
         <View style={styles.item}>
           <ThemedText style={{ color: themeColors.text }}>Dark Mode</ThemedText>
           <Switch
+            accessibilityLabel="Dark mode"
             value={isDarkMode}
             onValueChange={toggleTheme}
             disabled={isSystemMode}

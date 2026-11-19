@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -355,14 +356,14 @@ export default function CheckoutScreen() {
           translucent={true}
         />
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.emptyContainer}>
-          <ThemedText style={styles.emptyText}>Your cart is empty</ThemedText>
+          <ThemedText style={[styles.emptyText, { color: themeColors.textSecondary }]}>Your cart is empty</ThemedText>
         </View>
       </SafeAreaView>
     );
@@ -378,15 +379,15 @@ export default function CheckoutScreen() {
           translucent={true}
         />
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2196F3" />
-          <ThemedText style={styles.loadingText}>Loading checkout...</ThemedText>
+          <ThemedText style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading checkout...</ThemedText>
         </View>
       </SafeAreaView>
     );
@@ -406,7 +407,7 @@ export default function CheckoutScreen() {
             <Ionicons name="checkmark-circle" size={120} color="#4CAF50" />
           </View>
           <ThemedText style={styles.thankYouTitle}>Thank You!</ThemedText>
-          <ThemedText style={styles.thankYouMessage}>
+          <ThemedText style={[styles.thankYouMessage, { color: themeColors.textSecondary }]}>
             Your order has been placed successfully
           </ThemedText>
           <View style={styles.thankYouSubtext}>
@@ -429,9 +430,9 @@ export default function CheckoutScreen() {
       />
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>Checkout</ThemedText>
         <View style={styles.headerRight} />
       </View>
@@ -455,7 +456,7 @@ export default function CheckoutScreen() {
               <ThemedText style={styles.chooseAddressText}>
                 Choose an Address
               </ThemedText>
-              <ThemedText style={styles.chooseAddressSubtext}>
+              <ThemedText style={[styles.chooseAddressSubtext, { color: themeColors.textSecondary }]}>
                 Select or add a delivery address
               </ThemedText>
             </TouchableOpacity>
@@ -484,7 +485,7 @@ export default function CheckoutScreen() {
                       <ThemedText style={[styles.addressText, { fontWeight: '600' }]}>
                         {addr.country_code} {addr.phone}
                       </ThemedText>
-                      <ThemedText style={styles.addressText}>
+                      <ThemedText style={[styles.addressText, { color: themeColors.text }]}>
                         {addr.address}
                         {addr.apartment ? `, ${addr.apartment}` : ''}
                         {addr.city}, {addr.state} {addr.zip_code} {addr.country}
@@ -532,7 +533,7 @@ export default function CheckoutScreen() {
                     >
                       {area.name}
                     </ThemedText>
-                    <ThemedText style={styles.shippingCharge}>
+                    <ThemedText style={[styles.shippingCharge, { color: themeColors.textSecondary }]}>
                       ${area.shipping_charge.toFixed(2)}
                     </ThemedText>
                   </View>
@@ -606,7 +607,7 @@ export default function CheckoutScreen() {
             </View>
           </View>
           <View style={styles.noteContainer}>
-            <TextInput
+            <TextInput accessibilityLabel="Add any special instructions for your order..."
               style={[styles.noteInput, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Add any special instructions for your order..."
               placeholderTextColor="#999"
@@ -632,19 +633,19 @@ export default function CheckoutScreen() {
               <View style={styles.appliedCouponContent}>
                 <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                 <View style={styles.appliedCouponText}>
-                  <ThemedText style={styles.appliedCouponCode}>{appliedCoupon}</ThemedText>
+                  <ThemedText style={[styles.appliedCouponCode, { color: themeColors.success }]}>{appliedCoupon}</ThemedText>
                   <ThemedText style={styles.appliedCouponDiscount}>
                     -${couponDiscount.toFixed(2)} discount applied
                   </ThemedText>
                 </View>
               </View>
-              <TouchableOpacity onPress={handleRemoveCoupon}>
+              <IconButton label="Remove coupon" onPress={handleRemoveCoupon}>
                 <Ionicons name="close-circle" size={24} color="#999" />
-              </TouchableOpacity>
+              </IconButton>
             </View>
           ) : (
             <View style={styles.promoContainer}>
-              <TextInput
+              <TextInput accessibilityLabel="Enter promo code"
                 style={[styles.promoInput, { backgroundColor: themeColors.background, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="Enter promo code"
                 placeholderTextColor="#999"
@@ -663,7 +664,7 @@ export default function CheckoutScreen() {
                 {isValidatingCoupon ? (
                   <ActivityIndicator size="small" color="#000" />
                 ) : (
-                  <ThemedText style={styles.applyButtonText}>Apply</ThemedText>
+                  <ThemedText style={[styles.applyButtonText, { color: themeColors.text }]}>Apply</ThemedText>
                 )}
               </TouchableOpacity>
             </View>
@@ -692,7 +693,7 @@ export default function CheckoutScreen() {
                     {item.name}
                   </ThemedText>
                   {item.variation_names && (
-                    <ThemedText style={styles.productVariant}>
+                    <ThemedText style={[styles.productVariant, { color: themeColors.textSecondary }]}>
                       {item.variation_names}
                     </ThemedText>
                   )}
@@ -700,7 +701,7 @@ export default function CheckoutScreen() {
                     <ThemedText style={styles.productPrice}>
                       ${item.price.toFixed(2)}
                     </ThemedText>
-                    <ThemedText style={styles.productQuantity}>
+                    <ThemedText style={[styles.productQuantity, { color: themeColors.textSecondary }]}>
                       x {item.quantity}
                     </ThemedText>
                   </View>
@@ -715,21 +716,21 @@ export default function CheckoutScreen() {
           {/* Price Breakdown */}
           <View style={styles.priceBreakdown}>
             <View style={styles.priceRow}>
-              <ThemedText style={styles.priceLabel}>Subtotal</ThemedText>
+              <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Subtotal</ThemedText>
               <ThemedText style={styles.priceValue}>${subtotal.toFixed(2)}</ThemedText>
             </View>
             
             {couponDiscount > 0 && (
               <View style={styles.priceRow}>
-                <ThemedText style={styles.priceLabel}>Coupon Discount</ThemedText>
-                <ThemedText style={styles.discountValue}>
+                <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Coupon Discount</ThemedText>
+                <ThemedText style={[styles.discountValue, { color: themeColors.success }]}>
                   -${couponDiscount.toFixed(2)}
                 </ThemedText>
               </View>
             )}
             
             <View style={styles.priceRow}>
-              <ThemedText style={styles.priceLabel}>Delivery Fee</ThemedText>
+              <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Delivery Fee</ThemedText>
               <ThemedText style={deliveryFee === 0 ? styles.freeValue : styles.priceValue}>
                 {deliveryFee === 0 ? 'Free' : `$${deliveryFee.toFixed(2)}`}
               </ThemedText>
@@ -737,7 +738,7 @@ export default function CheckoutScreen() {
 
             {tax > 0 && (
               <View style={styles.priceRow}>
-                <ThemedText style={styles.priceLabel}>Tax</ThemedText>
+                <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Tax</ThemedText>
                 <ThemedText style={styles.priceValue}>${tax.toFixed(2)}</ThemedText>
               </View>
             )}

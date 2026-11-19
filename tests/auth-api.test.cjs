@@ -37,6 +37,16 @@ function client(os = 'android', handler = () => ({ token: 'issued', user: { id: 
   return { api, secure, local, requests };
 }
 
+test('New Arrivals requests active products in newest-first order', async () => {
+  const { api, requests } = client();
+  await api.fetchNewArrivals();
+  const url = new URL(requests[0].url);
+  assert.equal(url.pathname, '/api/frontend/product');
+  assert.equal(url.searchParams.get('order_column'), 'id');
+  assert.equal(url.searchParams.get('order_type'), 'desc');
+  assert.equal(url.searchParams.get('status'), '5');
+});
+
 for (const os of ['android', 'web']) {
   test(`${os} login stores backend token and authenticates the next request`, async () => {
     const { api, secure, local, requests } = client(os);

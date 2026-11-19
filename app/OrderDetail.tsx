@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -180,9 +181,9 @@ export default function OrderDetailScreen() {
         translucent={true}
       />
       <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>Order Details</ThemedText>
         <View style={styles.placeholder} />
       </View>

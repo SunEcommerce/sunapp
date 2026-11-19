@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import CategoriesSection from '@/components/CategoriesSection';
 import FeaturedBrandsSection from '@/components/FeaturedBrandsSection';
 import HotSalesSection from '@/components/HotSalesSection';
@@ -19,6 +20,7 @@ import {
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -59,26 +61,29 @@ export default function HomeScreen() {
   const [sliderData, setSliderData] = useState<any[]>([]);
   const [isLoadingSlider, setIsLoadingSlider] = useState(true);
   const [sliderError, setSliderError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = () => setRefreshKey(key => key + 1);
 
   // Fetch categories from API and store in Redux
   useEffect(() => {
     const loadCategories = async () => {
-      if (parentCategories.length === 0) {
-        try {
-          dispatch(setLoading(true));
-          const response = await fetchCategoryTree();
-          const categories = response?.data || response || [];
-          dispatch(setCategoriesTree(categories));
-        } catch (error) {
-          console.error('Failed to fetch categories:', error);
-        } finally {
-          dispatch(setLoading(false));
-        }
+      try {
+        setCategoryError(null);
+        dispatch(setLoading(true));
+        const response = await fetchCategoryTree();
+        const categories = response?.data || response || [];
+        dispatch(setCategoriesTree(categories));
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        setCategoryError('Could not load categories. Pull down to retry.');
+      } finally {
+        dispatch(setLoading(false));
       }
     };
 
     loadCategories();
-  }, [dispatch]);
+  }, [dispatch, refreshKey]);
 
   // Fetch slider data from API
   useEffect(() => {
@@ -99,7 +104,7 @@ export default function HomeScreen() {
     };
 
     loadSlider();
-  }, []);
+  }, [refreshKey]);
 
   // Auto-scroll banner
   useEffect(() => {
@@ -159,20 +164,28 @@ export default function HomeScreen() {
           <Text style={[styles.logoText, { color: Colors[colorScheme].text }]}>Sun Mobile App</Text>
         </View>
         
-        <TouchableOpacity style={styles.cartButton} onPress={handleCartPress}>
-          <Ionicons name="cart-outline" size={28} color={Colors[colorScheme].text} />
-          {itemCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{itemCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <IconButton label="Refresh home" onPress={refresh} disabled={isLoadingSlider}>
+            <Ionicons name="refresh" size={24} color={Colors[colorScheme].text} />
+          </IconButton>
+          <TouchableOpacity style={styles.cartButton} onPress={handleCartPress} accessibilityRole="button" accessibilityLabel={`Cart, ${itemCount} items`}>
+            <Ionicons name="cart-outline" size={28} color={Colors[colorScheme].text} />
+            {itemCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{itemCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: Colors[colorScheme].background }]}>
           <TouchableOpacity 
+            accessibilityRole="button"
+            accessibilityLabel="Choose search category"
+            accessibilityState={{ expanded: showCategoryDropdown }}
             style={styles.categoryDropdown}
             onPress={() => setShowCategoryDropdown(true)}
           >
@@ -186,7 +199,7 @@ export default function HomeScreen() {
 
           <View style={styles.divider} />
 
-          <TextInput
+          <TextInput accessibilityLabel="Search products..."
             style={[styles.searchInput, { color: Colors[colorScheme].text }]}
             placeholder="Search products..."
             placeholderTextColor={Colors[colorScheme].text + '80'}
@@ -196,9 +209,9 @@ export default function HomeScreen() {
             returnKeyType="search"
           />
 
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+          <IconButton label="Search products" style={styles.searchButton} onPress={handleSearch}>
             <Ionicons name="search" size={20} color={Colors[colorScheme].tint} />
-          </TouchableOpacity>
+          </IconButton>
         </View>
       </View>
 
@@ -217,9 +230,9 @@ export default function HomeScreen() {
           <View style={[styles.modalContent, { backgroundColor: Colors[colorScheme].background }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: Colors[colorScheme].text }]}>Select Category</Text>
-              <TouchableOpacity onPress={() => setShowCategoryDropdown(false)}>
+              <IconButton label="Close categories" onPress={() => setShowCategoryDropdown(false)}>
                 <Ionicons name="close" size={24} color={Colors[colorScheme].text} />
-              </TouchableOpacity>
+              </IconButton>
             </View>
             <ScrollView style={styles.modalList}>
               {SEARCH_CATEGORIES.map((category) => (
@@ -242,7 +255,8 @@ export default function HomeScreen() {
       </Modal>
 
       {/* Main Content */}
-      <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshKey > 0 && isLoadingSlider} onRefresh={refresh} tintColor={Colors[colorScheme].tint} />}>
         {/* Banner Slider */}
         <View style={styles.bannerContainer} onLayout={e => setBannerWidth(e.nativeEvent.layout.width)}>
           {isLoadingSlider ? (
@@ -253,6 +267,9 @@ export default function HomeScreen() {
             <View style={[styles.bannerItem, styles.errorContainer]}>
               <Ionicons name="alert-circle-outline" size={32} color={Colors[colorScheme].text} />
               <Text style={{ color: Colors[colorScheme].text, marginTop: 8 }}>{sliderError}</Text>
+              <TouchableOpacity onPress={refresh} accessibilityRole="button" style={{ padding: 12 }}>
+                <Text style={{ color: Colors[colorScheme].tint }}>Retry banners</Text>
+              </TouchableOpacity>
             </View>
           ) : sliderData.length > 0 ? (
             <FlatList
@@ -271,19 +288,19 @@ export default function HomeScreen() {
         </View>
 
         {/* Category Section */}
-        <CategoriesSection />
+        {categoryError ? <TouchableOpacity onPress={refresh} accessibilityRole="button" style={{ padding: 16 }}><Text style={{ color: Colors[colorScheme].text }}>{categoryError}</Text><Text style={{ color: Colors[colorScheme].tint }}>Retry categories</Text></TouchableOpacity> : <CategoriesSection />}
 
         {/* Hot Sales Section */}
-        <HotSalesSection />
+        <HotSalesSection refreshKey={refreshKey} />
 
         {/* New Arrival Section */}
-        <NewArrivalsSection />
+        <NewArrivalsSection refreshKey={refreshKey} />
 
         {/* Products Custom Section(s) */}
-        <ProductCustomSections />
+        <ProductCustomSections refreshKey={refreshKey} />
 
         {/* Featured Brands Section */}
-        <FeaturedBrandsSection />
+        <FeaturedBrandsSection refreshKey={refreshKey} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -43,11 +44,7 @@ export default function FavoriteProducts() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  if (!themeContext) {
-    return null;
-  }
-
-  const { colorScheme } = themeContext;
+  const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
 
   useEffect(() => {
@@ -124,12 +121,12 @@ export default function FavoriteProducts() {
             <ThemedText style={styles.offerText}>Offer</ThemedText>
           </View>
         )}
-        <TouchableOpacity 
+        <IconButton label={`Remove ${item.name} from favorites`}
           style={styles.wishlistBadge}
           onPress={() => handleRemoveFromWishlist(item.id)}
         >
           <Ionicons name="heart" size={20} color="#E95757" />
-        </TouchableOpacity>
+        </IconButton>
       </View>
 
       <View style={styles.productInfo}>
@@ -140,14 +137,14 @@ export default function FavoriteProducts() {
         <View style={styles.priceContainer}>
           <ThemedText style={styles.price}>{item.currency_price}</ThemedText>
           {item.discounted_price !== item.currency_price && (
-            <ThemedText style={styles.originalPrice}>{item.discounted_price}</ThemedText>
+            <ThemedText style={[styles.originalPrice, { color: themeColors.textSecondary }]}>{item.discounted_price}</ThemedText>
           )}
         </View>
 
         {item.rating_star !== null && (
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={14} color="#FFB800" />
-            <ThemedText style={styles.ratingText}>
+            <ThemedText style={[styles.ratingText, { color: themeColors.textSecondary }]}>
               {item.rating_star} ({item.rating_star_count})
             </ThemedText>
           </View>
@@ -160,7 +157,7 @@ export default function FavoriteProducts() {
     <View style={styles.emptyContainer}>
       <Ionicons name="heart-outline" size={80} color="#CCC" />
       <ThemedText style={styles.emptyText}>No favorite products yet</ThemedText>
-      <ThemedText style={styles.emptySubtext}>
+      <ThemedText style={[styles.emptySubtext, { color: themeColors.textSecondary }]}>
         Start adding products to your wishlist!
       </ThemedText>
     </View>
@@ -175,9 +172,9 @@ export default function FavoriteProducts() {
           translucent={true}
         />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.headerTitle}>Favorite Products</ThemedText>
           <View style={styles.placeholder} />
         </View>
@@ -196,9 +193,9 @@ export default function FavoriteProducts() {
         translucent={true}
       />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>Favorite Products</ThemedText>
         <View style={styles.placeholder} />
       </View>

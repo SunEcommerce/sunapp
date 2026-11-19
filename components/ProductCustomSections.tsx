@@ -35,7 +35,7 @@ interface ProductSection {
   products: Product[];
 }
 
-export default function ProductCustomSections() {
+export default function ProductCustomSections({ refreshKey = 0 }: { refreshKey?: number }) {
   const { colorScheme } = useContext(ThemeContext)!;
   const router = useRouter();
   const [sections, setSections] = useState<ProductSection[]>([]);
@@ -43,7 +43,7 @@ export default function ProductCustomSections() {
 
   useEffect(() => {
     loadProductSections();
-  }, []);
+  }, [refreshKey]);
 
   const loadProductSections = async () => {
     try {
@@ -112,7 +112,7 @@ export default function ProductCustomSections() {
           <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
           {hasDiscount && discountPercent > 0 && (
             <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>{discountPercent}% OFF</Text>
+              <Text style={[styles.discountText, { color: Colors[colorScheme].text }]}>{discountPercent}% OFF</Text>
             </View>
           )}
         </View>

@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -206,12 +207,12 @@ export default function EditProfile() {
     <ThemedView style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-        <TouchableOpacity 
+        <IconButton label="Go back"
           style={styles.backButton}
           onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>Edit Profile</ThemedText>
         <View style={styles.backButton} />
       </View>
@@ -222,7 +223,7 @@ export default function EditProfile() {
       >
         {/* Profile Image */}
         <View style={styles.imageSection}>
-          <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Change profile picture" onPress={pickImage} style={styles.imageContainer}>
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.profileImage} />
             ) : (
@@ -234,7 +235,7 @@ export default function EditProfile() {
               <Ionicons name="camera" size={20} color="#fff" />
             </View>
           </TouchableOpacity>
-          <ThemedText style={styles.imageHint}>Tap to change profile picture</ThemedText>
+          <ThemedText style={[styles.imageHint, { color: themeColors.textSecondary }]}>Tap to change profile picture</ThemedText>
         </View>
 
         {/* Form Fields */}
@@ -247,7 +248,7 @@ export default function EditProfile() {
               borderColor: themeColors.icon 
             }]}>
               <Ionicons name="person-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput
+              <TextInput accessibilityLabel="Enter your name"
                 style={[styles.input, { color: themeColors.text }]}
                 value={name}
                 onChangeText={setName}
@@ -265,7 +266,7 @@ export default function EditProfile() {
               borderColor: themeColors.icon 
             }]}>
               <Ionicons name="mail-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput
+              <TextInput accessibilityLabel="Enter your email"
                 style={[styles.input, { color: themeColors.text }]}
                 value={email}
                 onChangeText={setEmail}
@@ -285,7 +286,7 @@ export default function EditProfile() {
               borderColor: themeColors.icon 
             }]}>
               <Ionicons name="flag-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput
+              <TextInput accessibilityLabel="Country code (e.g., +95)"
                 style={[styles.input, { color: themeColors.text }]}
                 value={countryCode}
                 onChangeText={setCountryCode}
@@ -304,7 +305,7 @@ export default function EditProfile() {
               borderColor: themeColors.icon 
             }]}>
               <Ionicons name="call-outline" size={20} color={themeColors.icon} style={styles.inputIcon} />
-              <TextInput
+              <TextInput accessibilityLabel="Enter your phone number"
                 style={[styles.input, { color: themeColors.text }]}
                 value={phone}
                 onChangeText={setPhone}

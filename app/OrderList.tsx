@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -174,12 +175,12 @@ export default function OrderListScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
       <View style={[styles.header, { backgroundColor: themeColors.background }]}>
-        <TouchableOpacity
+        <IconButton label="Go back"
           onPress={() => router.back()}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>My Orders</ThemedText>
         <View style={styles.placeholder} />
       </View>

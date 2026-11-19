@@ -12,7 +12,7 @@ import {
     View,
 } from 'react-native';
 
-export default function FeaturedBrandsSection() {
+export default function FeaturedBrandsSection({ refreshKey = 0 }: { refreshKey?: number }) {
   const { colorScheme } = useContext(ThemeContext)!;
   const router = useRouter();
   const [brandsData, setBrandsData] = useState<any[]>([]);
@@ -20,7 +20,7 @@ export default function FeaturedBrandsSection() {
 
   useEffect(() => {
     loadBrands();
-  }, []);
+  }, [refreshKey]);
 
   const loadBrands = async () => {
     try {

@@ -27,8 +27,13 @@ const MenuItem: React.FC<{
   color?: string;
   onPress?: () => void;
   borderColor?: string;
-}> = ({ iconName, label, color, onPress, borderColor }) => (
+  unavailable?: string;
+}> = ({ iconName, label, color, onPress, borderColor, unavailable }) => (
   <TouchableOpacity
+    accessibilityRole="button"
+    accessibilityLabel={unavailable ? `${label}, ${unavailable}` : label}
+    accessibilityState={{ disabled: !!unavailable }}
+    disabled={!!unavailable}
     style={[styles.menuItemContainer, { borderBottomColor: borderColor }]}
     onPress={onPress}
   >
@@ -47,7 +52,7 @@ const MenuItem: React.FC<{
     </View>
 
     {/* Right Arrow */}
-    <Ionicons name="chevron-forward-outline" size={20} color="#B0B0B0" />
+    {unavailable ? <ThemedText style={{ fontSize: 12, color }}>{unavailable}</ThemedText> : <Ionicons name="chevron-forward-outline" size={20} color={color} />}
   </TouchableOpacity>
 );
 
@@ -84,13 +89,14 @@ export default function TabTwoScreen() {
   const menuItems: Array<{
     label: string;
     icon: string;
-    action: () => void;
+    action?: () => void;
     color?: string;
+    unavailable?: string;
   }> = [
     {
       label: 'Language',
       icon: 'globe-outline',
-      action: () => console.log('Language pressed'),
+      unavailable: 'English only',
     },
     {
       label: 'App Setting',
@@ -100,17 +106,17 @@ export default function TabTwoScreen() {
     {
       label: 'Warranty',
       icon: 'shield-checkmark-outline',
-      action: () => console.log('Warranty pressed'),
+      unavailable: 'Unavailable',
     },
     {
       label: 'Apply Hire Purchase',
       icon: 'card-outline',
-      action: () => console.log('Apply Hire Purchase pressed'),
+      unavailable: 'Unavailable',
     },
     {
       label: 'Loyalty Program',
       icon: 'gift-outline',
-      action: () => console.log('Loyalty Program pressed'),
+      unavailable: 'Unavailable',
     },
     {
       label: 'Contact Us',
@@ -120,7 +126,7 @@ export default function TabTwoScreen() {
     {
       label: 'Privacy Policy',
       icon: 'cube',
-      action: () => console.log('Clear cache pressed'),
+      action: () => router.push({ pathname: '/PageView', params: { slug: 'privacy-policy' } }),
     },
     {
       label: 'Terms & Condition',
@@ -128,17 +134,6 @@ export default function TabTwoScreen() {
       action: () => router.push({ pathname: '/PageView' as any, params: { slug: 'terms-and-conditions' } }),
     },
   ];
-
-  const ActionButton: React.FC<{
-    iconName: any;
-    label: string;
-    color?: string;
-  }> = ({ iconName, label }) => (
-    <TouchableOpacity style={styles.actionButton}>
-      <Ionicons name={iconName} size={28} color="#4A4A4A" />
-      <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
 
   async function handleLogout() {
     try {
@@ -166,7 +161,7 @@ export default function TabTwoScreen() {
           style={styles.gradientContainer}
         ></LinearGradient>
 
-        <View style={styles.profileCard}>
+        <View style={[styles.profileCard, { backgroundColor: themeColors.card }]}>
           {isLoggedIn ? (
             <>
               <Image
@@ -175,11 +170,11 @@ export default function TabTwoScreen() {
               />
 
               <View style={styles.detailsContainer}>
-                <Text style={styles.nameText}>
-                  {userProfile != null ? userProfile.name : ''} <Text style={styles.verifyTag}>(Verify)</Text>
+                <Text style={[styles.nameText, { color: themeColors.text }]}>
+                  {userProfile != null ? userProfile.name : ''} <Text style={[styles.verifyTag, { color: themeColors.textSecondary }]}>(Verify)</Text>
                 </Text>
                 <View style={styles.phoneContainer}>
-                  <Text style={styles.phoneText}>{userProfile != null ? userProfile.country_code+' '+userProfile.phone : ''}</Text>
+                  <Text style={[styles.phoneText, { color: themeColors.textSecondary }]}>{userProfile != null ? userProfile.country_code+' '+userProfile.phone : ''}</Text>
                 </View>
               </View>
 
@@ -187,33 +182,33 @@ export default function TabTwoScreen() {
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={() => router.push('/FavoriteProducts')}>
-                  <Ionicons name="heart-circle" size={28} color="#4A4A4A" />
-                  <Text style={styles.actionLabel}>Favorite</Text>
+                  <Ionicons name="heart-circle" size={28} color={themeColors.text} />
+                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>Favorite</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={() => router.push('/OrderList')}>
-                  <Ionicons name="list-circle-sharp" size={28} color="#4A4A4A" />
-                  <Text style={styles.actionLabel}>My Orders</Text>
+                  <Ionicons name="list-circle-sharp" size={28} color={themeColors.text} />
+                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>My Orders</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={() => router.push('/Address')}>
-                  <Ionicons name="navigate-circle-sharp" size={28} color="#4A4A4A" />
-                  <Text style={styles.actionLabel}>Address</Text>
+                  <Ionicons name="navigate-circle-sharp" size={28} color={themeColors.text} />
+                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>Address</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.actionButton}
                   onPress={() => router.push('/EditProfile')}>
-                  <Ionicons name="person-circle" size={28} color="#4A4A4A" />
-                  <Text style={styles.actionLabel}>Edit Profile</Text>
+                  <Ionicons name="person-circle" size={28} color={themeColors.text} />
+                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>Edit Profile</Text>
                 </TouchableOpacity>
               </View>
             </>
           ) : (
             <View style={styles.guestContainer}>
-              <Text style={styles.guestTitle}>Welcome</Text>
-              <Text style={styles.guestSubtitle}>
+              <Text style={[styles.guestTitle, { color: themeColors.text }]}>Welcome</Text>
+              <Text style={[styles.guestSubtitle, { color: themeColors.textSecondary }]}>
                 Please login or register to access your profile
               </Text>
 
@@ -248,6 +243,7 @@ export default function TabTwoScreen() {
                 label={item.label}
                 color={item.color || themeColors.text} // Main icon and text color
                 onPress={item.action}
+                unavailable={item.unavailable}
                 borderColor={separatorColor}
               />
             ))}
@@ -333,6 +329,7 @@ const styles = StyleSheet.create({
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   menuIcon: {
     width: 30,
@@ -340,6 +337,7 @@ const styles = StyleSheet.create({
   menuLabel: {
     fontSize: 16,
     marginLeft: 10,
+    flexShrink: 1,
   },
   separator: {
     height: 1,

@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -276,15 +277,15 @@ export default function AddressScreen() {
           translucent={true}
         />
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.headerTitle}>My Addresses</ThemedText>
           <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2196F3" />
-          <ThemedText style={styles.loadingText}>Loading addresses...</ThemedText>
+          <ThemedText style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading addresses...</ThemedText>
         </View>
       </SafeAreaView>
     );
@@ -300,9 +301,9 @@ export default function AddressScreen() {
           translucent={true}
         />
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <TouchableOpacity onPress={handleCancelForm} style={styles.backButton}>
+          <IconButton label="Cancel address editing" onPress={handleCancelForm} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.headerTitle}>
             {editingAddress ? 'Edit Address' : 'Add New Address'}
           </ThemedText>
@@ -311,8 +312,8 @@ export default function AddressScreen() {
 
         <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.formSection}>
-            <ThemedText style={styles.formLabel}>Receiver's Name *</ThemedText>
-            <TextInput
+            <ThemedText style={styles.formLabel}>Receiver&apos;s Name *</ThemedText>
+            <TextInput accessibilityLabel="Full name of the person receiving"
               style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Full name of the person receiving"
               placeholderTextColor="#999"
@@ -333,7 +334,7 @@ export default function AddressScreen() {
 
             <View style={[styles.formSection, { flex: 1 }]}>
               <ThemedText style={styles.formLabel}>Phone Number *</ThemedText>
-              <TextInput
+              <TextInput accessibilityLabel="Phone number"
                 style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="Phone number"
                 placeholderTextColor="#999"
@@ -350,7 +351,7 @@ export default function AddressScreen() {
 
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>Address *</ThemedText>
-            <TextInput
+            <TextInput accessibilityLabel="Street address"
               style={[styles.formInput, styles.formInputMultiline, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Street address"
               placeholderTextColor="#999"
@@ -363,7 +364,7 @@ export default function AddressScreen() {
 
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>City *</ThemedText>
-            <TextInput
+            <TextInput accessibilityLabel="City name"
               style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="City name"
               placeholderTextColor="#999"
@@ -375,7 +376,7 @@ export default function AddressScreen() {
           <View style={styles.formRow}>
             <View style={[styles.formSection, styles.formSectionHalf]}>
               <ThemedText style={styles.formLabel}>State *</ThemedText>
-              <TextInput
+              <TextInput accessibilityLabel="State"
                 style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="State"
                 placeholderTextColor="#999"
@@ -386,7 +387,7 @@ export default function AddressScreen() {
 
             <View style={[styles.formSection, styles.formSectionHalf]}>
               <ThemedText style={styles.formLabel}>Zip Code *</ThemedText>
-              <TextInput
+              <TextInput accessibilityLabel="Zip code"
                 style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
                 placeholder="Zip code"
                 placeholderTextColor="#999"
@@ -399,7 +400,7 @@ export default function AddressScreen() {
 
           <View style={styles.formSection}>
             <ThemedText style={styles.formLabel}>Country *</ThemedText>
-            <TextInput
+            <TextInput accessibilityLabel="Country"
               style={[styles.formInput, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor, color: themeColors.text }]}
               placeholder="Country"
               placeholderTextColor="#999"
@@ -429,9 +430,9 @@ export default function AddressScreen() {
       />
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <IconButton label="Go back" onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle}>My Addresses</ThemedText>
         <View style={styles.headerRight} />
       </View>
@@ -455,7 +456,7 @@ export default function AddressScreen() {
         {addresses.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="location-outline" size={64} color="#ccc" />
-            <ThemedText style={styles.emptyText}>No addresses yet</ThemedText>
+            <ThemedText style={[styles.emptyText, { color: themeColors.textSecondary }]}>No addresses yet</ThemedText>
             <ThemedText style={styles.emptySubtext}>Add your first address to get started</ThemedText>
           </View>
         ) : (

@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useContext, useState } from 'react';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -146,9 +147,9 @@ export default function CartScreen() {
           <ThemedText style={styles.headerTitle}>Cart ({uniqueItemCount})</ThemedText>
           <View style={styles.headerRight}>
             {selectedItems.length > 0 && (
-              <TouchableOpacity onPress={handleDeleteSelected} style={styles.headerButton}>
+              <IconButton label="Delete selected cart items" onPress={handleDeleteSelected} style={styles.headerButton}>
                 <Ionicons name="trash-outline" size={24} color="#FF3B30" />
-              </TouchableOpacity>
+              </IconButton>
             )}
             <TouchableOpacity onPress={toggleEditMode} style={styles.headerButton}>
               <ThemedText style={styles.editText}>{isEditMode ? 'Done' : 'Edit'}</ThemedText>
@@ -164,6 +165,9 @@ export default function CartScreen() {
                 {/* Checkbox for edit mode */}
                 {isEditMode && (
                   <TouchableOpacity
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={`Select ${item.name}`}
+                    accessibilityState={{ checked: selectedItems.includes(item.id) }}
                     onPress={() => toggleSelectItem(item.id)}
                     style={styles.checkboxContainer}>
                     <View style={[
@@ -184,7 +188,7 @@ export default function CartScreen() {
                   <View style={styles.itemHeader}>
                     <View style={styles.itemInfo}>
                       <ThemedText style={styles.productName}>{item.name}</ThemedText>
-                      <ThemedText style={styles.productSku}>
+                      <ThemedText style={[styles.productSku, { color: themeColors.textSecondary }]}>
                         SKU: {item.sku}
                       </ThemedText>
                       {item.variation_names && (
@@ -194,11 +198,11 @@ export default function CartScreen() {
                       )}
                     </View>
 
-                    <TouchableOpacity
+                    <IconButton label={`Remove ${item.name} from cart`}
                       onPress={() => handleRemoveItem(item.id, item.name)}
                       style={styles.removeButton}>
                       <Ionicons name="trash-outline" size={20} color="#999" />
-                    </TouchableOpacity>
+                    </IconButton>
                   </View>
 
                   <View style={styles.itemFooter}>
@@ -207,6 +211,10 @@ export default function CartScreen() {
                     {!isEditMode && (
                       <View style={styles.quantityControl}>
                         <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Decrease quantity of ${item.name}`}
+                          disabled={item.quantity <= 1}
+                          accessibilityState={{ disabled: item.quantity <= 1 }}
                           onPress={() => handleQuantityChange(item.id, -1, item.quantity)}
                           style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
                           <ThemedText style={styles.quantityButtonText}>-</ThemedText>
@@ -215,6 +223,8 @@ export default function CartScreen() {
                         <ThemedText style={styles.quantity}>{item.quantity}</ThemedText>
 
                         <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Increase quantity of ${item.name}`}
                           onPress={() => handleQuantityChange(item.id, 1, item.quantity)}
                           style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
                           <ThemedText style={styles.quantityButtonText}>+</ThemedText>
@@ -230,7 +240,7 @@ export default function CartScreen() {
           {/* Order Summary */}
           <View style={styles.summarySection}>
             <View style={styles.summaryRow}>
-              <ThemedText style={styles.summaryLabel}>Subtotal</ThemedText>
+              <ThemedText style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Subtotal</ThemedText>
               <ThemedText style={styles.summaryValue}>${subtotal.toFixed(2)}</ThemedText>
             </View>
 
@@ -315,6 +325,9 @@ const styles = StyleSheet.create({
   },
   checkboxContainer: {
     paddingRight: 4,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   checkbox: {
     width: 24,
@@ -370,6 +383,8 @@ const styles = StyleSheet.create({
   },
   itemFooter: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 8,
@@ -385,8 +400,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quantityButton: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',

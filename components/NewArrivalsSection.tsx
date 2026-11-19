@@ -13,7 +13,7 @@ import {
     View,
 } from 'react-native';
 
-export default function NewArrivalsSection() {
+export default function NewArrivalsSection({ refreshKey = 0 }: { refreshKey?: number }) {
   const { colorScheme } = useContext(ThemeContext)!;
   const router = useRouter();
   const [newArrivalsData, setNewArrivalsData] = useState<any[]>([]);
@@ -21,7 +21,7 @@ export default function NewArrivalsSection() {
 
   useEffect(() => {
     loadNewArrivals();
-  }, []);
+  }, [refreshKey]);
 
   const loadNewArrivals = async () => {
     try {
@@ -83,7 +83,7 @@ export default function NewArrivalsSection() {
           <Image source={{ uri: imageUrl }} style={styles.productImage} resizeMode="cover" />
           {hasDiscount && discountPercent > 0 && (
             <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>{discountPercent}% OFF</Text>
+              <Text style={[styles.discountText, { color: Colors[colorScheme].text }]}>{discountPercent}% OFF</Text>
             </View>
           )}
         </View>

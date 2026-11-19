@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -25,11 +26,9 @@ export default function PageView() {
     const themeContext = useContext(ThemeContext);
     const { width } = useWindowDimensions();
 
-    if (!themeContext) {
-        return null;
-    }
-    const { colorScheme } = themeContext;
+    const colorScheme = themeContext?.colorScheme ?? 'light';
     const themeColors = Colors[colorScheme];
+    const fallbackTitle = slug ? slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Page';
 
     const [loading, setLoading] = useState(true);
     const [pageData, setPageData] = useState<any>(null);
@@ -53,7 +52,7 @@ export default function PageView() {
             setPageData(response.data);
         } catch (err: any) {
             console.error('Error loading page:', err);
-            setError(err.message || 'Failed to load page content');
+            setError('This page is currently unavailable. Please try again later.');
         } finally {
             setLoading(false);
         }
@@ -129,14 +128,14 @@ export default function PageView() {
 
             {/* Header */}
             <ThemedView style={styles.header}>
-                <TouchableOpacity
+                <IconButton label="Go back"
                     style={styles.backButton}
                     onPress={() => router.back()}
                 >
                     <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-                </TouchableOpacity>
+                </IconButton>
                 <ThemedText style={styles.headerTitle}>
-                    {loading ? 'Loading...' : pageData?.title || 'Page'}
+                    {loading ? 'Loading...' : pageData?.title || fallbackTitle}
                 </ThemedText>
                 <View style={styles.placeholder} />
             </ThemedView>
@@ -152,7 +151,7 @@ export default function PageView() {
                     <View style={styles.centerContainer}>
                         <Ionicons name="alert-circle-outline" size={64} color="#E95757" />
                         <ThemedText style={styles.errorText}>{error}</ThemedText>
-                        <TouchableOpacity style={styles.retryButton} onPress={loadPageData}>
+                        <TouchableOpacity accessibilityRole="button" style={styles.retryButton} onPress={loadPageData}>
                             <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
                         </TouchableOpacity>
                     </View>

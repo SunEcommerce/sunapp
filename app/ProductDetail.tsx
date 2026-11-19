@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
@@ -45,6 +46,7 @@ export default function ProductDetailScreen() {
     carouselRef.current?.scrollTo({ x: imageIndexRef.current * carouselWidth, animated: false });
   }, [carouselWidth]);
   const [quantity, setQuantity] = useState(1);
+  const [bottomBarHeight, setBottomBarHeight] = useState(100);
   const [expandedSection, setExpandedSection] = useState<string>('description');
   const [variations, setVariations] = useState<any[]>([]);
   const [selectedVariations, setSelectedVariations] = useState<Record<number, any>>({});
@@ -132,9 +134,9 @@ export default function ProductDetailScreen() {
           translucent={true}
         />
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+          <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <View style={{ flex: 1, height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginHorizontal: 16 }} />
           <View style={styles.headerButton} />
         </View>
@@ -189,9 +191,9 @@ export default function ProductDetailScreen() {
           translucent={true}
         />
         <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+          <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.headerTitle}>Error</ThemedText>
           <View style={styles.headerButton} />
         </View>
@@ -415,15 +417,15 @@ export default function ProductDetailScreen() {
       />
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+        <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
         <ThemedText style={styles.headerTitle} numberOfLines={1}>
           {product.name}
         </ThemedText>
-        <TouchableOpacity style={styles.headerButton} onPress={handleToggleFavorite}>
+        <IconButton label={favorite ? "Remove from favorites" : "Add to favorites"} style={styles.headerButton} onPress={handleToggleFavorite}>
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color={favorite ? '#E53935' : themeColors.text} />
-        </TouchableOpacity>
+        </IconButton>
       </View>
 
       <ScrollView style={[styles.scrollView, {paddingBottom: 20 }]} showsVerticalScrollIndicator={false}>
@@ -475,7 +477,7 @@ export default function ProductDetailScreen() {
             )}
           </View>
           <View style={styles.metaRow}>
-            <ThemedText style={styles.sku}>SKU: {currentVariation?.sku || product.sku || 'N/A'}</ThemedText>
+            <ThemedText style={[styles.sku, { color: themeColors.textSecondary }]}>SKU: {currentVariation?.sku || product.sku || 'N/A'}</ThemedText>
             <ThemedText style={[styles.stock, getCurrentStock() > 0 ? {} : { color: '#E53935' }]}>
               {getCurrentStock() > 0 ? `In Stock: ${getCurrentStock()} ${product.unit || 'pcs'}` : variationNames ? 'Out of Stock' : 'Please select options'}
             </ThemedText>
@@ -543,7 +545,7 @@ export default function ProductDetailScreen() {
         ) : null}
         {product.details? (
           <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
-            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('description')}>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'description' }} style={styles.expandableHeader} onPress={() => toggleSection('description')}>
               <ThemedText style={styles.expandableTitle}>Description</ThemedText>
               <Ionicons
                 name={expandedSection === 'description' ? 'chevron-up' : 'chevron-down'}
@@ -569,7 +571,7 @@ export default function ProductDetailScreen() {
         ) : null}
         {product.feature_description? (
           <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
-            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'feature_description' }} style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
               <ThemedText style={styles.expandableTitle}>Feature Description</ThemedText>
               <Ionicons
                 name={expandedSection === 'feature_description' ? 'chevron-up' : 'chevron-down'}
@@ -595,7 +597,7 @@ export default function ProductDetailScreen() {
         ) : null}
         {product.specifications && product.specifications.length > 0 && (
           <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
-            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'specifications' }} style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
               <ThemedText style={styles.expandableTitle}>Specifications</ThemedText>
               <Ionicons
                 name={expandedSection === 'specifications' ? 'chevron-up' : 'chevron-down'}
@@ -607,7 +609,7 @@ export default function ProductDetailScreen() {
               <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
                 {product.specifications.map((spec: any, idx: number) => (
                   <View key={idx} style={[styles.specRow, { borderBottomColor: themeColors.borderColor }]}>
-                    <ThemedText style={styles.specKey}>{spec.key || spec.name}:</ThemedText>
+                    <ThemedText style={[styles.specKey, { color: themeColors.textSecondary }]}>{spec.key || spec.name}:</ThemedText>
                     <ThemedText style={styles.specValue}>{spec.value}</ThemedText>
                   </View>
                 ))}
@@ -626,7 +628,7 @@ export default function ProductDetailScreen() {
         ) : null}
         {product.shipping_and_return && (
           <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
-            <TouchableOpacity style={styles.expandableHeader} onPress={() => toggleSection('shipping')}>
+            <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'shipping' }} style={styles.expandableHeader} onPress={() => toggleSection('shipping')}>
               <ThemedText style={styles.expandableTitle}>Shipping & Return</ThemedText>
               <Ionicons
                 name={expandedSection === 'shipping' ? 'chevron-up' : 'chevron-down'}
@@ -643,29 +645,29 @@ export default function ProductDetailScreen() {
         )}
 
         {/* Bottom Spacer */}
-        <View style={styles.bottomSpacer} />
+        <View style={[styles.bottomSpacer, { height: bottomBarHeight + 12 }]} />
       </ScrollView>
 
       {/* Sticky Bottom Action Bar */}
-      <View style={[styles.bottomBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor, paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View onLayout={e => setBottomBarHeight(e.nativeEvent.layout.height)} style={[styles.bottomBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor, paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.priceSection}>
-          <ThemedText style={styles.priceLabel}>Price</ThemedText>
+          <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Price</ThemedText>
           <View>
             <ThemedText style={styles.priceValue}>${getCurrentPrice().toFixed(2)}</ThemedText>
             {getCurrentOldPrice() > getCurrentPrice() && (
-              <ThemedText style={styles.oldPriceValue}>${getCurrentOldPrice().toFixed(2)}</ThemedText>
+              <ThemedText style={[styles.oldPriceValue, { color: themeColors.textSecondary }]}>${getCurrentOldPrice().toFixed(2)}</ThemedText>
             )}
           </View>
         </View>
 
         <View style={[styles.quantitySelector, { backgroundColor: themeColors.background }]}>
-          <TouchableOpacity style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={decrementQuantity}>
+          <IconButton label="Decrease quantity" style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={decrementQuantity}>
             <Ionicons name="remove" size={18} color="#1E88E5" />
-          </TouchableOpacity>
+          </IconButton>
           <ThemedText style={styles.quantityValue}>{quantity}</ThemedText>
-          <TouchableOpacity style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={incrementQuantity}>
+          <IconButton label="Increase quantity" style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={incrementQuantity}>
             <Ionicons name="add" size={18} color="#1E88E5" />
-          </TouchableOpacity>
+          </IconButton>
         </View>
         
         <TouchableOpacity 
@@ -923,6 +925,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -974,6 +978,7 @@ const styles = StyleSheet.create({
   },
   addToCartButton: {
     flex: 1,
+    minWidth: 140,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

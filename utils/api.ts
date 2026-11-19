@@ -370,7 +370,7 @@ export async function fetchHotSales(): Promise<any> {
 }
 
 export async function fetchNewArrivals(): Promise<any> {
-  return await apiRequest('/api/frontend/product/popular-products', 'GET', undefined, false);
+  return await apiRequest('/api/frontend/product?order_column=id&order_type=desc&status=5', 'GET', undefined, false);
 }
 
 /**
