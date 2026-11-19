@@ -1,5 +1,7 @@
+import { TextInput } from '@/components/ui/text-input';
 import { IconButton } from '@/components/ui/icon-button';
 import FilterBottomSheet, { Filters } from '@/components/FilterBottomSheet';
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -9,16 +11,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   StatusBar,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -54,12 +55,14 @@ export default function ProductListScreen() {
   const brandSlug = Array.isArray(params.brand) ? params.brand[0] || '' : params.brand || '';
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
   const section = Array.isArray(params.section) ? params.section[0] : params.section;
+  const promotion = Array.isArray(params.promotion) ? params.promotion[0] : params.promotion;
+  const promotionTitle = Array.isArray(params.title) ? params.title[0] : params.title;
   const defaultSort = source === 'new_arrivals' ? 'newest' : 'best';
   useEffect(() => {
     setFilters(null);
     setSelectedSort(source === 'new_arrivals' ? 'newest' : 'best');
     setPage(1);
-  }, [selectedCategory, brandSlug, source, section]);
+  }, [selectedCategory, brandSlug, source, section, promotion]);
   const appliedFilters = useMemo<Filters>(() => filters || {
     category: selectedCategory,
     brands: brandSlug ? [brandSlug] : [],
@@ -78,7 +81,7 @@ export default function ProductListScreen() {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetchFilteredProducts({ ...appliedFilters, name: searchQuery, page, source, section });
+        const response = await fetchFilteredProducts({ ...appliedFilters, name: searchQuery, page, source, section, promotion });
         if (cancelled) return;
         setProducts(previous => page === 1 ? response.products : [...previous, ...response.products]);
         setHasMore(response.hasMore);
@@ -94,7 +97,7 @@ export default function ProductListScreen() {
 
     loadProducts();
     return () => { cancelled = true; };
-  }, [appliedFilters, searchQuery, page, requestVersion, source, section]);
+  }, [appliedFilters, searchQuery, page, requestVersion, source, section, promotion]);
 
   const changeSort = (sort: ProductSort) => {
     setPage(1);
@@ -147,36 +150,51 @@ export default function ProductListScreen() {
     );
   };
 
+  const activeFilterCount = Number(appliedFilters.category !== 'all')
+    + appliedFilters.brands.length + Number(Boolean(appliedFilters.priceRange));
+  const accent = colorScheme === 'dark' ? '#77d8f2' : '#076783';
+  const softAccent = colorScheme === 'dark' ? '#173640' : '#e2f2f7';
+  const subtleBorder = colorScheme === 'dark' ? '#35434a' : '#dce3e7';
+  const sortOptions: { key: ProductSort; label: string }[] = [
+    { key: 'best', label: 'Best Match' },
+    { key: 'newest', label: 'Newest' },
+    { key: 'top_rated', label: 'Top Rated' },
+    { key: 'price_low_high', label: 'Price: Low to High' },
+    { key: 'price_high_low', label: 'Price: High to Low' },
+  ];
   const ListHeader = (
     <View style={[styles.stickyHeaderContent, { backgroundColor: themeColors.background }]}>
-      {(source === 'hot_sales' || source === 'new_arrivals') && (
+      {(source === 'hot_sales' || source === 'new_arrivals' || source === 'promotion') && (
         <ThemedText style={[styles.resultText, { color: themeColors.text }]}>
-          {source === 'hot_sales' ? 'Hot Sales' : 'New Arrivals'}
+          {source === 'promotion' ? promotionTitle || 'Promotion' : source === 'hot_sales' ? 'Hot Sales' : 'New Arrivals'}
         </ThemedText>
       )}
       <View style={styles.controlRow}>
-        <TouchableOpacity style={[styles.controlButton, { backgroundColor: themeColors.card, borderColor: '#1E88E5' }]} onPress={() => setFilterVisible(true)}>
-          <Ionicons name="filter-outline" size={16} color="#1E88E5" />
-          <ThemedText style={styles.controlText}>Filter</ThemedText>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open filters${activeFilterCount ? `, ${activeFilterCount} active` : ''}`}
+          style={[styles.controlButton, { backgroundColor: softAccent, borderColor: subtleBorder }]}
+          onPress={() => setFilterVisible(true)} activeOpacity={0.7}>
+          <Ionicons name="options-outline" size={19} color={accent} />
+          <ThemedText style={[styles.controlText, { color: accent }]}>Filters</ThemedText>
+          {activeFilterCount > 0 && <View style={[styles.filterBadge, { backgroundColor: accent }]}>
+            <Text style={[styles.filterBadgeText, { color: themeColors.background }]}>{activeFilterCount}</Text>
+          </View>}
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'best' && styles.sortButtonActive]}
-          onPress={() => changeSort('best')}>
-          <ThemedText style={[styles.sortButtonText, { color: themeColors.textSecondary }, appliedFilters.sortBy === 'best' && styles.sortButtonTextActive]}>Best Match</ThemedText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'top_rated' && styles.sortButtonActive]}
-          onPress={() => changeSort('top_rated')}>
-          <ThemedText style={[styles.sortButtonText, { color: themeColors.textSecondary }, appliedFilters.sortBy === 'top_rated' && styles.sortButtonTextActive]}>Top Rated</ThemedText>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.sortButton, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonActive]}
-          onPress={() => changeSort('price_low_high')}>
-          <ThemedText style={[styles.sortButtonText, { color: themeColors.textSecondary }, appliedFilters.sortBy === 'price_low_high' && styles.sortButtonTextActive]}>Price ↑</ThemedText>
-        </TouchableOpacity>
+        <View style={[styles.controlDivider, { backgroundColor: subtleBorder }]} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortScroll} contentContainerStyle={styles.sortOptions}>
+          {sortOptions.map(option => {
+            const active = appliedFilters.sortBy === option.key;
+            return <TouchableOpacity key={option.key} accessibilityRole="button" accessibilityState={{ selected: active }}
+              onPress={() => changeSort(option.key)} activeOpacity={0.7}
+              style={[styles.sortButton, { backgroundColor: active ? softAccent : themeColors.card, borderColor: active ? accent : subtleBorder }]}>
+              {active && <Ionicons name="checkmark" size={16} color={accent} />}
+              <ThemedText style={[styles.sortButtonText, { color: active ? accent : themeColors.textSecondary }]}>{option.label}</ThemedText>
+              {(option.key === 'price_low_high' || option.key === 'price_high_low') && (
+                <Ionicons name={option.key === 'price_low_high' ? 'arrow-up-outline' : 'arrow-down-outline'}
+                  size={18} color={active ? accent : themeColors.textSecondary} />
+              )}
+            </TouchableOpacity>;
+          })}
+        </ScrollView>
       </View>
     </View>
   );
@@ -215,12 +233,7 @@ export default function ProductListScreen() {
         </View>
       </View>
 
-      {isLoading && page === 1 ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#1E88E5" />
-          <ThemedText style={styles.loadingText}>Loading products...</ThemedText>
-        </View>
-      ) : error ? (
+      {error ? (
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
           <ThemedText style={styles.errorText}>{error}</ThemedText>
@@ -235,19 +248,21 @@ export default function ProductListScreen() {
         </View>
       ) : (
         <FlatList
-          data={products}
+          data={isLoading && page === 1 ? [] : products}
           renderItem={renderCard}
           keyExtractor={(item, index) => item.id?.toString() || item.slug || index.toString()}
           numColumns={NUM_COLUMNS}
           columnWrapperStyle={products.length > 0 ? styles.columnWrapper : undefined}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={ListHeader}
-          ListFooterComponent={hasMore ? (
-            <TouchableOpacity style={styles.retryButton} disabled={isLoading} onPress={() => setPage(nextPage)}>
-              <Text style={styles.retryButtonText}>{isLoading ? 'Loading...' : 'Load More'}</Text>
+          ListFooterComponent={isLoading ? (page > 1 ? <HomeSkeleton variant="grid" label="Loading more products" cardWidth={cardWidth} rows={1} /> : null) : hasMore ? (
+            <TouchableOpacity accessibilityRole="button" style={styles.retryButton} onPress={() => setPage(nextPage)}>
+              <Text style={styles.retryButtonText}>Load More</Text>
             </TouchableOpacity>
+          ) : products.length > 0 ? (
+            <ThemedText accessibilityLiveRegion="polite" style={[styles.endText, { color: themeColors.textSecondary }]}>No more products</ThemedText>
           ) : null}
-          ListEmptyComponent={
+          ListEmptyComponent={isLoading ? <HomeSkeleton variant="grid" label="Loading products" cardWidth={cardWidth} /> :
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={64} color="#CCC" />
               <ThemedText style={styles.emptyText}>No products found</ThemedText>
@@ -325,43 +340,22 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 6,
   },
-  controlRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   controlButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 44,
+    paddingHorizontal: 12, borderRadius: 14, borderWidth: 1,
   },
-  controlText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E88E5',
-  },
+  controlText: { fontSize: 14, fontWeight: '700' },
+  filterBadge: { minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  filterBadgeText: { fontSize: 11, fontWeight: '700' },
+  controlDivider: { width: 1, height: 24 },
+  sortScroll: { flex: 1 },
+  sortOptions: { gap: 8, paddingRight: 2 },
   sortButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, minHeight: 44, borderRadius: 14, borderWidth: 1,
   },
-  sortButtonActive: {
-    backgroundColor: '#1E88E5',
-    borderColor: '#1E88E5',
-  },
-  sortButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-  },
-  sortButtonTextActive: {
-    color: '#FFFFFF',
-  },
+  sortButtonText: { fontSize: 13, fontWeight: '600' },
   columnWrapper: {
     gap: CARD_GUTTER,
     marginBottom: CARD_GUTTER,
@@ -369,10 +363,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 10,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
     elevation: 3,
   },
   imageWrapper: {
@@ -420,10 +411,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 60,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
+  endText: { textAlign: 'center', fontSize: 14, paddingVertical: 24 },
   errorText: {
     marginTop: 12,
     fontSize: 14,
@@ -467,10 +455,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E88E5',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.1)',
     elevation: 3,
   },
 });

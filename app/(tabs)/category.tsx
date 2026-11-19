@@ -3,7 +3,6 @@ import { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   LayoutAnimation,
   Platform,
   StyleSheet,
@@ -16,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { CategoryThumbnail } from '@/components/category-thumbnail';
+import { categoryDescendants, categoryImageSources } from '@/utils/category-images';
 import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchCategoryTree } from '@/utils/api';
@@ -36,30 +37,20 @@ type Category = {
   children?: Category[];
 };
 
-function getAllChildren(category: Category): Category[] {
-  let allChildren: Category[] = [];
-
-  if (category.children && category.children.length > 0) {
-    for (const child of category.children) {
-      allChildren.push(child);
-      // Recursively get children of children
-      allChildren = allChildren.concat(getAllChildren(child));
-    }
-  }
-
-  return allChildren;
-}
-
 export default function CategoryScreen() {
   const tabContentInset = useTabContentInset();
   const router = useRouter();
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const border = dark ? '#30404b' : '#e0e6ec';
+  const accent = dark ? '#94ddee' : '#086b83';
+  const surface = dark ? '#1b252c' : '#ffffff';
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
-  const [subcategories, setSubcategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<(Category & { imageSources: string[] })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,7 +69,7 @@ export default function CategoryScreen() {
       if (parentCategories.length > 0) {
         const firstCategory = parentCategories[0];
         setActiveCategory(firstCategory.id);
-        setSubcategories(getAllChildren(firstCategory));
+        setSubcategories(categoryDescendants(firstCategory));
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -92,10 +83,10 @@ export default function CategoryScreen() {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       const category = categories.find(cat => cat.id === activeCategory);
       if (category) {
-        setSubcategories(getAllChildren(category));
+        setSubcategories(categoryDescendants(category));
       }
     }
-  }, [activeCategory]);
+  }, [activeCategory, categories]);
 
   const renderMainCategory = ({ item }: { item: Category }) => {
     const isActive = item.id === activeCategory;
@@ -103,24 +94,28 @@ export default function CategoryScreen() {
       <TouchableOpacity
         style={[
           styles.mainCategoryItem,
-          { borderBottomColor: themeColors.borderColor },
-          isActive && { backgroundColor: colorScheme === 'dark' ? '#1a2a3a' : '#F2F7FF' },
+          { borderColor: isActive ? accent : 'transparent', backgroundColor: isActive ? (dark ? '#213c49' : '#eaf5f9') : 'transparent' },
         ]}
+        accessibilityRole="button"
+        accessibilityLabel={item.name}
+        accessibilityState={{ selected: isActive }}
         onPress={() => setActiveCategory(item.id)}
       >
-        <Image source={{ uri: item.cover }} style={styles.mainCategoryImage} />
-        <ThemedText style={[styles.mainCategoryText, isActive && styles.mainCategoryTextActive]}>{item.name}</ThemedText>
+        <CategoryThumbnail sources={categoryImageSources(item)} size={40} color={accent} background={surface} />
+        <ThemedText numberOfLines={1} ellipsizeMode="tail" style={[styles.mainCategoryText, isActive && { color: accent, fontWeight: '700' }]}>{item.name}</ThemedText>
       </TouchableOpacity>
     );
   };
 
-  const renderSubCategory = ({ item }: { item: Category }) => (
+  const renderSubCategory = ({ item }: { item: Category & { imageSources: string[] } }) => (
     <TouchableOpacity
-      style={[styles.subCategoryCard, { backgroundColor: themeColors.card }]}
+      style={[styles.subCategoryCard, { backgroundColor: surface, borderColor: border }]}
+      accessibilityRole="button"
+      accessibilityLabel={item.name}
       onPress={() => router.push(`/ProductList?category=${item.slug}`)}
     >
-      <Image source={{ uri: item.cover }} style={styles.subCategoryImage} />
-      <ThemedText style={styles.subCategoryText}>{item.name}</ThemedText>
+      <CategoryThumbnail sources={item.imageSources} size={56} color={accent} background={themeColors.background} />
+      <ThemedText numberOfLines={1} ellipsizeMode="tail" style={styles.subCategoryText}>{item.name}</ThemedText>
     </TouchableOpacity>
   );
 
@@ -138,15 +133,15 @@ export default function CategoryScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
       <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: border }]}>
           <ThemedText style={styles.headerTitle}>Category</ThemedText>
         </View>
 
         <View style={styles.container}>
-          <View style={[styles.leftColumn, { backgroundColor: themeColors.card }]}>
+          <View style={[styles.leftColumn, { backgroundColor: themeColors.background }]}>
             <FlatList
               data={categories}
-              contentContainerStyle={{ paddingBottom: tabContentInset }}
+              contentContainerStyle={{ paddingHorizontal: 6, paddingTop: 6, paddingBottom: tabContentInset }}
               scrollIndicatorInsets={{ bottom: tabContentInset }}
               renderItem={renderMainCategory}
               keyExtractor={(item) => item.id.toString()}
@@ -154,9 +149,9 @@ export default function CategoryScreen() {
             />
           </View>
 
-          <View style={[styles.dividerShadow, { backgroundColor: themeColors.borderColor }]} />
+          <View style={[styles.divider, { backgroundColor: border }]} />
 
-          <View style={[styles.rightColumn, { backgroundColor: themeColors.card }]}>
+          <View style={[styles.rightColumn, { backgroundColor: themeColors.background }]}>
             <FlatList
               data={subcategories}
               renderItem={renderSubCategory}
@@ -175,97 +170,17 @@ export default function CategoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  container: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  leftColumn: {
-    width: '30%',
-  },
-  rightColumn: {
-    flex: 1,
-  },
-  dividerShadow: {
-    width: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 1, height: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  mainCategoryItem: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  mainCategoryItemActive: {},
-  mainCategoryImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    marginBottom: 6,
-    resizeMode: 'cover',
-  },
-  mainCategoryText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  mainCategoryTextActive: {
-    color: '#1E88E5',
-    fontWeight: '700',
-  },
-  subCategoryList: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 24,
-  },
-  subCategoryRow: {
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  subCategoryCard: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  subCategoryImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 10,
-    marginBottom: 8,
-    resizeMode: 'cover',
-  },
-  subCategoryText: {
-    fontSize: 13,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
+  safeArea: { flex: 1 },
+  header: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  headerTitle: { fontSize: 18, lineHeight: 26, fontWeight: '700', textAlign: 'center' },
+  container: { flex: 1, flexDirection: 'row' },
+  leftColumn: { width: '28%', minWidth: 96, maxWidth: 152 },
+  rightColumn: { flex: 1, minWidth: 0 },
+  divider: { width: StyleSheet.hairlineWidth },
+  mainCategoryItem: { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 4, borderWidth: 1, borderRadius: 12, marginBottom: 4, gap: 5, minHeight: 76 },
+  mainCategoryText: { width: '100%', fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  subCategoryList: { paddingHorizontal: 10, paddingTop: 10 },
+  subCategoryRow: { gap: 8, marginBottom: 8 },
+  subCategoryCard: { flex: 1, minWidth: 0, maxWidth: '50%', borderRadius: 14, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 10, alignItems: 'center', gap: 7 },
+  subCategoryText: { width: '100%', fontSize: 12, lineHeight: 18, textAlign: 'center', fontWeight: '600' },
 });

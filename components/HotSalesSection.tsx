@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchHotSales } from '@/utils/api';
 import { navigateToProductDetail } from '@/utils/navigation';
@@ -120,9 +121,7 @@ export default function HotSalesSection({ refreshKey = 0 }: { refreshKey?: numbe
         </TouchableOpacity>
       </View>
       {isLoadingHotSales ? (
-        <View style={styles.loadingProductsContainer}>
-          <Text style={{ color: Colors[colorScheme].text }}>Loading products...</Text>
-        </View>
+        <HomeSkeleton variant="products" label="Loading hot sales" />
       ) : hotSalesError ? (
         <View style={styles.errorProductsContainer}>
           <Ionicons name="alert-circle-outline" size={24} color={Colors[colorScheme].text} />

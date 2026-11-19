@@ -1,6 +1,6 @@
 import { apiRequest, fetchBrands, fetchHotSales } from './api';
 
-export type ProductSort = 'best' | 'newest' | 'price_low_high' | 'top_rated';
+export type ProductSort = 'best' | 'newest' | 'price_low_high' | 'price_high_low' | 'top_rated';
 
 export type ProductFilters = {
   category: string;
@@ -9,20 +9,20 @@ export type ProductFilters = {
   sortBy: ProductSort;
 };
 
-export async function fetchFilteredProducts(filters: ProductFilters & { name?: string; page?: number; source?: string; section?: string }) {
+export async function fetchFilteredProducts(filters: ProductFilters & { name?: string; page?: number; source?: string; section?: string; promotion?: string }) {
   // Keep section membership while letting the existing listing endpoint filter and sort.
   let collectionIds: Set<number> | undefined;
-  if (filters.source === 'hot_sales' || (filters.source === 'section' && filters.section)) {
+  if (filters.source === 'hot_sales' || (filters.source === 'section' && filters.section) || (filters.source === 'promotion' && filters.promotion)) {
     collectionIds = new Set<number>();
     let collectionPage = 1;
     let hasMoreCollection = false;
     do {
       const response = filters.source === 'hot_sales'
         ? await fetchHotSales()
-        : await apiRequest(`/api/frontend/product-section/products/${encodeURIComponent(filters.section!)}?page=${collectionPage}`, 'GET', undefined, false);
+        : await apiRequest(`/api/frontend/${filters.source === 'promotion' ? 'promotion' : 'product-section'}/products/${encodeURIComponent(filters.source === 'promotion' ? filters.promotion! : filters.section!)}?page=${collectionPage}`, 'GET', undefined, false);
       const products = response?.data || response?.products || response || [];
       products.forEach((product: { id: number }) => collectionIds!.add(product.id));
-      hasMoreCollection = filters.source === 'section' && response?.meta?.current_page < response?.meta?.last_page;
+      hasMoreCollection = filters.source !== 'hot_sales' && response?.meta?.current_page < response?.meta?.last_page;
       collectionPage++;
     } while (hasMoreCollection);
     if (!collectionIds.size) return { products: [], hasMore: false, nextPage: 1 };
@@ -42,7 +42,9 @@ export async function fetchFilteredProducts(filters: ProductFilters & { name?: s
   const body: Record<string, unknown> = {
     name: filters.name?.trim() || '',
     brand: JSON.stringify(brandIds),
-    sort_by: filters.sortBy === 'price_low_high' ? 'price_low_to_high' : filters.sortBy === 'best' ? '' : filters.sortBy,
+    sort_by: filters.sortBy === 'price_low_high' ? 'price_low_to_high'
+      : filters.sortBy === 'price_high_low' ? 'price_high_to_low'
+      : filters.sortBy === 'best' ? '' : filters.sortBy,
     per_page: 30,
   };
   if (filters.category && filters.category !== 'all') body.category = filters.category;

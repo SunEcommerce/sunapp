@@ -20,7 +20,6 @@ function render({ os = 'android', available = false, reduced = false } = {}) {
     'expo-glass-effect': { GlassView: 'GlassView', isGlassEffectAPIAvailable: () => available, isLiquidGlassAvailable: () => available },
     'expo-linear-gradient': { LinearGradient: 'Gradient' },
     '@/components/haptic-tab': { HapticTab: 'TabButton' },
-    './sculpted-tab-icon': { SculptedTabIcon: 'Icon' },
   };
   const source = fs.readFileSync(require('node:path').join(__dirname, '../components/liquid-glass-tab.tsx'), 'utf8');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } });

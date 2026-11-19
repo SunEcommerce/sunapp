@@ -1,9 +1,10 @@
 import { Tabs } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useContext } from 'react';
 import { StyleSheet, Text, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlassTabButton, LiquidGlassBackground, SculptedTabIcon } from '@/components/liquid-glass-tab';
+import { GlassTabButton, LiquidGlassBackground } from '@/components/liquid-glass-tab';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 
@@ -11,8 +12,12 @@ export default function TabLayout() {
   const { colorScheme } = useContext(ThemeContext)!;
   const dark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const { fontScale } = useWindowDimensions();
-  const barHeight = 52 + 32 * Math.min(Math.max(fontScale, 1), 2);
+  const { fontScale, width } = useWindowDimensions();
+  const labelScale = Math.min(Math.max(fontScale, 1), 2);
+  // Enlarged labels can wrap to two lines on narrow phones.
+  const barHeight = 48 + 16 * labelScale * (labelScale > 1.1 ? 2 : 1);
+  const horizontalInset = Math.max(insets.left, insets.right, 12);
+  const sideOffset = (width - Math.min(width - horizontalInset * 2, 560)) / 2;
 
   return (
     <Tabs
@@ -25,9 +30,9 @@ export default function TabLayout() {
         tabBarStyle: [styles.bar, {
           height: barHeight,
           bottom: Math.max(insets.bottom, 12),
-          left: Math.max(insets.left, 12),
-          right: Math.max(insets.right, 12),
-          shadowOpacity: dark ? 0.35 : 0.16,
+          left: sideOffset,
+          right: sideOffset,
+          boxShadow: `0px 7px 16px rgba(22, 60, 86, ${dark ? 0.35 : 0.16})`,
         }],
         tabBarItemStyle: styles.item,
         tabBarIconStyle: styles.icon,
@@ -44,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarAccessibilityLabel: 'Home',
-          tabBarIcon: ({ focused }) => <SculptedTabIcon name="home" focused={focused} dark={dark} />,
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={23} color={color} accessible={false} aria-hidden />,
         }}
       />
       <Tabs.Screen
@@ -52,7 +57,7 @@ export default function TabLayout() {
         options={{
           title: 'Category',
           tabBarAccessibilityLabel: 'Category',
-          tabBarIcon: ({ focused }) => <SculptedTabIcon name="widgets" focused={focused} dark={dark} />,
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'grid' : 'grid-outline'} size={23} color={color} accessible={false} aria-hidden />,
         }}
       />
       <Tabs.Screen
@@ -60,7 +65,7 @@ export default function TabLayout() {
         options={{
           title: 'Cart',
           tabBarAccessibilityLabel: 'Cart',
-          tabBarIcon: ({ focused }) => <SculptedTabIcon name="shopping-cart" focused={focused} dark={dark} />,
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'cart' : 'cart-outline'} size={23} color={color} accessible={false} aria-hidden />,
         }}
       />
       <Tabs.Screen
@@ -68,7 +73,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarAccessibilityLabel: 'Profile',
-          tabBarIcon: ({ focused }) => <SculptedTabIcon name="account-circle" focused={focused} dark={dark} />,
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'person' : 'person-outline'} size={23} color={color} accessible={false} aria-hidden />,
         }}
       />
     </Tabs>
@@ -78,18 +83,15 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   bar: {
     position: 'absolute',
-    paddingTop: 6,
-    paddingBottom: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
     paddingHorizontal: 6,
     backgroundColor: 'transparent',
     borderTopWidth: 0,
-    borderRadius: 32,
+    borderRadius: 26,
     elevation: 8,
-    shadowColor: '#163c56',
-    shadowOffset: { width: 0, height: 7 },
-    shadowRadius: 16,
   },
-  item: { borderRadius: 25, minHeight: 48, marginHorizontal: 2 },
-  icon: { width: 34, height: 34 },
-  label: { fontSize: 13, fontWeight: '600', lineHeight: 16, marginTop: 3, textAlign: 'center', flexShrink: 1 },
+  item: { borderRadius: 20, minHeight: 48, marginHorizontal: 2 },
+  icon: { width: 26, height: 26 },
+  label: { fontSize: 12, fontWeight: '600', lineHeight: 15, marginTop: 2, textAlign: 'center', flexShrink: 1 },
 });

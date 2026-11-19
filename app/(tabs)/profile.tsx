@@ -1,75 +1,57 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { ThemeContext } from '@/contexts/theme-context';
+import { useTabContentInset } from '@/hooks/use-tab-content-inset';
 import { getAccessToken, logout } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useContext, useState } from 'react';
-import {
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { ComponentProps, useCallback, useContext, useState } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Reusable component for the menu list items
-const MenuItem: React.FC<{
-  iconName: any;
+type MenuEntry = {
   label: string;
-  color?: string;
-  onPress?: () => void;
-  borderColor?: string;
+  icon: ComponentProps<typeof Ionicons>['name'];
+  action?: () => void;
   unavailable?: string;
-}> = ({ iconName, label, color, onPress, borderColor, unavailable }) => (
-  <TouchableOpacity
-    accessibilityRole="button"
-    accessibilityLabel={unavailable ? `${label}, ${unavailable}` : label}
-    accessibilityState={{ disabled: !!unavailable }}
-    disabled={!!unavailable}
-    style={[styles.menuItemContainer, { borderBottomColor: borderColor }]}
-    onPress={onPress}
-  >
-    <View style={styles.menuItemLeft}>
-      {/* Icon */}
-      <Ionicons
-        name={iconName}
-        size={24}
-        color={color}
-        style={styles.menuIcon}
-      />
-      {/* Label */}
-      <ThemedText style={[styles.menuLabel, { color: color }]}>
-        {label}
-      </ThemedText>
-    </View>
+};
 
-    {/* Right Arrow */}
-    {unavailable ? <ThemedText style={{ fontSize: 12, color }}>{unavailable}</ThemedText> : <Ionicons name="chevron-forward-outline" size={20} color={color} />}
-  </TouchableOpacity>
-);
+function MenuItem({ iconName, label, color, muted, accent, iconBackground, borderColor, last, onPress, unavailable }: {
+  iconName: MenuEntry['icon']; label: string; color: string; muted: string; accent: string;
+  iconBackground: string; borderColor: string; last: boolean; onPress?: () => void; unavailable?: string;
+}) {
+  return (
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={unavailable ? `${label}, ${unavailable}` : label}
+      accessibilityState={{ disabled: !!unavailable }} disabled={!!unavailable} onPress={onPress}
+      activeOpacity={0.65} style={[styles.menuItem, { borderBottomColor: borderColor, borderBottomWidth: last ? 0 : StyleSheet.hairlineWidth }]}>
+      <View style={[styles.menuIcon, { backgroundColor: iconBackground }]}>
+        <Ionicons name={iconName} size={18} color={unavailable ? muted : accent} />
+      </View>
+      <ThemedText style={[styles.menuLabel, { color: unavailable ? muted : color }]}>{label}</ThemedText>
+      {unavailable ? <View style={[styles.statusBadge, { backgroundColor: iconBackground }]}><ThemedText style={[styles.statusText, { color: muted }]}>{unavailable}</ThemedText></View>
+        : <Ionicons name="chevron-forward" size={16} color={muted} />}
+    </TouchableOpacity>
+  );
+}
 
 export default function TabTwoScreen() {
   const tabContentInset = useTabContentInset();
   const themeContext = useContext(ThemeContext);
-
   const colorScheme = themeContext?.colorScheme ?? 'light';
-  const themeColors = Colors[colorScheme];
-
-  const separatorColor = themeColors.icon; // Use theme's icon color for separator
-  const navigation = useNavigation();
+  const theme = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const surface = dark ? '#1b252c' : '#ffffff';
+  const border = dark ? '#30414c' : '#e2e8ed';
+  const accent = dark ? '#8bd8ed' : '#086b83';
+  const soft = dark ? '#253b46' : '#edf5f8';
+  const buttonText = dark ? '#10232b' : '#ffffff';
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const router = useRouter();
+
   useFocusEffect(useCallback(() => {
     let active = true;
     const checkLogin = async () => {
@@ -88,53 +70,27 @@ export default function TabTwoScreen() {
     return () => { active = false; };
   }, []));
 
-  const menuItems: Array<{
-    label: string;
-    icon: string;
-    action?: () => void;
-    color?: string;
-    unavailable?: string;
-  }> = [
-    {
-      label: 'Language',
-      icon: 'globe-outline',
-      unavailable: 'English only',
-    },
-    {
-      label: 'App Setting',
-      icon: 'cog-outline',
-      action: () => router.push('/screens/settings'),
-    },
-    {
-      label: 'Warranty',
-      icon: 'shield-checkmark-outline',
-      unavailable: 'Unavailable',
-    },
-    {
-      label: 'Apply Hire Purchase',
-      icon: 'card-outline',
-      unavailable: 'Unavailable',
-    },
-    {
-      label: 'Loyalty Program',
-      icon: 'gift-outline',
-      unavailable: 'Unavailable',
-    },
-    {
-      label: 'Contact Us',
-      icon: 'call-outline',
-      action: () => router.push({ pathname: '/PageView' as any, params: { slug: 'contact-us' } }),
-    },
-    {
-      label: 'Privacy Policy',
-      icon: 'cube',
-      action: () => router.push({ pathname: '/PageView', params: { slug: 'privacy-policy' } }),
-    },
-    {
-      label: 'Terms & Condition',
-      icon: 'document-text',
-      action: () => router.push({ pathname: '/PageView' as any, params: { slug: 'terms-and-conditions' } }),
-    },
+  const menuGroups: { title: string; items: MenuEntry[] }[] = [
+    { title: 'Preferences', items: [
+      { label: 'Language', icon: 'language-outline', unavailable: 'English only' },
+      { label: 'App Setting', icon: 'options-outline', action: () => router.push('/screens/settings') },
+    ] },
+    { title: 'Services', items: [
+      { label: 'Warranty', icon: 'shield-checkmark-outline', unavailable: 'Unavailable' },
+      { label: 'Apply Hire Purchase', icon: 'card-outline', unavailable: 'Unavailable' },
+      { label: 'Loyalty Program', icon: 'gift-outline', unavailable: 'Unavailable' },
+    ] },
+    { title: 'Help & information', items: [
+      { label: 'Contact Us', icon: 'chatbubble-ellipses-outline', action: () => router.push({ pathname: '/PageView', params: { slug: 'contact-us' } }) },
+      { label: 'Privacy Policy', icon: 'lock-closed-outline', action: () => router.push({ pathname: '/PageView', params: { slug: 'privacy-policy' } }) },
+      { label: 'Terms & Condition', icon: 'document-text-outline', action: () => router.push({ pathname: '/PageView', params: { slug: 'terms-and-conditions' } }) },
+    ] },
+  ];
+  const quickActions: MenuEntry[] = [
+    { label: 'My orders', icon: 'receipt-outline', action: () => router.push('/OrderList') },
+    { label: 'Favorites', icon: 'heart-outline', action: () => router.push('/FavoriteProducts') },
+    { label: 'Addresses', icon: 'location-outline', action: () => router.push('/Address') },
+    { label: 'Edit profile', icon: 'person-outline', action: () => router.push('/EditProfile') },
   ];
 
   async function handleLogout() {
@@ -143,378 +99,94 @@ export default function TabTwoScreen() {
       setUserProfile(null);
       setIsLoggedIn(false);
       router.push('/Auth');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+    } catch (error) { console.error('Logout failed:', error); }
   }
 
+  const name = userProfile?.name?.trim() || 'Your account';
+  const phone = [userProfile?.country_code, userProfile?.phone].filter(Boolean).join(' ');
+  const avatar = userProfile?.image;
+  const initials = name.split(/\s+/).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['left', 'right', 'top']}>
-      <StatusBar 
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-        backgroundColor="transparent"
-        translucent={true}
-      />
-      <ThemedView>
-        <LinearGradient
-          colors={['#2b5fe2ff', '#D8BFD8']} // Purple and light pink gradient
-          start={{ x: 0.1, y: 0.2 }}
-          end={{ x: 0.8, y: 0.9 }}
-          style={styles.gradientContainer}
-        ></LinearGradient>
-
-        <View style={[styles.profileCard, { backgroundColor: themeColors.card }]}>
-          {isLoggedIn ? (
-            <>
-              <Image
-                source={{ uri: userProfile != null ? userProfile.image : 'https://i.pravatar.cc/150?img=47' }}
-                style={styles.avatar}
-              />
-
-              <View style={styles.detailsContainer}>
-                <Text style={[styles.nameText, { color: themeColors.text }]}>
-                  {userProfile != null ? userProfile.name : ''} <Text style={[styles.verifyTag, { color: themeColors.textSecondary }]}>(Verify)</Text>
-                </Text>
-                <View style={styles.phoneContainer}>
-                  <Text style={[styles.phoneText, { color: themeColors.textSecondary }]}>{userProfile != null ? userProfile.country_code+' '+userProfile.phone : ''}</Text>
-                </View>
-              </View>
-
-              <View style={styles.actionsContainer}>
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => router.push('/FavoriteProducts')}>
-                  <Ionicons name="heart-circle" size={28} color={themeColors.text} />
-                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>Favorite</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => router.push('/OrderList')}>
-                  <Ionicons name="list-circle-sharp" size={28} color={themeColors.text} />
-                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>My Orders</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => router.push('/Address')}>
-                  <Ionicons name="navigate-circle-sharp" size={28} color={themeColors.text} />
-                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>Address</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => router.push('/EditProfile')}>
-                  <Ionicons name="person-circle" size={28} color={themeColors.text} />
-                  <Text style={[styles.actionLabel, { color: themeColors.text }]}>Edit Profile</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <View style={styles.guestContainer}>
-              <Text style={[styles.guestTitle, { color: themeColors.text }]}>Welcome</Text>
-              <Text style={[styles.guestSubtitle, { color: themeColors.textSecondary }]}>
-                Please login or register to access your profile
-              </Text>
-
-              <View style={styles.authButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.authButton, styles.loginButton]}
-                  onPress={() => navigation.navigate('Auth' as never)}
-                >
-                  <Text style={styles.loginButtonText}>Login</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.authButton, styles.registerButton]}
-                  onPress={() => navigation.navigate('Auth' as never)}
-                >
-                  <Text style={styles.authButtonText}>Register</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: tabContentInset + 16 }]}
+        scrollIndicatorInsets={{ bottom: tabContentInset }}>
+        <View style={styles.header}>
+          <ThemedText style={[styles.eyebrow, { color: theme.textSecondary }]}>Your space at Sun Mobile</ThemedText>
+          <ThemedText accessibilityRole="header" style={styles.pageTitle}>My account</ThemedText>
         </View>
-      </ThemedView>
 
-      <ThemedView style={styles.container}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: tabContentInset }]}
-          scrollIndicatorInsets={{ bottom: tabContentInset }}>
-          {/* 2. MENU LIST SECTION */}
-          <View style={styles.menuList}>
-            {menuItems.map((item, index) => (
-              <MenuItem
-                key={index}
-                iconName={item.icon}
-                label={item.label}
-                color={item.color || themeColors.text} // Main icon and text color
-                onPress={item.action}
-                unavailable={item.unavailable}
-                borderColor={separatorColor}
-              />
-            ))}
-            {isLoggedIn ? (
-            <MenuItem
-                key={menuItems.length}
-                iconName="log-out-outline"
-                label="Logout"
-                color="#E95757" // Keep specific red for logout
-                onPress={() => handleLogout()}
-                borderColor={separatorColor}
-              />
-            ):<></>}
+        <View style={[styles.accountCard, { backgroundColor: surface, borderColor: border }]}>
+          <View style={styles.identityRow}>
+            <View style={[styles.avatar, { backgroundColor: soft }]}>
+              {isLoggedIn && avatar && avatar !== failedAvatar ? <Image source={{ uri: avatar }} style={StyleSheet.absoluteFill} contentFit="cover" onError={() => setFailedAvatar(avatar)} accessibilityLabel="Profile photo" />
+                : isLoggedIn ? <ThemedText style={[styles.initials, { color: accent }]}>{initials}</ThemedText>
+                  : <Ionicons name="person-outline" size={26} color={accent} />}
+            </View>
+            <View style={styles.identityCopy}>
+              <ThemedText style={styles.accountName}>{isLoggedIn ? name : 'Make yourself at home'}</ThemedText>
+              <ThemedText style={[styles.accountSubtitle, { color: theme.textSecondary }]}>{isLoggedIn ? (phone || userProfile?.email || 'Manage your account and purchases') : 'Sign in for orders, favorites and more.'}</ThemedText>
+            </View>
           </View>
-        </ScrollView>
-      </ThemedView>
+          {!isLoggedIn && <View style={styles.authRow}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in" onPress={() => router.push('/Auth')}
+              style={[styles.authButton, { backgroundColor: accent }]}><ThemedText style={[styles.authButtonText, { color: buttonText }]}>Sign in</ThemedText><Ionicons name="arrow-forward" size={17} color={buttonText} /></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Create account" onPress={() => router.push({ pathname: '/Auth', params: { mode: 'register' } })}
+              style={[styles.authButton, { borderWidth: 1, borderColor: border }]}><ThemedText style={[styles.authButtonText, { color: accent }]}>Create account</ThemedText></TouchableOpacity>
+          </View>}
+        </View>
+
+        {isLoggedIn && <View style={styles.quickActions}>{quickActions.map(action => (
+          <TouchableOpacity key={action.label} onPress={action.action} accessibilityRole="button" accessibilityLabel={action.label}
+            style={[styles.quickAction, { backgroundColor: surface, borderColor: border }]}>
+            <Ionicons name={action.icon} size={20} color={accent} /><ThemedText style={styles.quickLabel}>{action.label}</ThemedText>
+          </TouchableOpacity>
+        ))}</View>}
+
+        {menuGroups.map(group => <View key={group.title} style={styles.group}>
+          <ThemedText accessibilityRole="header" style={[styles.groupTitle, { color: theme.textSecondary }]}>{group.title}</ThemedText>
+          <View style={[styles.menuCard, { backgroundColor: surface, borderColor: border }]}>
+            {group.items.map((item, index) => <MenuItem key={item.label} label={item.label} iconName={item.icon}
+              color={theme.text} muted={theme.textSecondary} accent={accent} iconBackground={soft}
+              borderColor={border} last={index === group.items.length - 1} onPress={item.action} unavailable={item.unavailable} />)}
+          </View>
+        </View>)}
+        {isLoggedIn && <TouchableOpacity onPress={handleLogout} accessibilityRole="button" accessibilityLabel="Sign out"
+          style={[styles.signOut, { borderColor: border, backgroundColor: surface }]}>
+          <Ionicons name="log-out-outline" size={19} color={dark ? '#ffb3b3' : '#b52b38'} /><ThemedText style={[styles.signOutText, { color: dark ? '#ffb3b3' : '#b52b38' }]}>Sign out</ThemedText>
+        </TouchableOpacity>}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 10,
-    paddingTop: 0,
-    flex: 1,
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 10,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginRight: 15,
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#959595',
-    borderRadius: 10,
-    padding: 3,
-  },
-  infoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  userHandle: {
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  editButton: {
-    backgroundColor: '#E95757',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    height: 38,
-    marginLeft: 20,
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-  },
-  editButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  menuList: {
-    marginTop: 10,
-  },
-  menuItemContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-  },
-  menuItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  menuIcon: {
-    width: 30,
-  },
-  menuLabel: {
-    fontSize: 16,
-    marginLeft: 10,
-    flexShrink: 1,
-  },
-  separator: {
-    height: 1,
-    marginVertical: 10,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  gradientContainer: {
-    height: 180,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  profileCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    marginHorizontal: 10,
-    marginTop: -100,
-    marginBlock: 10,
-    paddingHorizontal: 20,
-    elevation: 10,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    position: 'absolute',
-    alignSelf: 'center',
-    top: -50,
-    zIndex: 5,
-    borderWidth: 5,
-    borderColor: '#fff',
-  },
-  detailsContainer: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingTop: 50,
-  },
-  nameText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 5,
-  },
-  verifyTag: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#666',
-  },
-  phoneContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  phoneText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  actionButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 15,
-  },
-  actionLabel: {
-    fontSize: 12,
-    marginTop: 5,
-    color: '#4A4A4A',
-  },
-  bottomSection: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-  bioText: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  interestHeader: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 15,
-  },
-  interestList: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  interestTile: {
-    width: '32%',
-    height: 100,
-    borderRadius: 15,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  interestGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 10,
-  },
-  interestLabel: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 5,
-  },
-
-  guestContainer: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    paddingHorizontal: 10,
-  },
-  guestTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 6,
-  },
-  guestSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 18,
-  },
-  authButtonsRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-  },
-  authButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 6,
-  },
-  registerButton: {
-    backgroundColor: '#2b5fe2',
-  },
-  loginButton: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#2b5fe2',
-  },
-  authButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  loginButtonText: {
-    color: '#2b5fe2',
-    fontWeight: '600',
-  }
+  safeArea: { flex: 1 },
+  content: { width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: 16 },
+  header: { paddingTop: 20, paddingBottom: 18 },
+  eyebrow: { fontSize: 12, lineHeight: 18, marginBottom: 3 },
+  pageTitle: { fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.8 },
+  accountCard: { borderRadius: 20, borderWidth: 1, padding: 16 },
+  identityRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  initials: { fontSize: 20, fontWeight: '700', lineHeight: 28 },
+  identityCopy: { flex: 1, minWidth: 0 },
+  accountName: { fontSize: 17, lineHeight: 23, fontWeight: '600', letterSpacing: -0.3 },
+  accountSubtitle: { fontSize: 12, lineHeight: 18, marginTop: 3 },
+  authRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  authButton: { flex: 1, minWidth: 110, minHeight: 46, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  authButtonText: { fontSize: 13, lineHeight: 20, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
+  quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  quickAction: { flexBasis: '47%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', minHeight: 48, padding: 12, gap: 10, borderWidth: 1, borderRadius: 14 },
+  quickLabel: { fontSize: 13, lineHeight: 20, fontWeight: '500', flexShrink: 1 },
+  group: { marginTop: 20 },
+  groupTitle: { fontSize: 12, lineHeight: 18, fontWeight: '600', marginLeft: 4, marginBottom: 8 },
+  menuCard: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, overflow: 'hidden' },
+  menuItem: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
+  menuIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  menuLabel: { fontSize: 13, lineHeight: 20, flex: 1 },
+  statusBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, flexShrink: 1 },
+  statusText: { fontSize: 10, lineHeight: 16 },
+  signOut: { marginTop: 20, borderWidth: 1, borderRadius: 14, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12 },
+  signOutText: { fontSize: 14, lineHeight: 22, fontWeight: '600' },
 });

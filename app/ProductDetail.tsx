@@ -1,13 +1,18 @@
+import { ProductHeaderTitle } from '@/components/product-header-title';
+import { BlurView } from 'expo-blur';
 import { IconButton } from '@/components/ui/icon-button';
+import { ProductDetailSkeleton } from '@/components/product-detail-skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useCart } from '@/contexts/cart-context';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchChildrenVariations, fetchInitialVariations, fetchProductDetails, postWishlistToggle } from '@/utils/api';
+import { productGalleryImages, variationImageIndex } from '@/utils/product-gallery';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Image,
   ScrollView,
   StatusBar,
@@ -27,26 +32,41 @@ export default function ProductDetailScreen() {
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const surface = dark ? '#1b252c' : '#ffffff';
+  const border = dark ? '#30414c' : '#e2e8ed';
+  const accent = dark ? '#8bd8ed' : '#086b83';
+  const onAccent = dark ? '#10232b' : '#ffffff';
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const [carouselWidth, setCarouselWidth] = useState(width);
+  const [carouselWidth, setCarouselWidth] = useState(Math.min(width, 760));
+  const galleryHeight = Math.min(carouselWidth * 0.7, 300);
   const carouselRef = useRef<ScrollView>(null);
   
   // Parse preloaded data for instant display
-  const initialData = preloadData ? JSON.parse(preloadData as string) : null;
+  const initialData = useMemo(() => {
+    try { return preloadData ? JSON.parse(preloadData) : null; } catch { return null; }
+  }, [preloadData]);
   
   const [product, setProduct] = useState<any>(initialData);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isLoading, setIsLoading] = useState(!initialData);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(!!initialData);
   const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const imageIndexRef = useRef(0);
+  const [reducedMotion, setReducedMotion] = useState(true);
   useEffect(() => {
     carouselRef.current?.scrollTo({ x: imageIndexRef.current * carouselWidth, animated: false });
   }, [carouselWidth]);
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReducedMotion(value); }).catch(() => {});
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReducedMotion);
+    return () => { active = false; subscription.remove(); };
+  }, []);
   const [quantity, setQuantity] = useState(1);
-  const [bottomBarHeight, setBottomBarHeight] = useState(100);
+  const [bottomBarHeight, setBottomBarHeight] = useState(72);
   const [expandedSection, setExpandedSection] = useState<string>('description');
   const [variations, setVariations] = useState<any[]>([]);
   const [selectedVariations, setSelectedVariations] = useState<Record<number, any>>({});
@@ -55,6 +75,12 @@ export default function ProductDetailScreen() {
   const [enableAddToCart, setEnableAddToCart] = useState(false);
   const [variationNames, setVariationNames] = useState<string>('');
   const [initProduct, setInitProduct] = useState<any>(null);
+  const [justAdded, setJustAdded] = useState(false);
+  useEffect(() => {
+    if (!justAdded) return;
+    const timer = setTimeout(() => setJustAdded(false), 2000);
+    return () => clearTimeout(timer);
+  }, [justAdded]);
 
   // Fetch product details from API
   useEffect(() => {
@@ -67,7 +93,7 @@ export default function ProductDetailScreen() {
 
       try {
         // Only show loading if we don't have preloaded data
-        if (!initialData && preloadData == null) {
+        if (!initialData) {
           setIsLoading(true);
         } else {
           setIsLoading(false); // partially loaded from preload
@@ -122,75 +148,40 @@ export default function ProductDetailScreen() {
       }
     };
     loadProduct();
-  }, [slug]);
+  }, [slug, initialData, preloadData]);
 
-  // Show skeleton loading state
+  // Reserve the same gallery and purchase-bar geometry while details are fetched.
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
-        <StatusBar 
-          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-          backgroundColor="transparent"
-          translucent={true}
-        />
-        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
-          <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </IconButton>
-          <View style={{ flex: 1, height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginHorizontal: 16 }} />
+      <SafeAreaView style={[styles.container, { backgroundColor: surface }]} edges={['top', 'left', 'right']}>
+        <View style={[styles.header, styles.glassHeader, { top: insets.top, borderBottomColor: dark ? '#ffffff18' : '#ffffff90' }]}>
+        <BlurView pointerEvents="none" tint={dark ? 'dark' : 'light'} intensity={55}
+          experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: dark ? '#18252c99' : '#ffffff99' }]} />
+          <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}><Ionicons name="chevron-back" size={23} color={themeColors.text} /></IconButton>
+          <ThemedText style={styles.headerTitle}>Product details</ThemedText>
           <View style={styles.headerButton} />
         </View>
-        
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Skeleton Image */}
-          <View style={[styles.carouselImage, { backgroundColor: '#E0E0E0' }]} />
-          
-          {/* Skeleton Product Info */}
-          <View style={styles.infoSection}>
-            <View style={{ height: 24, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 8, width: '80%' }} />
-            <View style={{ height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 8, width: '60%' }} />
-            <View style={{ height: 16, backgroundColor: '#E0E0E0', borderRadius: 4, width: '40%' }} />
-          </View>
-          
-          {/* Skeleton Variations */}
-          <View style={styles.variantSection}>
-            <View style={{ height: 20, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 12, width: 100 }} />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={{ width: 80, height: 44, backgroundColor: '#E0E0E0', borderRadius: 8 }} />
-              ))}
-            </View>
-          </View>
-          
-          {/* Skeleton Description */}
-          <View style={[styles.variantSection, { marginTop: 8 }]}>
-            <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 10, width: 120 }} />
-            <View style={{ height: 14, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 6, width: '100%' }} />
-            <View style={{ height: 14, backgroundColor: '#E0E0E0', borderRadius: 4, marginBottom: 6, width: '95%' }} />
-            <View style={{ height: 14, backgroundColor: '#E0E0E0', borderRadius: 4, width: '85%' }} />
-          </View>
+        <ScrollView style={[styles.scrollView, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View onLayout={event => setCarouselWidth(event.nativeEvent.layout.width)}><ProductDetailSkeleton galleryHeight={galleryHeight} /></View>
+          <View style={{ height: bottomBarHeight + 12 }} />
         </ScrollView>
-        
-        {/* Skeleton Bottom Bar */}
-        <View style={styles.bottomBar}>
-          <View style={{ width: 80, height: 40, backgroundColor: '#E0E0E0', borderRadius: 8, marginRight: 12 }} />
-          <View style={{ width: 100, height: 40, backgroundColor: '#E0E0E0', borderRadius: 20, marginRight: 12 }} />
-          <View style={{ flex: 1, height: 44, backgroundColor: '#E0E0E0', borderRadius: 12 }} />
+        <View onLayout={event => setBottomBarHeight(event.nativeEvent.layout.height)} style={[styles.bottomBar, { backgroundColor: surface, borderTopColor: border, paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <View style={styles.purchaseContent}><View style={{ flex: 1 }}><ProductDetailSkeleton variant="purchase" /></View></View>
         </View>
       </SafeAreaView>
     );
   }
-
   // Show error state
   if (error || !product) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: surface }]} edges={['top', 'left', 'right']}>
         <StatusBar 
           barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
           backgroundColor="transparent"
           translucent={true}
         />
-        <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
+        <View style={[styles.header, { backgroundColor: surface }]}>
           <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </IconButton>
@@ -203,10 +194,11 @@ export default function ProductDetailScreen() {
             {error || 'Product not found'}
           </ThemedText>
           <TouchableOpacity 
-            style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1E88E5', borderRadius: 8 }}
+            accessibilityRole="button"
+            style={{ marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, minHeight: 44, backgroundColor: accent, borderRadius: 12 }}
             onPress={() => router.back()}
           >
-            <Text style={{ color: '#FFF', fontWeight: '600' }}>Go Back</Text>
+            <Text style={{ color: onAccent, fontWeight: '600' }}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -221,23 +213,31 @@ export default function ProductDetailScreen() {
 
   const productPrice = parsePrice(product.currency_price || product.price || 0);
   const oldPrice = parsePrice(product.old_currency_price || product.old_price || 0);
-  const productImages = product.images || [];
+  const productImages = Array.isArray(product.images) ? product.images : [];
   const mainImage = product.image || (productImages.length > 0 ? productImages[0] : '');
-  const allImages = mainImage ? [mainImage, ...productImages] : productImages;
+  const allImages = productGalleryImages(product);
 
   const toggleSection = (section: string) => {
     setExpandedSection((prev) => (prev === section ? '' : section));
   };
 
   const incrementQuantity = () => {
+    setJustAdded(false);
     const maxQty = currentVariation?.maximum_purchase_quantity || initProduct?.maximum_purchase_quantity || 100;
     const currentStock = getCurrentStock();
     setQuantity((prev) => Math.min(prev + 1, Math.min(maxQty, currentStock || maxQty)));
   };
   
-  const decrementQuantity = () => setQuantity((prev) => Math.max(prev - 1, 1));
+  const decrementQuantity = () => { setJustAdded(false); setQuantity((prev) => Math.max(prev - 1, 1)); };
 
   const handleVariationSelect = async (attributeIndex: number, variation: any) => {
+    setJustAdded(false);
+    const imageIndex = variationImageIndex(variation.product_attribute_option_id, product.images_meta, allImages);
+    if (imageIndex >= 0) {
+      imageIndexRef.current = imageIndex;
+      setCurrentImageIndex(imageIndex);
+      carouselRef.current?.scrollTo({ x: imageIndex * carouselWidth, animated: !reducedMotion });
+    }
     const newSelected = { ...selectedVariations, [attributeIndex]: variation };
     setSelectedVariations(newSelected);
     
@@ -327,7 +327,6 @@ export default function ProductDetailScreen() {
       return;
     }
     
-    const finalVariation = currentVariation || product;
     const itemPrice = getCurrentPrice();
     const itemDiscount = 0; // Calculate discount if applicable
     const itemSubtotal = itemPrice * quantity;
@@ -349,6 +348,7 @@ export default function ProductDetailScreen() {
       total: itemTotal,
       variation_names: variationNames?? '',
     });
+    setJustAdded(true);
     
     // Reset after adding to cart
     if (currentVariation) {
@@ -389,6 +389,7 @@ export default function ProductDetailScreen() {
   const hasOffer = () => {
     return product.is_offer || product.flash_sale || false;
   };
+  const quantityLimit = Math.min(currentVariation?.maximum_purchase_quantity || initProduct?.maximum_purchase_quantity || 100, getCurrentStock());
 
   const handleToggleFavorite = async () => {
     if (!product?.id) return;
@@ -409,28 +410,29 @@ export default function ProductDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: surface }]} edges={['top', 'left', 'right']}>
       <StatusBar 
         barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor="transparent"
         translucent={true}
       />
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: themeColors.card, borderBottomColor: themeColors.borderColor }]}>
+      <View style={[styles.header, styles.glassHeader, { top: insets.top, borderBottomColor: dark ? '#ffffff18' : '#ffffff90' }]}>
+        <BlurView pointerEvents="none" tint={dark ? 'dark' : 'light'} intensity={55}
+          experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: dark ? '#18252c99' : '#ffffff99' }]} />
         <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+          <Ionicons name="chevron-back" size={23} color={themeColors.text} />
         </IconButton>
-        <ThemedText style={styles.headerTitle} numberOfLines={1}>
-          {product.name}
-        </ThemedText>
+        <ProductHeaderTitle name={product.name || 'Product'} color={themeColors.text} reducedMotion={reducedMotion} />
         <IconButton label={favorite ? "Remove from favorites" : "Add to favorites"} style={styles.headerButton} onPress={handleToggleFavorite}>
           <Ionicons name={favorite ? 'heart' : 'heart-outline'} size={24} color={favorite ? '#E53935' : themeColors.text} />
         </IconButton>
       </View>
 
-      <ScrollView style={[styles.scrollView, {paddingBottom: 20 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.scrollView, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.content} scrollIndicatorInsets={{ bottom: bottomBarHeight }} showsVerticalScrollIndicator={false}>
         {/* Image Carousel */}
-        <View style={styles.carouselContainer} onLayout={e => setCarouselWidth(e.nativeEvent.layout.width)}>
+        <View style={[styles.carouselContainer, { backgroundColor: surface }]} onLayout={e => setCarouselWidth(e.nativeEvent.layout.width)}>
           {allImages.length > 0 ? (
             <>
               <ScrollView
@@ -446,67 +448,52 @@ export default function ProductDetailScreen() {
                 scrollEventThrottle={16}
               >
                 {allImages.map((img:any, idx:number) => (
-                  <Image key={idx} source={{ uri: img }} style={[styles.carouselImage, { width: carouselWidth, height: carouselWidth }]} />
+                  <Image key={img} source={{ uri: img }} resizeMode="contain" accessibilityLabel={`${product.name}, image ${idx + 1} of ${allImages.length}`} style={[styles.carouselImage, { backgroundColor: surface, width: carouselWidth, height: galleryHeight }]} />
                 ))}
               </ScrollView>
               {/* Pagination Dots */}
               {allImages.length > 1 && (
                 <View style={styles.paginationDots}>
                   {allImages.map((_:any, idx:number) => (
-                    <View key={idx} style={[styles.dot, currentImageIndex === idx && styles.dotActive]} />
+                    <View key={idx} style={[styles.dot, { backgroundColor: currentImageIndex === idx ? accent : border }, currentImageIndex === idx && styles.dotActive]} />
                   ))}
                 </View>
               )}
             </>
           ) : (
-            <View style={[styles.carouselImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: themeColors.card }]}>
-              <Ionicons name="image-outline" size={64} color="#CCC" />
-              <ThemedText style={{ color: '#999', marginTop: 8 }}>No image available</ThemedText>
+            <View style={{ height: galleryHeight, justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="image-outline" size={48} color={themeColors.textSecondary} />
+              <ThemedText style={{ color: themeColors.textSecondary, marginTop: 8 }}>No image available</ThemedText>
             </View>
           )}
         </View>
 
         {/* Product Info */}
-        <View style={[styles.infoSection, { backgroundColor: themeColors.card }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <ThemedText style={styles.productName}>{product.name}</ThemedText>
-            {hasOffer() && (
-              <View style={{ backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>SALE</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.metaRow}>
+        <View style={styles.infoSection}>
+          {isLoadingDetails ? <ProductDetailSkeleton variant="metadata" /> : <View style={styles.metaRow}>
             <ThemedText style={[styles.sku, { color: themeColors.textSecondary }]}>SKU: {currentVariation?.sku || product.sku || 'N/A'}</ThemedText>
-            <ThemedText style={[styles.stock, getCurrentStock() > 0 ? {} : { color: '#E53935' }]}>
-              {getCurrentStock() > 0 ? `In Stock: ${getCurrentStock()} ${product.unit || 'pcs'}` : variationNames ? 'Out of Stock' : 'Please select options'}
+            <ThemedText style={[styles.stock, { color: getCurrentStock() > 0 ? themeColors.success : themeColors.textSecondary }]}>
+              {getCurrentStock() > 0 ? `In stock · ${getCurrentStock()} ${product.unit || 'pcs'}` : variations.length > 0 && !currentVariation ? 'Select an option' : 'Out of stock'}
             </ThemedText>
+          </View>}
+          <View style={styles.priceRow}>
+            <ThemedText style={styles.priceValue}>${getCurrentPrice().toFixed(2)}</ThemedText>
+            {getCurrentOldPrice() > getCurrentPrice() && <ThemedText style={[styles.oldPriceValue, { color: themeColors.textSecondary }]}>${getCurrentOldPrice().toFixed(2)}</ThemedText>}
+            {hasOffer() && <View style={[styles.offerBadge, { backgroundColor: dark ? '#253b46' : '#eaf4f8' }]}>
+              <Text style={{ color: accent, fontSize: 10, lineHeight: 16, fontWeight: '700' }}>OFFER</Text>
+            </View>}
           </View>
-          {variationNames != undefined? (
-            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: themeColors.borderColor }}>
-              <ThemedText style={{ fontSize: 13, color: '#666', fontWeight: '600' }}>Selected: {variationNames}</ThemedText>
-            </View>
-          ) : <></>}
         </View>
 
         {/* Product Variations */}
-        {isLoadingDetails && Object.keys(availableOptions).length === 0 ? (
-          <View style={styles.variantSection}>
-            <View style={{ height: 10, backgroundColor: '#E0E0E0', borderRadius: 4, width: 100 }} />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              {[1, 2, 3].map(i => (
-                <View key={i} style={{ width: 80, height: 44, backgroundColor: '#E0E0E0', borderRadius: 8 }} />
-              ))}
-            </View>
-          </View>
-        ) : null}
+        {isLoadingDetails && <ProductDetailSkeleton variant="details" />}
         {Object.entries(availableOptions).map(([index, options]) => {
           const attributeIndex = parseInt(index);
           const firstOption = options[0];
           const attributeName = firstOption?.product_attribute?.name || firstOption.product_attribute_name;
           
           return (
-            <View key={index} style={[styles.variantSection, { backgroundColor: themeColors.card }]}>
+            <View key={index} style={[styles.variantSection, { backgroundColor: surface, borderColor: border }]}>
               <ThemedText style={styles.variantLabel}>{attributeName}</ThemedText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.variationRow}>
@@ -518,12 +505,15 @@ export default function ProductDetailScreen() {
                         key={variation.id}
                         style={[
                           styles.variationChip,
-                          { backgroundColor: themeColors.background, borderColor: themeColors.borderColor },
-                          isSelected && styles.variationChipSelected
+                          { backgroundColor: themeColors.background, borderColor: border },
+                          isSelected && { backgroundColor: dark ? '#253b46' : '#eaf4f8', borderColor: accent }
                         ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={optionName}
+                        accessibilityState={{ selected: isSelected }}
                         onPress={() => handleVariationSelect(attributeIndex, variation)}
                       >
-                        <Text style={[styles.variationText, isSelected && styles.variationTextSelected]}>
+                        <Text style={[styles.variationText, { color: isSelected ? accent : themeColors.textSecondary }]}>
                           {optionName}
                         </Text>
                       </TouchableOpacity>
@@ -536,15 +526,8 @@ export default function ProductDetailScreen() {
         })}
 
         {/* Description */}
-        {isLoadingDetails && !product.details ? (
-          <View style={styles.expandableSection}>
-            <View style={styles.expandableHeader}>
-              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 100 }} />
-            </View>
-          </View>
-        ) : null}
         {product.details? (
-          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
+          <View style={[styles.expandableSection, { backgroundColor: surface, borderColor: border }]}>
             <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'description' }} style={styles.expandableHeader} onPress={() => toggleSection('description')}>
               <ThemedText style={styles.expandableTitle}>Description</ThemedText>
               <Ionicons
@@ -554,23 +537,16 @@ export default function ProductDetailScreen() {
               />
             </TouchableOpacity>
             {expandedSection === 'description' && (
-              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
-                <ThemedText style={styles.descriptionText}>{product.details.replace(/<[^>]*>/g, '')}</ThemedText>
+              <View style={[styles.expandableBody, { borderTopColor: border }]}>
+                <ThemedText style={[styles.descriptionText, { color: themeColors.textSecondary }]}>{product.details.replace(/<[^>]*>/g, '')}</ThemedText>
               </View>
             )}
           </View>
         ): <></>}
 
         {/* Feature Description */}
-        {isLoadingDetails && !product.feature_description ? (
-          <View style={styles.expandableSection}>
-            <View style={styles.expandableHeader}>
-              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 140 }} />
-            </View>
-          </View>
-        ) : null}
         {product.feature_description? (
-          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
+          <View style={[styles.expandableSection, { backgroundColor: surface, borderColor: border }]}>
             <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'feature_description' }} style={styles.expandableHeader} onPress={() => toggleSection('feature_description')}>
               <ThemedText style={styles.expandableTitle}>Feature Description</ThemedText>
               <Ionicons
@@ -580,23 +556,16 @@ export default function ProductDetailScreen() {
               />
             </TouchableOpacity>
             {expandedSection === 'feature_description' && (
-              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
-                <ThemedText style={styles.descriptionText}>{product.feature_description.replace(/<[^>]*>/g, '')}</ThemedText>
+              <View style={[styles.expandableBody, { borderTopColor: border }]}>
+                <ThemedText style={[styles.descriptionText, { color: themeColors.textSecondary }]}>{product.feature_description.replace(/<[^>]*>/g, '')}</ThemedText>
               </View>
             )}
           </View>
         ): <></>}
 
         {/* Specifications */}
-        {isLoadingDetails && (!product.specifications || product.specifications.length === 0) ? (
-          <View style={styles.expandableSection}>
-            <View style={styles.expandableHeader}>
-              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 120 }} />
-            </View>
-          </View>
-        ) : null}
         {product.specifications && product.specifications.length > 0 && (
-          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
+          <View style={[styles.expandableSection, { backgroundColor: surface, borderColor: border }]}>
             <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'specifications' }} style={styles.expandableHeader} onPress={() => toggleSection('specifications')}>
               <ThemedText style={styles.expandableTitle}>Specifications</ThemedText>
               <Ionicons
@@ -606,9 +575,9 @@ export default function ProductDetailScreen() {
               />
             </TouchableOpacity>
             {expandedSection === 'specifications' && (
-              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
+              <View style={[styles.expandableBody, { borderTopColor: border }]}>
                 {product.specifications.map((spec: any, idx: number) => (
-                  <View key={idx} style={[styles.specRow, { borderBottomColor: themeColors.borderColor }]}>
+                  <View key={idx} style={[styles.specRow, { borderBottomColor: border }]}>
                     <ThemedText style={[styles.specKey, { color: themeColors.textSecondary }]}>{spec.key || spec.name}:</ThemedText>
                     <ThemedText style={styles.specValue}>{spec.value}</ThemedText>
                   </View>
@@ -619,15 +588,8 @@ export default function ProductDetailScreen() {
         )}
 
         {/* Shipping and Return */}
-        {isLoadingDetails && !product.shipping_and_return ? (
-          <View style={styles.expandableSection}>
-            <View style={styles.expandableHeader}>
-              <View style={{ height: 18, backgroundColor: '#E0E0E0', borderRadius: 4, width: 130 }} />
-            </View>
-          </View>
-        ) : null}
         {product.shipping_and_return && (
-          <View style={[styles.expandableSection, { backgroundColor: themeColors.card, borderColor: themeColors.borderColor }]}>
+          <View style={[styles.expandableSection, { backgroundColor: surface, borderColor: border }]}>
             <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: expandedSection === 'shipping' }} style={styles.expandableHeader} onPress={() => toggleSection('shipping')}>
               <ThemedText style={styles.expandableTitle}>Shipping & Return</ThemedText>
               <Ionicons
@@ -637,8 +599,8 @@ export default function ProductDetailScreen() {
               />
             </TouchableOpacity>
             {expandedSection === 'shipping' && (
-              <View style={[styles.expandableBody, { borderTopColor: themeColors.borderColor }]}>
-                <ThemedText style={styles.descriptionText}>{product.shipping_and_return.replace(/<[^>]*>/g, '')}</ThemedText>
+              <View style={[styles.expandableBody, { borderTopColor: border }]}>
+                <ThemedText style={[styles.descriptionText, { color: themeColors.textSecondary }]}>{product.shipping_and_return.replace(/<[^>]*>/g, '')}</ThemedText>
               </View>
             )}
           </View>
@@ -648,347 +610,73 @@ export default function ProductDetailScreen() {
         <View style={[styles.bottomSpacer, { height: bottomBarHeight + 12 }]} />
       </ScrollView>
 
-      {/* Sticky Bottom Action Bar */}
-      <View onLayout={e => setBottomBarHeight(e.nativeEvent.layout.height)} style={[styles.bottomBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor, paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.priceSection}>
-          <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Price</ThemedText>
-          <View>
-            <ThemedText style={styles.priceValue}>${getCurrentPrice().toFixed(2)}</ThemedText>
-            {getCurrentOldPrice() > getCurrentPrice() && (
-              <ThemedText style={[styles.oldPriceValue, { color: themeColors.textSecondary }]}>${getCurrentOldPrice().toFixed(2)}</ThemedText>
-            )}
-          </View>
+      {/* One-row purchase controls; price stays with the product information. */}
+      <View onLayout={event => setBottomBarHeight(event.nativeEvent.layout.height)} style={[styles.bottomBar, { backgroundColor: surface, borderTopColor: border, paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={styles.purchaseContent}>
+          {isLoadingDetails ? <View style={{ flex: 1 }}><ProductDetailSkeleton variant="purchase" /></View> : <>
+            <View style={[styles.quantitySelector, { backgroundColor: themeColors.background, borderColor: border }]}>
+              <IconButton label="Decrease quantity" disabled={quantity <= 1 || getCurrentStock() === 0} style={[styles.quantityButton, quantity <= 1 && { opacity: 0.35 }]} onPress={decrementQuantity}>
+                <Ionicons name="remove" size={17} color={accent} />
+              </IconButton>
+              <ThemedText style={styles.quantityValue}>{quantity}</ThemedText>
+              <IconButton label="Increase quantity" disabled={quantity >= quantityLimit} style={[styles.quantityButton, quantity >= quantityLimit && { opacity: 0.35 }]} onPress={incrementQuantity}>
+                <Ionicons name="add" size={17} color={accent} />
+              </IconButton>
+            </View>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add to cart" accessibilityState={{ disabled: !enableAddToCart }}
+              style={[styles.addToCartButton, { backgroundColor: enableAddToCart ? accent : (dark ? '#34434e' : '#e2e8ed') }]}
+              onPress={handleAddToCart} disabled={!enableAddToCart}>
+              <Ionicons name={justAdded ? 'checkmark' : 'bag-add-outline'} size={19} color={enableAddToCart ? onAccent : themeColors.textSecondary} />
+              <Text accessibilityLiveRegion="polite" style={[styles.addToCartText, { color: enableAddToCart ? onAccent : themeColors.textSecondary }]}>
+                {justAdded ? 'Added to cart' : !currentVariation && variations.length > 0 ? 'Select options' : getCurrentStock() === 0 ? 'Out of stock' : 'Add to cart'}
+              </Text>
+            </TouchableOpacity>
+          </>}
         </View>
-
-        <View style={[styles.quantitySelector, { backgroundColor: themeColors.background }]}>
-          <IconButton label="Decrease quantity" style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={decrementQuantity}>
-            <Ionicons name="remove" size={18} color="#1E88E5" />
-          </IconButton>
-          <ThemedText style={styles.quantityValue}>{quantity}</ThemedText>
-          <IconButton label="Increase quantity" style={[styles.quantityButton, { backgroundColor: themeColors.card }]} onPress={incrementQuantity}>
-            <Ionicons name="add" size={18} color="#1E88E5" />
-          </IconButton>
-        </View>
-        
-        <TouchableOpacity 
-          style={[styles.addToCartButton, !enableAddToCart && { backgroundColor: '#CCC' }]} 
-          onPress={handleAddToCart}
-          disabled={!enableAddToCart}
-        >
-          <Ionicons name="cart" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.addToCartText}>
-            {
-            isLoadingDetails? 'Loading...' :
-            !currentVariation && variations.length > 0 ? 'Select Options' : getCurrentStock() === 0 ? 'Out of Stock' : 'Add to Cart'
-            }
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      </View>    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  carouselContainer: {
-    position: 'relative',
-  },
-  carouselImage: {
-    width: '100%',
-    aspectRatio: 1,
-    resizeMode: 'cover',
-    backgroundColor: '#fff',
-  },
-  paginationDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#D0D4DA',
-    marginHorizontal: 4,
-  },
-  dotActive: {
-    backgroundColor: '#1E88E5',
-    width: 24,
-  },
-  infoSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginTop: 8,
-  },
-  brand: {
-    fontSize: 13,
-    color: '#1E88E5',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  productName: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  sku: {
-    fontSize: 12,
-    color: '#666',
-  },
-  stock: {
-    fontSize: 12,
-    color: '#2E7D32',
-    fontWeight: '600',
-  },
-  variantSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-    marginTop: 0,
-  },
-  variantLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  colorSwatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorSwatchSelected: {
-    borderColor: '#1E88E5',
-  },
-  colorInner: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  storageRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  storageChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#F7F9FC',
-  },
-  storageChipSelected: {
-    borderColor: '#1E88E5',
-    backgroundColor: '#E3F2FD',
-  },
-  storageText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  storageTextSelected: {
-    color: '#1E88E5',
-  },
-  variationRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  variationChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  variationChipSelected: {
-    borderColor: '#1E88E5',
-    backgroundColor: '#E3F2FD',
-  },
-  variationText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  variationTextSelected: {
-    color: '#1E88E5',
-  },
-  variationPrice: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-  },
-  variationPriceSelected: {
-    color: '#1E88E5',
-  },
-  expandableSection: {
-    marginTop: 8,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    borderWidth: 1,
-  },
-  expandableHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  expandableTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  expandableBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderTopWidth: 1,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-  },
-  featureText: {
-    fontSize: 14,
-    color: '#444',
-  },
-  descriptionText: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 20,
-    marginTop: 10,
-  },
-  specRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-  },
-  specKey: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-    flex: 1,
-  },
-  specValue: {
-    fontSize: 13,
-    flex: 2,
-  },
-  bottomSpacer: {
-    height: 100,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  priceSection: {
-    marginRight: 12,
-  },
-  priceLabel: {
-    fontSize: 11,
-    color: '#999',
-    marginBottom: 2,
-  },
-  priceValue: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  oldPriceValue: {
-    fontSize: 12,
-    color: '#999',
-    textDecorationLine: 'line-through',
-    marginTop: 2,
-  },
-  quantitySelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    paddingHorizontal: 4,
-    marginRight: 12,
-  },
-  quantityButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-  },
-  quantityValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    paddingHorizontal: 12,
-    minWidth: 32,
-    textAlign: 'center',
-  },
-  addToCartButton: {
-    flex: 1,
-    minWidth: 140,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0D47A1',
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  addToCartText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  container: { flex: 1 },
+  header: { width: '100%', maxWidth: 760, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 0 },
+  glassHeader: { position: 'absolute', left: 0, right: 0, zIndex: 10, overflow: 'hidden', borderBottomWidth: StyleSheet.hairlineWidth },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'center', paddingHorizontal: 8 },
+  scrollView: { flex: 1 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center' },
+  carouselContainer: { paddingTop: 44, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, overflow: 'hidden' },
+  carouselImage: { backgroundColor: '#ffffff' },
+  paginationDots: { position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3, marginHorizontal: 3 },
+  dotActive: { width: 18 },
+  infoSection: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 2 },
+  offerBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginTop: 2 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 4 },
+  sku: { fontSize: 11, lineHeight: 17 },
+  stock: { fontSize: 11, lineHeight: 17, fontWeight: '600' },
+  priceRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 },
+  priceValue: { fontSize: 23, lineHeight: 29, fontWeight: '700', letterSpacing: -0.6 },
+  oldPriceValue: { fontSize: 13, lineHeight: 20, textDecorationLine: 'line-through' },
+  variantSection: { padding: 14, marginTop: 12, marginHorizontal: 16, borderRadius: 18, borderWidth: 1 },
+  variantLabel: { fontSize: 13, lineHeight: 20, fontWeight: '600', marginBottom: 10 },
+  variationRow: { flexDirection: 'row', gap: 8 },
+  variationChip: { minHeight: 44, minWidth: 64, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  variationText: { fontSize: 12, lineHeight: 18, fontWeight: '600' },
+  expandableSection: { marginTop: 12, marginHorizontal: 16, borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  expandableHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, gap: 10 },
+  expandableTitle: { flex: 1, fontSize: 14, lineHeight: 22, fontWeight: '600' },
+  expandableBody: { paddingHorizontal: 16, paddingBottom: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  descriptionText: { fontSize: 14, lineHeight: 22, marginTop: 12 },
+  specRow: { flexDirection: 'row', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  specKey: { flex: 1, fontSize: 12, lineHeight: 20, fontWeight: '500' },
+  specValue: { flex: 2, fontSize: 12, lineHeight: 20 },
+  bottomSpacer: { height: 72 },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, boxShadow: '0px -3px 16px rgba(0, 0, 0, 0.04)', elevation: 6 },
+  purchaseContent: { width: '100%', maxWidth: 728, alignSelf: 'center', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
+  quantitySelector: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1 },
+  quantityButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  quantityValue: { fontSize: 14, lineHeight: 20, fontWeight: '600', minWidth: 24, paddingHorizontal: 2, textAlign: 'center' },
+  addToCartButton: { flex: 1, minWidth: 140, minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12 },
+  addToCartText: { fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'center', flexShrink: 1 },
 });

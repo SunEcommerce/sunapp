@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchNewArrivals } from '@/utils/api';
 import { navigateToProductDetail } from '@/utils/navigation';
@@ -116,9 +117,7 @@ export default function NewArrivalsSection({ refreshKey = 0 }: { refreshKey?: nu
         </TouchableOpacity>
       </View>
       {isLoadingNewArrivals ? (
-        <View style={styles.loadingProductsContainer}>
-          <Text style={{ color: Colors[colorScheme].text }}>Loading products...</Text>
-        </View>
+        <HomeSkeleton variant="products" label="Loading new arrivals" />
       ) : newArrivalsData.length > 0 ? (
         <FlatList
           data={newArrivalsData}

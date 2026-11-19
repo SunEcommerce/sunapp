@@ -13,18 +13,15 @@ import { getAccessToken } from '@/utils/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function InlineCartIllustration() {
+function EmptyCartArtwork({ dark, accent }: { dark: boolean; accent: string }) {
   return (
-    <View style={styles.illustrationContainer} accessible accessibilityRole="image" accessibilityLabel="Empty cart illustration">
-      <View style={styles.cartOutline}>
-        <View style={styles.cartGrid} />
+    <View style={styles.illustrationContainer} accessible={false} aria-hidden>
+      <View style={[styles.artworkHalo, { borderColor: dark ? '#29424e' : '#dceaf0' }]} />
+      <View style={[styles.artworkDisc, { backgroundColor: dark ? '#203741' : '#e7f2f6' }]}>
+        <Ionicons name="bag-handle-outline" size={52} color={accent} />
       </View>
-
-      <View style={[styles.wheel, styles.wheelLeft]} />
-      <View style={[styles.wheel, styles.wheelRight]} />
-
-      <View style={styles.plusBadge}>
-        <ThemedText style={styles.plusText}>+</ThemedText>
+      <View style={[styles.artworkBadge, { backgroundColor: accent, borderColor: dark ? '#151718' : '#f3f3f3' }]}>
+        <Ionicons name="add" size={18} color={dark ? '#10232b' : '#ffffff'} />
       </View>
     </View>
   );
@@ -39,6 +36,10 @@ export default function CartScreen() {
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const accent = dark ? '#8bd8ed' : '#086b83';
+  const surface = dark ? '#1b252c' : '#ffffff';
+  const border = dark ? '#30414c' : '#e2e8ed';
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   // Calculate totals
@@ -115,27 +116,28 @@ export default function CartScreen() {
   // Empty cart state
   if (itemCount === 0) {
     return (
-      <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background, paddingBottom: tabContentInset }]}>
-        <ThemedView style={[styles.container]}>
-          <InlineCartIllustration />
-
-          <ThemedText type="title" style={styles.heading}>
-            Ohhh... Your cart is empty
-          </ThemedText>
-
-          <ThemedText type="default" style={styles.subtitle}>
-            but it doesn&apos;t have to be.
-          </ThemedText>
-
-          <Pressable
-            style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-            onPress={() => router.push('/')}
-            accessibilityRole="button"
-            accessibilityLabel="Shop now">
-            <ThemedText style={styles.ctaText}>SHOP NOW</ThemedText>
-          </Pressable>
-        </ThemedView>
-      </ThemedView>
+      <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
+        <View style={styles.header}>
+          <View><ThemedText style={styles.eyebrow}>A little something for you</ThemedText><ThemedText style={styles.headerTitle}>My cart</ThemedText></View>
+          <View style={[styles.countPill, { backgroundColor: surface, borderColor: border }]}><ThemedText style={styles.countText}>0 items</ThemedText></View>
+        </View>
+        <ScrollView contentContainerStyle={[styles.emptyScroll, { paddingBottom: tabContentInset + 24 }]}>
+          <View style={styles.emptyContent}>
+            <EmptyCartArtwork dark={dark} accent={accent} />
+            <ThemedText style={[styles.emptyEyebrow, { color: accent }]}>GOOD FINDS AHEAD</ThemedText>
+            <ThemedText accessibilityRole="header" style={styles.heading}>Your cart is waiting</ThemedText>
+            <ThemedText style={[styles.subtitle, { color: themeColors.textSecondary }]}>Find something you love. Your next favorite is just a few taps away.</ThemedText>
+            <Pressable style={({ pressed }) => [styles.cta, { backgroundColor: accent }, pressed && styles.ctaPressed]}
+              onPress={() => router.push('/')} accessibilityRole="button" accessibilityLabel="Explore products">
+              <ThemedText style={[styles.ctaText, { color: dark ? '#10232b' : '#ffffff' }]}>Explore products</ThemedText>
+              <Ionicons name="arrow-forward" size={19} color={dark ? '#10232b' : '#ffffff'} />
+            </Pressable>
+            <Pressable onPress={() => router.push('/(tabs)/category')} style={styles.secondaryAction} accessibilityRole="button" accessibilityLabel="Browse categories">
+              <Ionicons name="grid-outline" size={16} color={accent} /><ThemedText style={[styles.secondaryText, { color: accent }]}>Browse categories</ThemedText>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -144,26 +146,25 @@ export default function CartScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safeArea, { backgroundColor: themeColors.background, paddingBottom: tabContentInset }]}>
       <ThemedView style={[styles.safeArea, { backgroundColor: themeColors.background }]}>
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-          <View style={styles.headerLeft} />
-          <ThemedText style={styles.headerTitle}>Cart ({uniqueItemCount})</ThemedText>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}><ThemedText style={styles.eyebrow}>{itemCount} {itemCount === 1 ? 'item' : 'items'} in your selection</ThemedText><ThemedText style={styles.headerTitle}>My cart</ThemedText></View>
           <View style={styles.headerRight}>
             {selectedItems.length > 0 && (
               <IconButton label="Delete selected cart items" onPress={handleDeleteSelected} style={styles.headerButton}>
                 <Ionicons name="trash-outline" size={24} color="#FF3B30" />
               </IconButton>
             )}
-            <TouchableOpacity onPress={toggleEditMode} style={styles.headerButton}>
-              <ThemedText style={styles.editText}>{isEditMode ? 'Done' : 'Edit'}</ThemedText>
+            <TouchableOpacity onPress={toggleEditMode} style={styles.headerButton} accessibilityRole="button" accessibilityLabel={isEditMode ? 'Finish editing cart' : 'Edit cart'}>
+              <ThemedText style={[styles.editText, { color: accent }]}>{isEditMode ? 'Done' : 'Edit'}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
 
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.cartContent} showsVerticalScrollIndicator={false}>
           {/* Cart Items */}
           <View style={styles.itemsContainer}>
             {items.map((item) => (
-              <View key={item.id} style={[styles.cartItem, { backgroundColor: themeColors.background }]}>
+              <View key={item.id} style={[styles.cartItem, { backgroundColor: surface, borderColor: border }]}>
                 {/* Checkbox for edit mode */}
                 {isEditMode && (
                   <TouchableOpacity
@@ -184,7 +185,7 @@ export default function CartScreen() {
                   </TouchableOpacity>
                 )}
 
-                <Image source={{ uri: item.image }} style={styles.productImage} />
+                <Image source={{ uri: item.image }} style={styles.productImage} resizeMode="contain" accessibilityLabel={item.name} />
 
                 <View style={styles.itemDetails}>
                   <View style={styles.itemHeader}>
@@ -194,7 +195,7 @@ export default function CartScreen() {
                         SKU: {item.sku}
                       </ThemedText>
                       {item.variation_names && (
-                        <ThemedText style={styles.productVariant}>
+                        <ThemedText style={[styles.productVariant, { color: accent }]}>
                           {item.variation_names}
                         </ThemedText>
                       )}
@@ -203,7 +204,7 @@ export default function CartScreen() {
                     <IconButton label={`Remove ${item.name} from cart`}
                       onPress={() => handleRemoveItem(item.id, item.name)}
                       style={styles.removeButton}>
-                      <Ionicons name="trash-outline" size={20} color="#999" />
+                      <Ionicons name="trash-outline" size={18} color={themeColors.textSecondary} />
                     </IconButton>
                   </View>
 
@@ -211,15 +212,15 @@ export default function CartScreen() {
                     <ThemedText style={styles.itemPrice}>${item.price.toFixed(2)}</ThemedText>
 
                     {!isEditMode && (
-                      <View style={styles.quantityControl}>
+                      <View style={[styles.quantityControl, { borderColor: border, backgroundColor: themeColors.background }]}>
                         <TouchableOpacity
                           accessibilityRole="button"
                           accessibilityLabel={`Decrease quantity of ${item.name}`}
                           disabled={item.quantity <= 1}
                           accessibilityState={{ disabled: item.quantity <= 1 }}
                           onPress={() => handleQuantityChange(item.id, -1, item.quantity)}
-                          style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-                          <ThemedText style={styles.quantityButtonText}>-</ThemedText>
+                          style={[styles.quantityButton, item.quantity <= 1 && { opacity: 0.35 }]}>
+                          <ThemedText style={[styles.quantityButtonText, { color: accent }]}>−</ThemedText>
                         </TouchableOpacity>
 
                         <ThemedText style={styles.quantity}>{item.quantity}</ThemedText>
@@ -228,8 +229,8 @@ export default function CartScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={`Increase quantity of ${item.name}`}
                           onPress={() => handleQuantityChange(item.id, 1, item.quantity)}
-                          style={[styles.quantityButton, { backgroundColor: themeColors.background, borderColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
-                          <ThemedText style={styles.quantityButtonText}>+</ThemedText>
+                          style={styles.quantityButton}>
+                          <ThemedText style={[styles.quantityButtonText, { color: accent }]}>+</ThemedText>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -240,7 +241,8 @@ export default function CartScreen() {
           </View>
 
           {/* Order Summary */}
-          <View style={styles.summarySection}>
+          <View style={[styles.summarySection, { backgroundColor: surface, borderColor: border }]}>
+            <ThemedText style={styles.summaryTitle}>Order summary</ThemedText>
             <View style={styles.summaryRow}>
               <ThemedText style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Subtotal</ThemedText>
               <ThemedText style={styles.summaryValue}>${subtotal.toFixed(2)}</ThemedText>
@@ -254,356 +256,89 @@ export default function CartScreen() {
       </ThemedView>
 
         {/* Checkout Button */}
-        <View style={[styles.checkoutContainer, { backgroundColor: themeColors.background, borderTopColor: (themeColors as any).borderColor || '#e0e0e0' }]}>
+        <View style={[styles.checkoutContainer, { backgroundColor: surface, borderTopColor: border }]}>
+          <View style={styles.checkoutContent}>
+          <View style={styles.summaryRow}><ThemedText style={{ color: themeColors.textSecondary }}>Subtotal · {uniqueItemCount} {uniqueItemCount === 1 ? 'product' : 'products'}</ThemedText><ThemedText style={styles.checkoutAmount}>${subtotal.toFixed(2)}</ThemedText></View>
           {isLoggedIn === false ? (
             <TouchableOpacity
-              style={styles.checkoutButton}
+              style={[styles.checkoutButton, { backgroundColor: accent }]}
+              accessibilityRole="button"
               onPress={() => router.push('/Auth')}>
-              <ThemedText style={styles.checkoutButtonText}>Please login to Checkout</ThemedText>
+              <ThemedText style={[styles.checkoutButtonText, { color: dark ? '#10232b' : '#ffffff' }]}>Sign in to checkout</ThemedText>
+              <Ionicons name="arrow-forward" size={20} color={dark ? '#10232b' : '#ffffff'} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.checkoutButton}
+              style={[styles.checkoutButton, { backgroundColor: accent }]}
+              accessibilityRole="button"
+              disabled={isLoggedIn === null}
+              accessibilityState={{ disabled: isLoggedIn === null }}
               onPress={() => router.push('/Checkout')}>
-              <ThemedText style={styles.checkoutButtonText}>Proceed to Checkout</ThemedText>
+              <ThemedText style={[styles.checkoutButtonText, { color: dark ? '#10232b' : '#ffffff' }]}>{isLoggedIn === null ? 'Preparing checkout…' : 'Continue to checkout'}</ThemedText>
+              <Ionicons name="arrow-forward" size={20} color={dark ? '#10232b' : '#ffffff'} />
             </TouchableOpacity>
           )}
 
+          </View>
         </View>
     </SafeAreaView>
   );
 }
 
-const ILLUSTRATION_SIZE = 220;
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  headerLeft: {
-    width: 60,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerButton: {
-    padding: 4,
-  },
-  editText: {
-    fontSize: 16,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  itemsContainer: {
-    padding: 16,
-    gap: 16,
-  },
-  cartItem: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 12,
-    gap: 12,
-    alignItems: 'center',
-  },
-  checkboxContainer: {
-    paddingRight: 4,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#2196F3',
-    borderColor: '#2196F3',
-  },
-  productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  itemDetails: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  itemInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  productSku: {
-    fontSize: 12,
-    color: '#666',
-  },
-  productVariant: {
-    fontSize: 12,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  stockStatus: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: '500',
-  },
-  removeButton: {
-    padding: 4,
-  },
-  itemFooter: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  itemPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2196F3',
-  },
-  quantityControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  quantityButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  quantityButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2196F3',
-  },
-  quantity: {
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 20,
-    textAlign: 'center',
-  },
-  promoSection: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  promoInput: {
-    flex: 1,
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 14,
-  },
-  applyButton: {
-    backgroundColor: '#FFD700',
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  applyButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000',
-  },
-  summarySection: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  discountValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4CAF50',
-  },
-  freeValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4CAF50',
-  },
-  totalRow: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  checkoutContainer: {
-    padding: 16,
-    paddingBottom: 2,
-    borderTopWidth: 1,
-  },
-  checkoutButton: {
-    backgroundColor: '#2196F3',
-    paddingVertical: 16,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2196F3',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  checkoutButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  // Empty cart styles
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    paddingTop: 0,
-    paddingHorizontal: 24,
-    gap: 18,
-  },
-  illustrationContainer: {
-    width: ILLUSTRATION_SIZE,
-    height: ILLUSTRATION_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  cartOutline: {
-    width: '82%',
-    height: '52%',
-    borderWidth: 3,
-    borderColor: '#9aa6b2',
-    borderRadius: 6,
-    transform: [{ translateY: -10 }, { rotate: '-6deg' }],
-    backgroundColor: 'rgba(240,243,248,0.8)',
-    overflow: 'hidden',
-  },
-  cartGrid: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    borderLeftWidth: 0,
-  },
-  wheel: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#e9aeb0',
-    position: 'absolute',
-    bottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  wheelLeft: {
-    left: '22%',
-  },
-  wheelRight: {
-    right: '22%',
-  },
-  plusBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#bfe1ff',
-    position: 'absolute',
-    top: 6,
-    right: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  plusText: {
-    fontSize: 22,
-    lineHeight: 22,
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-  heading: {
-    textAlign: 'center',
-    maxWidth: 300,
-  },
-  subtitle: {
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  cta: {
-    marginTop: 12,
-    backgroundColor: '#67A8FF',
-    paddingVertical: 12,
-    paddingHorizontal: 36,
-    borderRadius: 28,
-    shadowColor: '#67A8FF',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  ctaPressed: {
-    opacity: 0.9,
-  },
-  ctaText: {
-    color: '#fff',
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
+  safeArea: { flex: 1 },
+  header: { width: '100%', maxWidth: 760, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 18, gap: 12 },
+  headerCopy: { flex: 1 },
+  eyebrow: { fontSize: 12, lineHeight: 18, opacity: 0.75, marginBottom: 3 },
+  headerTitle: { fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.8 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  editText: { fontSize: 14, fontWeight: '600' },
+  countPill: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
+  countText: { fontSize: 12, lineHeight: 20, fontWeight: '600' },
+  emptyScroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingTop: 24 },
+  emptyContent: { width: '100%', maxWidth: 380, alignSelf: 'center', alignItems: 'center' },
+  illustrationContainer: { width: 168, height: 168, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  artworkHalo: { position: 'absolute', width: 166, height: 166, borderRadius: 83, borderWidth: 1 },
+  artworkDisc: { width: 126, height: 126, borderRadius: 63, alignItems: 'center', justifyContent: 'center' },
+  artworkBadge: { position: 'absolute', right: 22, bottom: 25, width: 32, height: 32, borderRadius: 16, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  emptyEyebrow: { fontSize: 10, lineHeight: 16, fontWeight: '700', letterSpacing: 2, marginBottom: 10 },
+  heading: { fontSize: 27, lineHeight: 34, fontWeight: '700', textAlign: 'center', letterSpacing: -0.7 },
+  subtitle: { fontSize: 15, lineHeight: 23, textAlign: 'center', maxWidth: 290, marginTop: 12, marginBottom: 28 },
+  cta: { width: '100%', maxWidth: 290, minHeight: 52, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  ctaPressed: { opacity: 0.8 },
+  ctaText: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
+  secondaryAction: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8, paddingHorizontal: 16 },
+  secondaryText: { fontSize: 13, lineHeight: 20, fontWeight: '600' },
+  scrollView: { flex: 1 },
+  cartContent: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 20 },
+  itemsContainer: { paddingHorizontal: 16, gap: 12 },
+  cartItem: { flexDirection: 'row', borderRadius: 20, borderWidth: 1, padding: 12, gap: 12, alignItems: 'flex-start' },
+  checkboxContainer: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
+  checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  checkboxChecked: { backgroundColor: '#086b83', borderColor: '#086b83' },
+  productImage: { width: 72, height: 84, borderRadius: 12, backgroundColor: '#f5f7f8' },
+  itemDetails: { flex: 1, minWidth: 0 },
+  itemHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  itemInfo: { flex: 1, minWidth: 0, gap: 2 },
+  productName: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  productSku: { fontSize: 11, lineHeight: 17 },
+  productVariant: { fontSize: 12, lineHeight: 18, fontWeight: '500' },
+  removeButton: { padding: 0, marginTop: -8, marginRight: -6 },
+  itemFooter: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  itemPrice: { fontSize: 17, lineHeight: 24, fontWeight: '700' },
+  quantityControl: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1 },
+  quantityButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  quantityButtonText: { fontSize: 21, lineHeight: 26, fontWeight: '500' },
+  quantity: { fontSize: 14, fontWeight: '600', minWidth: 20, textAlign: 'center' },
+  summarySection: { margin: 16, padding: 18, borderRadius: 20, borderWidth: 1, gap: 14 },
+  summaryTitle: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
+  summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center' },
+  summaryLabel: { fontSize: 14, lineHeight: 22 },
+  summaryValue: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  checkoutContainer: { borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
+  checkoutContent: { width: '100%', maxWidth: 720, alignSelf: 'center', gap: 12 },
+  checkoutAmount: { fontSize: 23, lineHeight: 30, fontWeight: '700', letterSpacing: -0.5 },
+  checkoutButton: { minHeight: 52, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
+  checkoutButtonText: { fontSize: 15, lineHeight: 22, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
 });

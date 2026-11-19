@@ -1,3 +1,4 @@
+import { TextInput } from '@/components/ui/text-input';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
@@ -8,9 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -39,6 +40,10 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
   const themeContext = useContext(ThemeContext);
   const colorScheme = themeContext?.colorScheme ?? 'light';
   const themeColors = Colors[colorScheme];
+  const accent = colorScheme === 'dark' ? '#77d8f2' : '#076783';
+  const softAccent = colorScheme === 'dark' ? '#173640' : '#e2f2f7';
+  const subtleBorder = colorScheme === 'dark' ? '#35434a' : '#dce3e7';
+  const [sliderWidth, setSliderWidth] = useState(240);
   const mergedDefaults = useMemo(() => ({ ...DEFAULTS, ...(initial || {}) }), [initial]);
 
   // Get categories from Redux
@@ -49,13 +54,13 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
   ], [parentCategories]);
 
   // Fetch brands from API
-  const [availableBrands, setAvailableBrands] = useState<{ id: number; name: string; slug: string }[]>([]);
+  const [availableBrands, setAvailableBrands] = useState<{ id: number; name: string; slug: string; cover?: string; thumb?: string }[]>([]);
   useEffect(() => {
     const loadBrands = async () => {
       try {
         const response = await fetchBrands();
         const brandsList = response?.data || response?.brands || response || [];
-        setAvailableBrands(brandsList);
+        setAvailableBrands(Array.isArray(brandsList) ? brandsList : []);
       } catch (error) {
         console.error('Failed to fetch brands:', error);
         setAvailableBrands([]);
@@ -64,9 +69,11 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
     loadBrands();
   }, []);
 
+  const [failedLogos, setFailedLogos] = useState<string[]>([]);
+
   const [category, setCategory] = useState<string>(mergedDefaults.category);
   const [priceRange, setPriceRange] = useState<[number, number]>(mergedDefaults.priceRange || [0, 5000]);
-  const [priceChanged, setPriceChanged] = useState(Boolean(mergedDefaults.priceRange));
+  const [priceChanged, setPriceChanged] = useState(Boolean(initial?.priceRange));
   const [brands, setBrands] = useState<string[]>(mergedDefaults.brands);
   const [sortBy, setSortBy] = useState<Filters['sortBy']>(mergedDefaults.sortBy);
 
@@ -74,10 +81,10 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
     if (!visible) return;
     setCategory(mergedDefaults.category);
     setPriceRange(mergedDefaults.priceRange || [0, 5000]);
-    setPriceChanged(Boolean(mergedDefaults.priceRange));
+    setPriceChanged(Boolean(initial?.priceRange));
     setBrands(mergedDefaults.brands);
     setSortBy(mergedDefaults.sortBy);
-  }, [visible, mergedDefaults]);
+  }, [visible, mergedDefaults, initial?.priceRange]);
 
   const validPriceRange = Number.isFinite(priceRange[0]) && Number.isFinite(priceRange[1]) && priceRange[0] >= 0 && priceRange[1] >= priceRange[0];
 
@@ -115,7 +122,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
       useNativeDriver
       propagateSwipe
     >
-      <SafeAreaView style={[styles.sheet, { backgroundColor: themeColors.card }]}>
+      <SafeAreaView edges={['bottom']} style={[styles.sheet, { backgroundColor: themeColors.card }]}>
         {/* Handle */}
         <View style={styles.handleContainer}>
           <View style={styles.handle} />
@@ -123,17 +130,55 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
 
         {/* Header */}
         <View style={styles.headerRow}>
-          <ThemedText style={styles.headerTitle}>Filters</ThemedText>
-          <TouchableOpacity onPress={clearAll}>
-            <ThemedText style={styles.clearAll}>Clear All</ThemedText>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.headerTitle}>Refine your search</ThemedText>
+            <ThemedText style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>Find the right product for you</ThemedText>
+          </View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close filters" onPress={onClose}
+            style={[styles.closeButton, { backgroundColor: themeColors.background }]}>
+            <Ionicons name="close" size={22} color={themeColors.text} />
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {/* Brand logos stay in one swipeable row above categories. */}
+          {availableBrands.length > 0 && <>
+            <ThemedText style={styles.sectionTitle}>Brand</ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              accessibilityLabel="Brands" contentContainerStyle={styles.brandList}>
+              {availableBrands.map((brand) => {
+                const checked = brands.includes(String(brand.id)) || brands.includes(brand.slug);
+                const logo = [brand.cover, brand.thumb].find(uri => uri && !failedLogos.includes(uri));
+                return (
+                  <TouchableOpacity key={brand.id} accessibilityRole="checkbox"
+                    accessibilityLabel={brand.name} accessibilityState={{ checked }}
+                    onPress={() => toggleBrand(brand)} activeOpacity={0.8}
+                    style={[styles.brandCard, { backgroundColor: checked ? softAccent : themeColors.background,
+                      borderColor: checked ? accent : subtleBorder }]}>
+                    <View style={styles.brandLogoWell}>
+                      {logo ? <Image source={{ uri: logo }} resizeMode="contain" style={styles.brandLogo}
+                        accessible={false} onError={() => setFailedLogos(prev => prev.includes(logo) ? prev : [...prev, logo])} />
+                        : <ThemedText style={styles.brandInitials}>{brand.name.trim().split(/\s+/).map(word => word[0]).join('').slice(0, 2).toUpperCase()}</ThemedText>}
+                    </View>
+                    <ThemedText numberOfLines={1} style={[styles.brandName, { color: checked ? accent : themeColors.text }]}>{brand.name}</ThemedText>
+                    {checked && <View style={[styles.brandCheck, { backgroundColor: accent }]}>
+                      <Ionicons name="checkmark" size={12} color={themeColors.card} />
+                    </View>}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <View style={[styles.divider, { backgroundColor: subtleBorder }]} />
+          </>}
+
           {/* Category Chips */}
           <ThemedText style={styles.sectionTitle}>Category</ThemedText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-            {categoryChips.map((chip) => {
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}
+            accessibilityLabel="Categories" contentContainerStyle={styles.categoryRows}>
+            {[categoryChips.slice(0, Math.ceil(categoryChips.length / 2)), categoryChips.slice(Math.ceil(categoryChips.length / 2))]
+              .filter(row => row.length > 0).map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.chipsRow}>
+            {row.map((chip) => {
               const active = chip.value === category;
               return (
                 <TouchableOpacity
@@ -142,27 +187,31 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   key={chip.value}
                   style={[
                     styles.chip,
-                    active ? styles.chipActive : { backgroundColor: themeColors.background, borderWidth: 1, borderColor: themeColors.borderColor }
+                    { backgroundColor: active ? softAccent : themeColors.background, borderColor: active ? accent : subtleBorder }
                   ]}
                   onPress={() => setCategory(chip.value)}
                 >
-                  <ThemedText style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextInactive]}>
+                  {active && <Ionicons name="checkmark" size={15} color={accent} />}
+                  <ThemedText style={[styles.chipText, { color: active ? accent : themeColors.text }]}>
                     {chip.label}
                   </ThemedText>
                 </TouchableOpacity>
               );
             })}
+              </View>
+            ))}
           </ScrollView>
 
-          <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
+          <View style={[styles.divider, { backgroundColor: subtleBorder }]} />
 
           {/* Price Range Slider */}
-          <ThemedText style={styles.sectionTitle}>Price</ThemedText>
+          <ThemedText style={styles.sectionTitle}>Price range</ThemedText>
           <View style={styles.priceContainer}>
             <View style={styles.priceInputsRow}>
 
               {/* Min Price Input */}
-              <View style={[styles.priceInputContainer, { borderColor: themeColors.borderColor }]}>
+              <View style={[styles.priceInputContainer, { borderColor: subtleBorder }]}>
+                <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Min</ThemedText>
                 <ThemedText style={styles.priceInputLabel}>$</ThemedText>
                 <TextInput
                   accessibilityLabel="Minimum price"
@@ -184,7 +233,8 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               <ThemedText style={styles.priceSeparator}>—</ThemedText>
 
               {/* Max Price Input */}
-              <View style={[styles.priceInputContainer, { borderColor: themeColors.borderColor }]}>
+              <View style={[styles.priceInputContainer, { borderColor: subtleBorder }]}>
+                <ThemedText style={[styles.priceLabel, { color: themeColors.textSecondary }]}>Max</ThemedText>
                 <ThemedText style={styles.priceInputLabel}>$</ThemedText>
                 <TextInput
                   accessibilityLabel="Maximum price"
@@ -202,18 +252,18 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
             </View>
 
             {/* Dual-Thumb Slider */}
-            <View style={styles.sliderContainer}>
+            <View style={styles.sliderContainer} onLayout={event => setSliderWidth(Math.max(0, event.nativeEvent.layout.width - 28))}>
               <MultiSlider
                 values={validPriceRange ? priceRange : [0, 0]}
                 onValuesChange={(values) => { setPriceChanged(true); setPriceRange([values[0], values[1]]); }}
                 min={0}
                 max={Math.max(5000, ...priceRange.filter(Number.isFinite))}
                 step={1} // Step ကို သေးပေးထားရင် Input ရိုက်ရတာ ပိုမှန်ပါလိမ့်မယ်
-                sliderLength={280}
-                selectedStyle={styles.sliderSelected}
-                unselectedStyle={styles.sliderUnselected}
-                markerStyle={styles.sliderMarker}
-                pressedMarkerStyle={styles.sliderMarkerPressed}
+                sliderLength={sliderWidth}
+                selectedStyle={{ ...styles.sliderSelected, backgroundColor: accent }}
+                unselectedStyle={{ ...styles.sliderUnselected, backgroundColor: subtleBorder }}
+                markerStyle={{ ...styles.sliderMarker, backgroundColor: accent }}
+                pressedMarkerStyle={{ ...styles.sliderMarkerPressed, backgroundColor: accent }}
                 trackStyle={styles.sliderTrack}
                 containerStyle={styles.sliderInnerContainer}
               // Slider ရွှေ့ပြီးမှ state update လုပ်ချင်ရင် onValuesChangeFinish ကို သုံးနိုင်ပါတယ်
@@ -223,33 +273,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
 
           {!validPriceRange && <ThemedText style={{ paddingHorizontal: 16, color: '#E53935' }}>Enter a valid minimum and maximum price.</ThemedText>}
 
-          <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
-
-          {/* Brand Selection */}
-          <ThemedText style={styles.sectionTitle}>Brand</ThemedText>
-          <View style={styles.brandList}>
-            {availableBrands.map((b) => {
-              const checked = brands.includes(String(b.id)) || brands.includes(b.slug);
-              return (
-                <TouchableOpacity
-                  accessibilityRole="checkbox"
-                  accessibilityLabel={b.name}
-                  accessibilityState={{ checked }}
-                  key={b.id}
-                  style={styles.brandRow}
-                  onPress={() => toggleBrand(b)}
-                  activeOpacity={0.8}
-                >
-                  <ThemedText style={styles.brandName}>{b.name}</ThemedText>
-                  <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                    {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: themeColors.borderColor }]} />
+          <View style={[styles.divider, { backgroundColor: subtleBorder }]} />
 
           {/* Sort By */}
           <ThemedText style={styles.sectionTitle}>Sort By</ThemedText>
@@ -258,6 +282,7 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
               { key: 'best', label: 'Best Match' },
               { key: 'newest', label: 'Newest' },
               { key: 'price_low_high', label: 'Price Low → High' },
+              { key: 'price_high_low', label: 'Price High → Low' },
               { key: 'top_rated', label: 'Top Rated' },
             ].map((opt) => {
               const active = sortBy === (opt.key as Filters['sortBy']);
@@ -266,13 +291,17 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
                   accessibilityRole="radio"
                   accessibilityState={{ checked: active }}
                   key={opt.key}
-                  style={styles.sortRow}
+                  style={[styles.sortRow, { backgroundColor: active ? softAccent : themeColors.background, borderColor: active ? accent : subtleBorder }]}
                   onPress={() => setSortBy(opt.key as Filters['sortBy'])}
                 >
-                  <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
-                    {active && <View style={styles.radioInner} />}
+                  <View style={[styles.radioOuter, { borderColor: active ? accent : themeColors.icon }]}>
+                    {active && <View style={[styles.radioInner, { backgroundColor: accent }]} />}
                   </View>
                   <ThemedText style={styles.sortLabel}>{opt.label}</ThemedText>
+                  {(opt.key === 'price_low_high' || opt.key === 'price_high_low') && (
+                    <Ionicons name={opt.key === 'price_low_high' ? 'arrow-up-outline' : 'arrow-down-outline'}
+                      size={20} color={active ? accent : themeColors.textSecondary} />
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -280,12 +309,13 @@ export default function FilterBottomSheet({ visible, onClose, onApply, onReset, 
         </ScrollView>
 
         {/* Bottom Action Bar */}
-        <View style={[styles.footerBar, { backgroundColor: themeColors.card, borderTopColor: themeColors.borderColor }]}>
-          <TouchableOpacity style={styles.resetBtn} onPress={clearAll}>
-            <ThemedText style={styles.resetText}>Reset</ThemedText>
+        <View style={[styles.footerBar, { backgroundColor: themeColors.card, borderTopColor: subtleBorder }]}>
+          <TouchableOpacity accessibilityRole="button" style={styles.resetBtn} onPress={clearAll}>
+            <ThemedText style={[styles.resetText, { color: accent }]}>Reset</ThemedText>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.applyBtn, !validPriceRange && { opacity: 0.5 }]} onPress={apply} disabled={!validPriceRange}>
-            <ThemedText style={styles.applyText}>Apply Filters</ThemedText>
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: !validPriceRange }} style={[styles.applyBtn, { backgroundColor: accent }, !validPriceRange && { opacity: 0.5 }]} onPress={apply} disabled={!validPriceRange}>
+            <ThemedText style={[styles.applyText, { color: themeColors.background }]}>Show products</ThemedText>
+            <Ionicons name="arrow-forward" size={18} color={themeColors.background} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -297,11 +327,15 @@ const styles = StyleSheet.create({
   modal: {
     justifyContent: 'flex-end',
     margin: 0,
+    alignItems: 'center',
   },
   sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '92%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    width: '100%',
+    maxWidth: 640,
+    maxHeight: '90%',
+    overflow: 'hidden',
   },
   handleContainer: {
     alignItems: 'center',
@@ -321,14 +355,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
   },
-  clearAll: {
-    fontSize: 14,
-    color: '#1E88E5',
-    fontWeight: '600',
-  },
+  headerSubtitle: { fontSize: 13, marginTop: 4 },
+  closeButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  priceLabel: { fontSize: 12, fontWeight: '500', marginRight: 8 },
   content: {
     paddingBottom: 20,
   },
@@ -339,47 +371,53 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 8,
   },
-  chipsRow: {
-    paddingHorizontal: 12,
+  categoryRows: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
     paddingBottom: 8,
     gap: 8,
   },
+  chipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 44,
+    borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  chipActive: {
-    backgroundColor: '#0D47A1',
-  },
+
   chipText: {
     fontSize: 13,
     fontWeight: '600',
   },
-  chipTextActive: {
-    color: '#fff',
-  },
-  chipTextInactive: {
-    fontWeight: '600',
-  },
+
+
   priceContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 2,
   },
   priceInputsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 2,
   },
   priceInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minWidth: 120,
+    borderWidth: 1,
+    borderRadius: 12,
+    minHeight: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 0,
     flex: 1,
   },
   priceInputLabel: {
@@ -388,7 +426,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   priceInput: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     flex: 1,
     padding: 0,
@@ -397,15 +435,15 @@ const styles = StyleSheet.create({
   priceSeparator: {
     fontSize: 16,
     fontWeight: '600',
-    marginHorizontal: 12,
+    marginHorizontal: 8,
   },
   sliderContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 2,
   },
   sliderInnerContainer: {
-    height: 40,
+    height: 44,
   },
   sliderTrack: {
     height: 4,
@@ -428,10 +466,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 3,
     borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
+    boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.2)',
     elevation: 4,
     top: 1.5,
   },
@@ -441,37 +476,23 @@ const styles = StyleSheet.create({
     width: 26,
     borderRadius: 13,
   },
-  brandList: {
-    paddingHorizontal: 8,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  brandName: {
-    fontSize: 14,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: '#1E88E5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  checkboxChecked: {
-    backgroundColor: '#1E88E5',
-  },
+  brandList: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 2, gap: 10 },
+  brandCard: { width: 88, padding: 8, borderWidth: 1, borderRadius: 16, alignItems: 'center', gap: 6 },
+  brandLogoWell: { width: 56, height: 44, borderRadius: 10, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  brandLogo: { width: 46, height: 32 },
+  brandInitials: { fontSize: 18, fontWeight: '700', color: '#355564' },
+  brandName: { fontSize: 12, lineHeight: 18, fontWeight: '600', width: '100%', textAlign: 'center' },
+  brandCheck: { position: 'absolute', top: 4, right: 4, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+
   sortList: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
+    gap: 8,
     paddingBottom: 8,
   },
   sortRow: {
+    borderWidth: 1,
+    borderRadius: 14,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -487,9 +508,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-  radioOuterActive: {
-    borderColor: '#1E88E5',
-  },
+
   radioInner: {
     width: 10,
     height: 10,
@@ -497,6 +516,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E88E5',
   },
   sortLabel: {
+    flex: 1,
     fontSize: 14,
   },
   divider: {
@@ -513,6 +533,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   resetBtn: {
+    minHeight: 48,
+    justifyContent: 'center',
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
@@ -522,6 +544,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   applyBtn: {
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 48,
     flex: 1,
     marginLeft: 12,
     backgroundColor: '#0D47A1',

@@ -1,4 +1,7 @@
 import { Colors } from '@/constants/theme';
+import { HomeSkeleton } from '@/components/HomeSkeleton';
+import { PromotionBanner, PromotionRetry } from '@/components/PromotionSection';
+import { usePromotions } from '@/hooks/use-promotions';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchProductSections } from '@/utils/api';
 import { navigateToProductDetail } from '@/utils/navigation';
@@ -40,6 +43,7 @@ export default function ProductCustomSections({ refreshKey = 0 }: { refreshKey?:
   const router = useRouter();
   const [sections, setSections] = useState<ProductSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { promotions, loading: loadingPromotions, error: promotionError, retry } = usePromotions(10, refreshKey);
 
   useEffect(() => {
     loadProductSections();
@@ -153,36 +157,26 @@ export default function ProductCustomSections({ refreshKey = 0 }: { refreshKey?:
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={{ color: Colors[colorScheme].text }}>Loading sections...</Text>
-      </View>
+      <HomeSkeleton variant="sections" label="Loading product sections" />
     );
   }
 
-  if (sections.length === 0) {
+  if (sections.length === 0 && promotions.length === 0 && !loadingPromotions && !promotionError) {
     return null;
   }
 
   return (
     <View>
-      {sections.map((section) => (
-        <View key={section.id} style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>{section.name}</Text>
-            <TouchableOpacity onPress={() => handleViewAll(section.slug)}>
-              <Text style={[styles.viewAllText, { color: Colors[colorScheme].tint }]}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={section.products}
-            renderItem={renderProductItem}
-            keyExtractor={(product) => product.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.productList}
-          />
+      {Array.from({ length: Math.max(sections.length, promotions.length) }, (_, index) => (
+        <View key={`home-row-${sections[index]?.id || 'none'}-${promotions[index]?.id || 'none'}`}>
+          {sections[index] && renderSection({ item: sections[index] })}
+          {promotions[index] && <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+            <PromotionBanner promotion={promotions[index]} />
+          </View>}
         </View>
       ))}
+      {loadingPromotions && <View style={{ marginTop: 24, paddingHorizontal: 16 }}><HomeSkeleton variant="banner" label="Loading promotion banners" height={120} /></View>}
+      {promotionError && <PromotionRetry onPress={retry} />}
     </View>
   );
 }

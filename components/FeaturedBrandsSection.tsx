@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchBrands } from '@/utils/api';
 import { useRouter } from 'expo-router';
@@ -67,9 +68,7 @@ export default function FeaturedBrandsSection({ refreshKey = 0 }: { refreshKey?:
     <View style={styles.sectionContainer}>
       <Text style={[styles.sectionTitle, { color: Colors[colorScheme].text }]}>Featured Brands</Text>
       {isLoadingBrands ? (
-        <View style={styles.loadingProductsContainer}>
-          <Text style={{ color: Colors[colorScheme].text }}>Loading brands...</Text>
-        </View>
+        <HomeSkeleton variant="brands" label="Loading featured brands" />
       ) : brandsData.length > 0 ? (
         <FlatList
           data={brandsData}

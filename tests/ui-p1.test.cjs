@@ -45,6 +45,20 @@ test('listing sends category slug, brand IDs, zero price boundary and backend so
   assert.equal(result.hasMore, true);
 });
 
+test('both price directions use the corresponding API sorting values', async () => {
+  const requests = [];
+  const { fetchFilteredProducts } = load('utils/product-listing.ts', {
+    './api': { apiRequest: async (_url, _method, body) => {
+      requests.push(body);
+      return { data: { products: [], current_page: 1, last_page: 1 } };
+    } },
+  });
+  for (const sortBy of ['price_low_high', 'price_high_low']) {
+    await fetchFilteredProducts({ category: 'all', brands: [], sortBy });
+  }
+  assert.deepEqual(requests.map(body => body.sort_by), ['price_low_to_high', 'price_high_to_low']);
+});
+
 test('listing resolves brand deep links and reset removes category, brand and price restrictions', async () => {
   const requests = [];
   const { fetchFilteredProducts } = load('utils/product-listing.ts', {
@@ -82,8 +96,9 @@ function nodes(element) {
   return [element, ...children.flatMap(nodes)];
 }
 
-function renderCart(totalAmount = 25, platform = 'android', confirm = () => false) {
+function renderCart(totalAmount = 25, platform = 'android', confirm = () => false, empty = false) {
   const removed = [];
+  const routes = [], quantities = [];
   const dialogs = [];
   const theme = { background: '#fff', text: '#000', textSecondary: '#333', borderColor: '#ddd' };
   const react = require('react');
@@ -104,15 +119,33 @@ function renderCart(totalAmount = 25, platform = 'android', confirm = () => fals
     '@/contexts/theme-context': { ThemeContext: {} },
     '@/utils/api': { getAccessToken: async () => null },
     '@/contexts/cart-context': { useCart: () => ({
-      items: [{ id: 'one', name: 'Phone case', sku: 'CASE', price: totalAmount, quantity: 1 }],
-      itemCount: 1, totalAmount, removeFromCart: id => removed.push(id), updateQuantity: () => {},
+      items: empty ? [] : [{ id: 'one', name: 'Phone case', sku: 'CASE', price: totalAmount, quantity: 1 }],
+      itemCount: empty ? 0 : 1, totalAmount, removeFromCart: id => removed.push(id), updateQuantity: (...args) => quantities.push(args),
     }) },
     '@react-native-async-storage/async-storage': {},
-    'expo-router': { useRouter: () => ({ push: () => {} }), useFocusEffect: () => {} },
+    'expo-router': { useRouter: () => ({ push: route => routes.push(route) }), useFocusEffect: () => {} },
     'react-native-safe-area-context': { SafeAreaView: 'SafeAreaView' },
   }, { window: { confirm } });
-  return { tree: CartScreen(), removed, dialogs };
+  return { tree: CartScreen(), removed, dialogs, routes, quantities };
 }
+
+test('empty cart offers working product and category browsing actions', () => {
+  const { tree, routes } = renderCart(0, 'android', () => false, true);
+  nodes(tree).find(el => el.props?.accessibilityLabel === 'Explore products').props.onPress();
+  nodes(tree).find(el => el.props?.accessibilityLabel === 'Browse categories').props.onPress();
+  assert.deepEqual(routes, ['/', '/(tabs)/category']);
+  assert.equal(nodes(tree).some(el => el.props?.children === 'Your cart is waiting'), true);
+});
+
+test('cart quantity stepper preserves minimum quantity and updates the selected product', () => {
+  const { tree, quantities } = renderCart();
+  const decrease = nodes(tree).find(el => el.props?.accessibilityLabel === 'Decrease quantity of Phone case');
+  assert.equal(decrease.props.disabled, true);
+  decrease.props.onPress();
+  assert.deepEqual(quantities, []);
+  nodes(tree).find(el => el.props?.accessibilityLabel === 'Increase quantity of Phone case').props.onPress();
+  assert.deepEqual(quantities, [['one', 2]]);
+});
 
 test('cart removal waits for confirmation and Cancel preserves the item', () => {
   const { tree, removed, dialogs } = renderCart();

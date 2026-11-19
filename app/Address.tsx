@@ -1,3 +1,4 @@
+import { TextInput } from '@/components/ui/text-input';
 import { IconButton } from '@/components/ui/icon-button';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,9 +9,8 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -669,9 +669,7 @@ const styles = StyleSheet.create({
   addressCard: {
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    boxShadow: '0px 0px 8px rgba(0, 0, 0, 0.05)',
     elevation: 2,
     borderWidth: 1,
   },

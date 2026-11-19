@@ -6,8 +6,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from 'react-native';
 import { HapticTab } from '@/components/haptic-tab';
 
-export { SculptedTabIcon } from './sculpted-tab-icon';
-
 function useReducedTransparency() {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -79,8 +77,8 @@ export function GlassTabButton({ dark, children, style, ...props }: BottomTabBar
         backgroundColor: hovered ? (dark ? '#ffffff0d' : '#ffffff33') : 'transparent',
       }]}>
       <Animated.View pointerEvents="none" aria-hidden style={[styles.selection, {
-        opacity, backgroundColor: dark ? '#22536b' : '#d2edf7',
-        borderColor: dark ? '#8bdcfb70' : '#82c7df',
+        opacity, backgroundColor: dark ? '#21495d' : '#dceef5',
+        borderColor: dark ? '#8bdcfb45' : '#82c7df70',
       }]} />
       {children}
     </HapticTab>
@@ -88,7 +86,7 @@ export function GlassTabButton({ dark, children, style, ...props }: BottomTabBar
 }
 
 const styles = StyleSheet.create({
-  glass: { ...StyleSheet.absoluteFillObject, borderRadius: 32, borderWidth: 1, overflow: 'hidden' },
-  button: { borderRadius: 25, borderWidth: 2, paddingHorizontal: 2, paddingVertical: 5, justifyContent: 'center', overflow: 'hidden' },
-  selection: { ...StyleSheet.absoluteFillObject, borderRadius: 23, borderWidth: 1 },
+  glass: { ...StyleSheet.absoluteFillObject, borderRadius: 26, borderWidth: 1, overflow: 'hidden' },
+  button: { borderRadius: 20, borderWidth: 2, paddingHorizontal: 2, paddingVertical: 2, justifyContent: 'center', overflow: 'hidden' },
+  selection: { ...StyleSheet.absoluteFillObject, borderRadius: 18, borderWidth: 1 },
 });

@@ -1,3 +1,4 @@
+import { TextInput } from '@/components/ui/text-input';
 import { IconButton } from '@/components/ui/icon-button';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -10,9 +11,8 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -1168,9 +1168,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
     borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    boxShadow: '0px 0px 8px rgba(0, 0, 0, 0.1)',
     elevation: 8,
   },
   placeOrderButton: {
