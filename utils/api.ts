@@ -40,6 +40,69 @@ export const API_CONFIG = {
   LOCALE: 'en',
 };
 
+const CHECKOUT_CACHE_TTL_MS = 5 * 60 * 1000;
+const checkoutCacheKeys = {
+  paymentGateways: 'api-cache:v1:payment-gateway',
+  orderAreas: 'api-cache:v1:order-area',
+  addresses: 'api-cache:v1:address',
+} as const;
+type CachedResponse = { cachedAt: number; value: any };
+const checkoutCache = new Map<string, CachedResponse>();
+const checkoutRequests = new Map<string, Promise<any>>();
+const checkoutCacheVersions = new Map<string, number>();
+
+function isFresh(entry: CachedResponse, now: number): boolean {
+  return Number.isFinite(entry.cachedAt) && entry.cachedAt <= now && now - entry.cachedAt < CHECKOUT_CACHE_TTL_MS;
+}
+
+async function cachedCheckoutRequest(key: string, request: () => Promise<any>, forceRefresh = false): Promise<any> {
+  if (forceRefresh) checkoutCacheVersions.set(key, (checkoutCacheVersions.get(key) ?? 0) + 1);
+  const now = Date.now();
+  const memoryEntry = checkoutCache.get(key);
+  if (!forceRefresh && memoryEntry && isFresh(memoryEntry, now)) return memoryEntry.value;
+
+  const pending = checkoutRequests.get(key);
+  if (pending && !forceRefresh) return pending;
+
+  const version = checkoutCacheVersions.get(key) ?? 0;
+  const next = (async () => {
+    try {
+      const raw = forceRefresh ? null : await AsyncStorage.getItem(key);
+      if (raw) {
+        const stored = JSON.parse(raw) as CachedResponse;
+        if (isFresh(stored, Date.now()) && (checkoutCacheVersions.get(key) ?? 0) === version) {
+          checkoutCache.set(key, stored);
+          return stored.value;
+        }
+      }
+    } catch {
+      // A storage failure must not prevent a network request.
+    }
+
+    const value = await request();
+    if ((checkoutCacheVersions.get(key) ?? 0) === version) {
+      const entry = { cachedAt: Date.now(), value };
+      checkoutCache.set(key, entry);
+      try {
+        await AsyncStorage.setItem(key, JSON.stringify(entry));
+        if ((checkoutCacheVersions.get(key) ?? 0) !== version) await AsyncStorage.removeItem(key);
+      } catch { /* Keep the in-memory result. */ }
+    }
+    return value;
+  })();
+  checkoutRequests.set(key, next);
+  try { return await next; } finally {
+    if (checkoutRequests.get(key) === next) checkoutRequests.delete(key);
+  }
+}
+
+async function invalidateCheckoutCache(key: string): Promise<void> {
+  checkoutCacheVersions.set(key, (checkoutCacheVersions.get(key) ?? 0) + 1);
+  checkoutCache.delete(key);
+  checkoutRequests.delete(key);
+  try { await AsyncStorage.removeItem(key); } catch { /* A successful API mutation must not appear to fail. */ }
+}
+
 type Json = Record<string, any>;
 
 /**
@@ -138,6 +201,7 @@ export async function getRefreshToken(): Promise<string | null> {
 export async function clearTokens(): Promise<void> {
   await secureDelete('access_token');
   await secureDelete('refresh_token');
+  await invalidateCheckoutCache(checkoutCacheKeys.addresses);
 }
 
 /**
@@ -182,6 +246,7 @@ export async function login(email: string, password: string): Promise<any> {
   const data = await apiRequest('/api/auth/login', 'POST', { email, password }, false);
   
   if (data?.token) {
+    await invalidateCheckoutCache(checkoutCacheKeys.addresses);
     await storeTokens(data.token);
   }
   
@@ -214,6 +279,7 @@ export async function register(
   );
   
   if (data?.token) {
+    await invalidateCheckoutCache(checkoutCacheKeys.addresses);
     await storeTokens(data.token);
   }
   
@@ -441,14 +507,16 @@ export async function validateCoupon(couponCode: string, subtotal: number, items
  * Fetch payment gateways
  */
 export async function fetchPaymentGateways(): Promise<any> {
-  return await apiRequest('/api/frontend/payment-gateway', 'GET', undefined, false);
+  return cachedCheckoutRequest(checkoutCacheKeys.paymentGateways,
+    () => apiRequest('/api/frontend/payment-gateway', 'GET', undefined, false));
 }
 
 /**
  * Fetch order areas (delivery zones)
  */
 export async function fetchOrderAreas(): Promise<any> {
-  return await apiRequest('/api/frontend/order-area', 'GET', undefined, false);
+  return cachedCheckoutRequest(checkoutCacheKeys.orderAreas,
+    () => apiRequest('/api/frontend/order-area', 'GET', undefined, false));
 }
 
 export type OrderQuote = {
@@ -549,8 +617,9 @@ export async function changeOrderStatus(orderId: string | number, status: number
 /**
  * Fetch user addresses
  */
-export async function fetchAddresses(): Promise<any> {
-  return await apiRequest('/api/frontend/address', 'GET', undefined, true);
+export async function fetchAddresses(forceRefresh = false): Promise<any> {
+  return cachedCheckoutRequest(checkoutCacheKeys.addresses,
+    () => apiRequest('/api/frontend/address', 'GET', undefined, true), forceRefresh);
 }
 
 /**
@@ -579,7 +648,9 @@ export async function createAddress(addressData: {
 }): Promise<any> {
   // [SECURITY: L3] Send the real user-entered values (the form already collects
   // full_name / country_code / phone) instead of hardcoded placeholders.
-  return await apiRequest('/api/frontend/address', 'POST', addressData, true);
+  const result = await apiRequest('/api/frontend/address', 'POST', addressData, true);
+  await invalidateCheckoutCache(checkoutCacheKeys.addresses);
+  return result;
 }
 
 /**
@@ -596,7 +667,9 @@ export async function updateAddress(addressId: string | number, addressData: {
   latitude?: string;
   longitude?: string;
 }): Promise<any> {
-  return await apiRequest(`/api/frontend/address/${addressId}`, 'PUT', addressData, true);
+  const result = await apiRequest(`/api/frontend/address/${addressId}`, 'PUT', addressData, true);
+  await invalidateCheckoutCache(checkoutCacheKeys.addresses);
+  return result;
 }
 
 /**
@@ -613,14 +686,18 @@ export async function patchAddress(addressId: string | number, addressData: Part
   latitude?: string;
   longitude?: string;
 }>): Promise<any> {
-  return await apiRequest(`/api/frontend/address/${addressId}`, 'PUT', addressData, true);
+  const result = await apiRequest(`/api/frontend/address/${addressId}`, 'PUT', addressData, true);
+  await invalidateCheckoutCache(checkoutCacheKeys.addresses);
+  return result;
 }
 
 /**
  * Delete address
  */
 export async function deleteAddress(addressId: string | number): Promise<any> {
-  return await apiRequest(`/api/frontend/address/${addressId}`, 'DELETE', undefined, true);
+  const result = await apiRequest(`/api/frontend/address/${addressId}`, 'DELETE', undefined, true);
+  await invalidateCheckoutCache(checkoutCacheKeys.addresses);
+  return result;
 }
 
 // ==================== Country Code API Endpoints ====================

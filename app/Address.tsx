@@ -171,12 +171,12 @@ export default function AddressScreen() {
   const [settingDefaultId, setSettingDefaultId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadAddresses = useCallback(async ({ showSpinner = false }: { showSpinner?: boolean } = {}) => {
+  const loadAddresses = useCallback(async ({ showSpinner = false, forceRefresh = false }: { showSpinner?: boolean; forceRefresh?: boolean } = {}) => {
     if (showSpinner) setIsLoading(true);
     try {
       setLoadError(null);
       const [response, storedDefaultId, storedSelectedId] = await Promise.all([
-        fetchAddresses(),
+        fetchAddresses(forceRefresh),
         AsyncStorage.getItem('default_address_id'),
         AsyncStorage.getItem('selected_address_id'),
       ]);
@@ -201,7 +201,7 @@ export default function AddressScreen() {
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadAddresses();
+    loadAddresses({ forceRefresh: true });
   }, [loadAddresses]);
 
   const openAddForm = () => {
