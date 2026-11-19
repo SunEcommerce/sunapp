@@ -1,260 +1,150 @@
+import { HomeSkeleton } from '@/components/HomeSkeleton';
 import { IconButton } from '@/components/ui/icon-button';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { ThemeContext } from '@/contexts/theme-context';
 import { fetchPage } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { decode } from 'html-entities';
-import React, { useContext, useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View,
-    useWindowDimensions,
-} from 'react-native';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { Image, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import RenderHtml from 'react-native-render-html';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+type PageData = { title: string; description?: string; image?: string };
+const pageDetails: Record<string, { title: string; icon: React.ComponentProps<typeof Ionicons>['name']; summary: string }> = {
+  'contact-us': { title: 'Contact Us', icon: 'chatbubble-ellipses-outline', summary: 'Questions? Find our contact details below.' },
+  'privacy-policy': { title: 'Privacy Policy', icon: 'shield-checkmark-outline', summary: 'Learn how we handle your personal information.' },
+  'terms-and-conditions': { title: 'Terms & Conditions', icon: 'document-text-outline', summary: 'Read the terms that apply when you shop with us.' },
+};
+
 export default function PageView() {
-    const { slug } = useLocalSearchParams<{ slug: string }>();
-    const router = useRouter();
-    const themeContext = useContext(ThemeContext);
-    const { width } = useWindowDimensions();
+  const params = useLocalSearchParams<{ slug?: string | string[] }>();
+  const slug = Array.isArray(params.slug) ? params.slug[0] || '' : params.slug || '';
+  const router = useRouter();
+  const { colorScheme = 'light' } = useContext(ThemeContext) || {};
+  const theme = Colors[colorScheme];
+  const dark = colorScheme === 'dark';
+  const surface = dark ? '#1b252c' : '#ffffff';
+  const border = dark ? '#30414c' : '#e2e8ed';
+  const accent = dark ? '#8bd8ed' : '#086b83';
+  const softAccent = dark ? '#253b46' : '#eaf4f8';
+  const onAccent = dark ? '#10232b' : '#ffffff';
+  const { width } = useWindowDimensions();
+  const [contentWidth, setContentWidth] = useState(Math.max(0, Math.min(width, 680) - 66));
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState<PageData | null>(null);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const meta = pageDetails[slug];
+  const fallbackTitle = meta?.title || (slug ? slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Information');
+  const title = page?.title ? decode(page.title) : fallbackTitle;
 
-    const colorScheme = themeContext?.colorScheme ?? 'light';
-    const themeColors = Colors[colorScheme];
-    const fallbackTitle = slug ? slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Page';
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(false);
+    setPage(null);
+    if (!slug) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
+    fetchPage(slug).then(response => {
+      if (!active) return;
+      if (!response?.data || typeof response.data.title !== 'string') throw new Error('Invalid page response');
+      setPage(response.data);
+    }).catch(() => { if (active) setError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [slug, attempt]);
 
-    const [loading, setLoading] = useState(true);
-    const [pageData, setPageData] = useState<any>(null);
-    const [error, setError] = useState<string | null>(null);
+  const source = useMemo(() => ({ html: decode(page?.description || '')
+    .replace(/\\"/g, '"').replace(/\\\//g, '/').replace(/\\n/g, '').replace(/<p(?:\s[^>]*)?>(?:\s|<br\s*\/?>)*<\/p>/gi, '') }), [page?.description]);
+  const baseStyle = useMemo(() => ({ color: theme.text, fontSize: 14, lineHeight: 23 }), [theme.text]);
+  const tagsStyles = useMemo(() => ({
+    body: { margin: 0 },
+    p: { marginTop: 0, marginBottom: 12 },
+    h1: { fontSize: 21, lineHeight: 28, fontWeight: '700' as const, marginTop: 16, marginBottom: 10 },
+    h2: { fontSize: 18, lineHeight: 25, fontWeight: '700' as const, marginTop: 16, marginBottom: 8 },
+    h3: { fontSize: 16, lineHeight: 23, fontWeight: '600' as const, marginTop: 14, marginBottom: 8 },
+    h4: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const },
+    a: { color: accent, textDecorationLine: 'underline' as const },
+    ul: { paddingLeft: 20, marginTop: 4, marginBottom: 12 },
+    ol: { paddingLeft: 20, marginTop: 4, marginBottom: 12 },
+    li: { marginBottom: 6 },
+    blockquote: { borderLeftWidth: 3, borderLeftColor: border, paddingLeft: 12, marginLeft: 0, marginRight: 0 },
+  }), [accent, border]);
+  const classesStyles = useMemo(() => ({
+    title: { fontSize: 20, lineHeight: 27, fontWeight: '700' as const, marginBottom: 12 },
+    description: { fontSize: 14, lineHeight: 23, marginBottom: 12 },
+    'info-group': { marginBottom: 14 },
+    label: { fontSize: 12, color: theme.textSecondary, marginBottom: 3 },
+    value: { fontSize: 15, lineHeight: 23, fontWeight: '600' as const, color: accent },
+    footer: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: border },
+    'footer-text': { fontSize: 12, lineHeight: 20, color: theme.textSecondary },
+  }), [accent, border, theme.textSecondary]);
 
-    useEffect(() => {
-        loadPageData();
-    }, [slug]);
-
-    const loadPageData = async () => {
-        if (!slug) {
-            setError('No page specified');
-            setLoading(false);
-            return;
-        }
-
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await fetchPage(slug);
-            setPageData(response.data);
-        } catch (err: any) {
-            console.error('Error loading page:', err);
-            setError('This page is currently unavailable. Please try again later.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const htmlStyles = {
-        body: {
-            color: themeColors.text,
-        },
-        '.title': {
-            fontSize: 22,
-            fontWeight: 'bold',
-            marginBottom: 12,
-            color: themeColors.text,
-        },
-        '.description': {
-            fontSize: 16,
-            lineHeight: 22,
-            marginBottom: 24,
-            color: themeColors.text,
-            opacity: 0.8,
-        },
-        '.info-group': {
-            marginBottom: 20,
-        },
-        '.label': {
-            fontSize: 14,
-            color: '#888',
-            marginBottom: 2,
-        },
-        '.value': {
-            fontSize: 17,
-            fontWeight: '600',
-            color: '#2b5fe2',
-            textDecorationLine: 'none',
-        },
-        '.footer': {
-            marginTop: 10,
-            paddingTop: 15,
-            borderTopWidth: 1,
-            borderTopColor: colorScheme === 'dark' ? '#333' : '#eee',
-        },
-        '.footer-text': {
-            fontSize: 14,
-            fontStyle: 'italic',
-            color: '#999',
-        },
-        p: {
-            marginTop: 0,
-            marginBottom: 0,
-        }
-    } as any;
-
-    const prepareHtml = (str: string) => {
-        if (!str) return "";
-
-        return decode(str)
-            .replace(/\\"/g, '"')
-            .replace(/\\\//g, '/')
-            .replace(/\\n/g, '');
-    };
-
-    return (
-        <SafeAreaView
-            style={[styles.safeArea, { backgroundColor: themeColors.background }]}
-            edges={['left', 'right', 'top']}
-        >
-            <StatusBar
-                barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
-                backgroundColor="transparent"
-                translucent={true}
-            />
-
-            {/* Header */}
-            <ThemedView style={styles.header}>
-                <IconButton label="Go back"
-                    style={styles.backButton}
-                    onPress={() => router.back()}
-                >
-                    <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-                </IconButton>
-                <ThemedText style={styles.headerTitle}>
-                    {loading ? 'Loading...' : pageData?.title || fallbackTitle}
-                </ThemedText>
-                <View style={styles.placeholder} />
-            </ThemedView>
-
-            {/* Content */}
-            <ThemedView style={styles.container}>
-                {loading ? (
-                    <View style={styles.centerContainer}>
-                        <ActivityIndicator size="large" color="#2b5fe2" />
-                        <ThemedText style={styles.loadingText}>Loading content...</ThemedText>
-                    </View>
-                ) : error ? (
-                    <View style={styles.centerContainer}>
-                        <Ionicons name="alert-circle-outline" size={64} color="#E95757" />
-                        <ThemedText style={styles.errorText}>{error}</ThemedText>
-                        <TouchableOpacity accessibilityRole="button" style={styles.retryButton} onPress={loadPageData}>
-                            <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <ScrollView
-                        style={styles.scrollView}
-                        contentContainerStyle={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                    >
-                        {pageData?.image && (
-                            <View style={styles.imageContainer}></View>
-                        )}
-
-                        {pageData?.description ? (
-                            <RenderHtml
-                                contentWidth={width - 40}
-                                source={{ html: prepareHtml(pageData.description) }}
-                                tagsStyles={htmlStyles}
-                                ignoredStyles={['width', 'height']}
-                                baseStyle={{
-                                    color: themeColors.text,
-                                }}
-                            />
-                        ) : (
-                            <ThemedText style={styles.noContentText}>
-                                No content available
-                            </ThemedText>
-                        )}
-                    </ScrollView>
-                )}
-            </ThemedView>
-        </SafeAreaView>
-    );
+  return <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top', 'left', 'right', 'bottom']}>
+    <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
+    <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border }]}>
+      <View style={styles.headerContent}>
+        <IconButton label="Go back" style={styles.headerButton} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={23} color={theme.text} />
+        </IconButton>
+        <ThemedText style={styles.headerTitle} numberOfLines={1}>{title}</ThemedText>
+        <View style={styles.headerButton} />
+      </View>
+    </View>
+    <ScrollView key={slug} style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.intro}>
+        <View style={[styles.iconBadge, { backgroundColor: softAccent }]}>
+          <Ionicons name={meta?.icon || 'information-circle-outline'} size={21} color={accent} />
+        </View>
+        <ThemedText style={[styles.summary, { color: theme.textSecondary }]}>{meta?.summary || 'Information from Sun Mobile.'}</ThemedText>
+      </View>
+      {loading ? <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+        <HomeSkeleton variant="banner" height={18} label="Loading page content" />
+        <View style={{ marginTop: 14 }}><HomeSkeleton variant="banner" height={140} label="Loading page content" /></View>
+      </View> : error ? <View style={[styles.card, styles.stateCard, { backgroundColor: surface, borderColor: border }]}>
+        <Ionicons name="cloud-offline-outline" size={30} color={theme.icon} />
+        <ThemedText style={styles.stateTitle}>{slug ? 'Page unavailable' : 'No page selected'}</ThemedText>
+        <ThemedText accessibilityRole="alert" style={[styles.stateCopy, { color: theme.textSecondary }]}>{slug ? 'We couldn’t load this page. Please try again.' : 'Go back and choose a page to read.'}</ThemedText>
+        {!!slug && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry page" style={[styles.retryButton, { backgroundColor: accent }]} onPress={() => setAttempt(value => value + 1)}>
+          <Ionicons name="refresh-outline" size={16} color={onAccent} />
+          <ThemedText style={[styles.retryText, { color: onAccent }]}>Try again</ThemedText>
+        </TouchableOpacity>}
+      </View> : <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}
+        onLayout={event => setContentWidth(Math.max(0, event.nativeEvent.layout.width - 34))}>
+        {!!page?.image && <Image accessibilityLabel={`${title} illustration`} source={{ uri: page.image }} style={styles.pageImage} resizeMode="contain" />}
+        {source.html.trim() ? <RenderHtml contentWidth={contentWidth} source={source} baseStyle={baseStyle}
+          tagsStyles={tagsStyles} classesStyles={classesStyles} ignoredStyles={['width', 'height', 'color', 'backgroundColor', 'fontFamily', 'fontSize', 'lineHeight']} /> :
+          <View style={styles.emptyContent}><Ionicons name="document-outline" size={28} color={theme.icon} />
+            <ThemedText style={[styles.stateCopy, { color: theme.textSecondary }]}>No content available yet.</ThemedText>
+          </View>}
+      </View>}
+    </ScrollView>
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    backButton: {
-        padding: 8,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        flex: 1,
-        textAlign: 'center',
-    },
-    placeholder: {
-        width: 40,
-    },
-    container: {
-        flex: 1,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 20,
-    },
-    centerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-    },
-    errorText: {
-        marginTop: 16,
-        fontSize: 16,
-        textAlign: 'center',
-        color: '#E95757',
-    },
-    retryButton: {
-        marginTop: 20,
-        backgroundColor: '#2b5fe2',
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    imageContainer: {
-        marginBottom: 20,
-    },
-    noContentText: {
-        fontSize: 16,
-        textAlign: 'center',
-        opacity: 0.6,
-    },
+  container: { flex: 1 },
+  header: { borderBottomWidth: StyleSheet.hairlineWidth },
+  headerContent: { width: '100%', maxWidth: 680, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, minHeight: 48 },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '600', textAlign: 'center', paddingHorizontal: 6 },
+  scrollView: { flex: 1 },
+  content: { width: '100%', maxWidth: 680, alignSelf: 'center', padding: 16, gap: 14 },
+  intro: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBadge: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  summary: { flex: 1, fontSize: 13, lineHeight: 20 },
+  card: { padding: 16, borderRadius: 18, borderWidth: 1, overflow: 'hidden' },
+  pageImage: { width: '100%', aspectRatio: 16 / 9, marginBottom: 14, borderRadius: 10 },
+  stateCard: { alignItems: 'center', gap: 10, paddingVertical: 24 },
+  stateTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', textAlign: 'center' },
+  stateCopy: { fontSize: 13, lineHeight: 21, textAlign: 'center' },
+  retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 44, paddingHorizontal: 20, borderRadius: 12, marginTop: 4 },
+  retryText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  emptyContent: { alignItems: 'center', paddingVertical: 20, gap: 12 },
 });
